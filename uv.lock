@@ -89,6 +89,7 @@ dependencies = [
     { name = "httpx" },
     { name = "langchain" },
     { name = "langchain-core" },
+    { name = "langgraph" },
 ]
 
 [package.metadata]
@@ -97,6 +98,7 @@ requires-dist = [
     { name = "httpx" },
     { name = "langchain" },
     { name = "langchain-core" },
+    { name = "langgraph" },
 ]
 
 [[package]]

@@ -42,5 +42,5 @@ Switching provider = pick a different file in `apps/research_agent/config/` (one
 
 Done and tested offline: T1, T2, T3, T5, T6, T7, T8, and the resilience half of T4.
 Not done:
-- **T4 Decisions client** — needs the real `POST /v1/decisions` schema (`developers.openai.com` was blocked in the cloud session). Implement a `Selector` (see `agentkit_middleware.selection`) that makes one batched request and wraps `call_with_retry`/`CircuitBreaker`, then pass `SelectionMiddleware(selector)` to `build_deep_agent(middleware=[...])`.
+- **T4 Decisions client** — schema now in `docs/reference/openai-decisions-api.md` (copied from the guide; fields it doesn't document are marked). Implement a `Selector` (see `agentkit_middleware.selection`) that makes one batched request and wraps `call_with_retry`/`CircuitBreaker`, then pass `SelectionMiddleware(selector)` to `build_deep_agent(middleware=[...])`.
 - **T9 live verification** — nothing has run against a real provider. Verify: Tavily request format, OpenAI/Gemini ids in `models.yaml` (placeholders), the three Fireworks ids, and the DeepAgents report extraction (`extract_report`) against a real run.

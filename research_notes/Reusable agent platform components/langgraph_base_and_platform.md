@@ -304,7 +304,7 @@ Tenant isolation rests on three things: namespace-scoped Store keys, ownership-f
 - Checkpoint encryption at rest is available through `EncryptedSerializer` / `LANGGRAPH_AES_KEY` — [Checkpointers](https://docs.langchain.com/oss/python/langgraph/checkpointers.md)
 
 ### Inferences
-- Between the two PE portfolio companies, prefer separate Postgres databases or schemas per company, which is hard isolation. Within a company, use namespace prefixes and `owner` / `tenant_id` thread metadata, which is soft isolation.
+- Between tenants, prefer separate Postgres databases or schemas per tenant, which is hard isolation. Within a tenant, use namespace prefixes and `owner` / `tenant_id` thread metadata, which is soft isolation.
 - Use `init_chat_model("provider:model")` or a LiteLLM proxy as the single model gateway, so keys, budgets and per-tenant rate limits sit outside agent code.
 
 ### Gaps

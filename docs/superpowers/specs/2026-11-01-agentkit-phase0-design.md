@@ -4,7 +4,7 @@ Status: agreed direction, not yet a written plan. Next step: `superpowers:writin
 
 ## Intent
 
-Two private-equity firms want one shared, self-hosted agent platform ("agentkit") so every team builds
+Organizations with many product teams need one shared, self-hosted agent platform ("agentkit") so every team builds
 agents the same way on DeepAgents / LangChain v1 / LangGraph — no managed-agent runtime.
 Background research: `reports/Reusable agent platform components.md` and `research_notes/`.
 
@@ -50,7 +50,6 @@ factory* runs end-to-end locally:
 
 - **Research data source** for phase 0 (which web search provider, or internal data). Builder default:
   a pluggable `search` tool interface with one web-search implementation; confirm with user.
-- GitHub repo is private; confirm before making anything public.
 
 ## Non-goals for phase 0
 

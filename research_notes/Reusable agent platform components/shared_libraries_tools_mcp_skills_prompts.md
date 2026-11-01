@@ -31,12 +31,12 @@ LangChain v1 tools should be typed `@tool` functions (or `args_schema` Pydantic 
 - **Recommended tool-authoring contract for the shared library**:
   1. Pure, typed function with a Pydantic `args_schema` using `Field(description=...)` on every field and `Literal` enums where possible.
   2. A docstring that says *when to use* and *when not to use* the tool.
-  3. Identity and tenant (portfolio company, user, entitlements) come only through `ToolRuntime[PlatformContext].context`, never as LLM-filled arguments. This is key for cross-portco isolation.
+  3. Identity and tenant (tenant, user, entitlements) come only through `ToolRuntime[PlatformContext].context`, never as LLM-filled arguments. This is key for cross-tenant isolation.
   4. Return concise strings, or `Command` for state.
   5. Raise typed exceptions and let shared `@wrap_tool_call` middleware convert them.
   6. Provide `async def` implementations for I/O tools.
-- **Metadata for discovery**: populate `BaseTool.tags` and `BaseTool.metadata`, for example `{"owner_team", "portco": ["A","B","shared"], "data_classification", "side_effects": "read|write|destructive", "version", "requires_scopes"}`. Mirror MCP tool annotations such as readOnly/destructive hints.
-- **Permission/allowlist per agent**: a central `ToolRegistry.resolve(agent_spec.tools, ctx)` filters by tags, scopes and portco. A `@wrap_tool_call` guard re-checks at call time (defense in depth). Deep Agents subagents' `tools` field *replaces* inherited tools, which enables least-privilege subagents (see §5).
+- **Metadata for discovery**: populate `BaseTool.tags` and `BaseTool.metadata`, for example `{"owner_team", "tenant": ["A","B","shared"], "data_classification", "side_effects": "read|write|destructive", "version", "requires_scopes"}`. Mirror MCP tool annotations such as readOnly/destructive hints.
+- **Permission/allowlist per agent**: a central `ToolRegistry.resolve(agent_spec.tools, ctx)` filters by tags, scopes and tenant. A `@wrap_tool_call` guard re-checks at call time (defense in depth). Deep Agents subagents' `tools` field *replaces* inherited tools, which enables least-privilege subagents (see §5).
 - **Packaging (not verified via sources this session; standard Python practice)**:
   - Use a uv workspace monorepo `platform-libs/` with members such as `platform-core` (context types, registry, middleware), `platform-tools-<domain>`, `platform-connectors`, `platform-prompts` and `platform-agents`.
   - Use PEP 420 namespace packages, e.g. `acme_agents.tools.finance`, so teams own sub-distributions.
@@ -172,9 +172,9 @@ MCP's latest spec is **2026-07-28**. It is a breaking, *stateless* redesign: no 
 - LangChain rejects non-URL string targets to avoid accidental subprocess execution — [LangChain MCP docs](https://docs.langchain.com/oss/python/langchain/mcp)
 
 ### Inferences
-- **Recommended MCP topology for two portcos**:
+- **Recommended MCP topology for multiple tenants**:
   - Teams build servers with FastMCP 4.x (stateless, horizontally scalable) and register them in a self-hosted gateway/registry (ContextForge or agentregistry).
-  - The gateway exposes **virtual servers per portco/agent persona**, which handles allowlisting at the network edge, and uses `Mcp-Method`/`Mcp-Name` headers for metering.
+  - The gateway exposes **virtual servers per tenant/agent persona**, which handles allowlisting at the network edge, and uses `Mcp-Method`/`Mcp-Name` headers for metering.
   - Agents connect with `MCPAdapter(MCPConfig)` pointing only at gateway URLs, with per-user OAuth (on-behalf-of) via `fastmcp.Client(auth=...)`.
 - **Tool poisoning mitigation**:
   - Pin server versions in the registry.
@@ -195,7 +195,7 @@ MCP's latest spec is **2026-07-28**. It is a breaking, *stateless* redesign: no 
 ## 3. Agent Skills: standard, Deep Agents loading, internal marketplace
 
 ### Takeaway
-Agent Skills (agentskills.io) is a simple folder standard: `SKILL.md` with YAML frontmatter (`name`, `description` required), plus optional `scripts/`, `references/` and `assets/`, loaded via three-level progressive disclosure. Deep Agents' `SkillsMiddleware` implements it with layered sources ("last one wins") on State, Store or Filesystem backends. That makes a git-based, reviewed internal skills repo layered as `org-base → portco → team → project` a natural design.
+Agent Skills (agentskills.io) is a simple folder standard: `SKILL.md` with YAML frontmatter (`name`, `description` required), plus optional `scripts/`, `references/` and `assets/`, loaded via three-level progressive disclosure. Deep Agents' `SkillsMiddleware` implements it with layered sources ("last one wins") on State, Store or Filesystem backends. That makes a git-based, reviewed internal skills repo layered as `org-base → tenant → team → project` a natural design.
 
 ### Cited Findings
 - **Directory**: `skill-name/SKILL.md` (required), plus optional `scripts/`, `references/` and `assets/` — [Agent Skills spec](https://agentskills.io/specification)
@@ -225,11 +225,11 @@ Agent Skills (agentskills.io) is a simple folder standard: `SKILL.md` with YAML 
 
 ### Inferences
 - **Internal skills repo design**:
-  - Use a git monorepo `skills/` with `org/`, `portco-a/`, `portco-b/` and `teams/<team>/` roots. Each skill is a directory with `metadata: {owner, version, portco, data_classification, reviewed_by}`.
+  - Use a git monorepo `skills/` with `org/`, `tenant-a/`, `tenant-b/` and `teams/<team>/` roots. Each skill is a directory with `metadata: {owner, version, tenant, data_classification, reviewed_by}`.
   - CI runs `skills-ref validate`, a name/dir match check, a token-size budget, a secret scan, and a static review of `scripts/`.
   - CODEOWNERS-based review, and semver tags per skill (e.g. `skills/finance-close@1.3.0`) or per release bundle.
   - A sync job publishes approved versions into a LangGraph `StoreBackend` namespace (or a read-only FilesystemBackend volume/image).
-  - Agents load `skills=["/skills/org/", "/skills/portco-a/", "/skills/team-x/"]` so the more specific layer overrides.
+  - Agents load `skills=["/skills/org/", "/skills/tenant-a/", "/skills/team-x/"]` so the more specific layer overrides.
 - `metadata.include_tools` lets a skill declare which registry tools it needs, linking the skills library to the tools registry (lazy tool exposure keeps context small).
 - Keep `allowed-tools` advisory only (it's experimental). Enforce permissions in the tool registry and middleware instead.
 
@@ -268,7 +268,7 @@ For self-hosted prompt management with versions and labels, Langfuse (MIT core) 
   - Labels (`prod`, `staging`) go in a `labels.yaml` mapping changed only by PR.
   - Evals run in CI on prompt changes.
   - Optionally sync git → Langfuse, so git stays the source of truth and Langfuse serves runtime and labels.
-- **Fragment composition**: system prompt = `org/safety.md` + `portco/<x>/compliance.md` + `role/<agent>.md` + `skills/tools usage notes`, assembled by Jinja `{% include %}` with a resolved-prompt hash logged to traces for reproducibility.
+- **Fragment composition**: system prompt = `org/safety.md` + `tenant/<x>/compliance.md` + `role/<agent>.md` + `skills/tools usage notes`, assembled by Jinja `{% include %}` with a resolved-prompt hash logged to traces for reproducibility.
 
 ### Gaps
 - I didn't fetch LangSmith Prompt Hub docs or langchain-core `PromptTemplate` docs (template formats such as mustache/jinja2) this session.
@@ -308,18 +308,18 @@ Deep Agents subagents are plain dicts (`SubAgent`) or `CompiledSubAgent`, with n
   ```yaml
   apiVersion: acme.ai/v1
   kind: SubAgent
-  metadata: {name: credit-memo-analyst, version: 2.1.0, owner: portco-a/risk, portco: [a], tags: [finance]}
+  metadata: {name: credit-memo-analyst, version: 2.1.0, owner: tenant-a/risk, tenant: [a], tags: [finance]}
   spec:
     description: "Use for drafting credit memos from deal data..."
     mode: isolated
     model: anthropic:claude-sonnet-4-6
-    prompt: {ref: prompts/risk/credit-memo@^2, fragments: [org/safety, portco-a/compliance]}
-    tools: [connectors.postgres.query_readonly@1, finance.dcf_calc@^1, mcp://gateway/portco-a-data/*]
-    skills: [/skills/org/, /skills/portco-a/risk/]
+    prompt: {ref: prompts/risk/credit-memo@^2, fragments: [org/safety, tenant-a/compliance]}
+    tools: [connectors.postgres.query_readonly@1, finance.dcf_calc@^1, mcp://gateway/tenant-a-data/*]
+    skills: [/skills/org/, /skills/tenant-a/risk/]
     interrupt_on: {send_email: true}
     response_format: {ref: schemas/credit_memo.json}
   ```
-  The factory validates the spec with Pydantic, resolves refs through the tool/prompt/skill registries (enforcing the portco allowlist from `ToolRuntime` context), builds a `SubAgent` dict, and passes it to `create_deep_agent(subagents=[...])`. It can also emit an A2A Agent Card from the same metadata for cross-portco discovery.
+  The factory validates the spec with Pydantic, resolves refs through the tool/prompt/skill registries (enforcing the tenant allowlist from `ToolRuntime` context), builds a `SubAgent` dict, and passes it to `create_deep_agent(subagents=[...])`. It can also emit an A2A Agent Card from the same metadata for cross-tenant discovery.
 - Treat Open Agent Spec as an import/export interop format rather than the internal source of truth, since its adapter may lag Deep Agents features (fork mode, skills, permissions).
 
 ### Gaps
@@ -355,9 +355,9 @@ Secrets should come from a secret manager at factory time, never from tool args.
 
 ### Inferences
 - Package layout: `acme_connectors/{config.py (Pydantic settings per connector), secrets.py (Vault/AWS SM/Azure KV provider interface), postgres.py, vectorstores/{pgvector,qdrant,weaviate,pinecone,elastic}.py, embeddings.py, sql_tools.py, registry.py}`.
-- `get_vectorstore("kb-portco-a")` reads YAML (`backend: pgvector, table: ..., embeddings: openai:text-embedding-3-large, secret_ref: vault://...`) and returns a cached, pooled instance. One pool per DSN per process.
-- Expose connectors to agents only through curated tools, e.g. read-only SQL tools bound to a read-only DB role with schema allowlists. Don't hand the raw `SQLDatabaseToolkit` to cross-portco agents.
-- Isolate tenants with separate schemas or databases per portco. Pass the tenant via `ToolRuntime.context`.
+- `get_vectorstore("kb-tenant-a")` reads YAML (`backend: pgvector, table: ..., embeddings: openai:text-embedding-3-large, secret_ref: vault://...`) and returns a cached, pooled instance. One pool per DSN per process.
+- Expose connectors to agents only through curated tools, e.g. read-only SQL tools bound to a read-only DB role with schema allowlists. Don't hand the raw `SQLDatabaseToolkit` to cross-tenant agents.
+- Isolate tenants with separate schemas or databases per tenant. Pass the tenant via `ToolRuntime.context`.
 
 ### Gaps
 - The fetch of the LangGraph Postgres checkpointer/store page (`langgraph-checkpoint-postgres`, `PostgresSaver`/`AsyncPostgresSaver`, `PostgresStore` with `index={"embed":..., "dims":...}`, psycopg_pool kwargs `autocommit=True`, `prepare_threshold=0`, `row_factory=dict_row`) **timed out**. These are well-known from prior knowledge but unverified for Nov 2026.
@@ -392,4 +392,4 @@ LangChain's "company harness" post (Oct 24, 2026) describes shared *runtime* pri
 
 ### Gaps
 - I found no first-party engineering blogs from Uber, LinkedIn, Shopify, Block or others on internal agent tool/skill registries. One search returned only vendor content, so a targeted follow-up per company is needed.
-- I found no evidence of PE-portfolio-specific (multi-company) agent platform case studies.
+- I found no evidence of multi-company agent platform case studies.

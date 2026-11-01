@@ -1,6 +1,6 @@
 # Standardize the harness before teams build agents
 
-A self-hosted platform team serving two private-equity companies should build **one thin, opinionated "agentkit" monorepo**. Its centre is a pinned `create_deep_agent` factory (`deepagents==0.7.32`, `langchain==1.4.7`, `langgraph==1.2.19`). A sibling `StateGraph` builder shares its context, persistence and telemetry layers, and registries for tools, MCP servers, skills, prompts, subagent specs and connectors resolve declarative references at build time. A backend-neutral eval package gates every change. LangChain's own "company harness" post says the hard part is not the agent loop. It is five pieces of infrastructure around it: **channels, identity, two-tier memory, sandboxed code execution with a secret proxy, and scheduled runs**. LangChain gets all five from Managed Deep Agents, which you have ruled out, so the integration glue is exactly what your platform team must own ([Blog](https://www.langchain.com/blog/components-building-company-harness); [MDA](https://docs.langchain.com/langsmith/python/managed-deep-agents-overview)). The stack is moving fast. deepagents shipped about 15 patch releases in a month, langchain-core 1.7 broke tool-call streaming, planning became opt-in in deepagents 0.7, and MCP went stateless on 2026-07-28. That makes version pinning plus contract tests a first-class component rather than housekeeping. For agent design, the evidence (including your own `sub_agents_to_main_loop_v1.0` A/B) points to the same default: a **single folded loop with skills and an adaptive tool surface**, with subagents reserved for parallel, read-only fan-out under a typed completion contract. Your `deep_agents_utils_v1.0` middleware is worth lifting into the platform after fixing a handful of concrete bugs. Tenant isolation between the two firms should be hard (separate databases, keys, gateways and trace projects) while code is shared. Isolation within a firm can be soft, through namespaces and policy middleware.
+A self-hosted platform team serving multiple organizations (tenants) should build **one thin, opinionated "agentkit" monorepo**. Its centre is a pinned `create_deep_agent` factory (`deepagents==0.7.32`, `langchain==1.4.7`, `langgraph==1.2.19`). A sibling `StateGraph` builder shares its context, persistence and telemetry layers, and registries for tools, MCP servers, skills, prompts, subagent specs and connectors resolve declarative references at build time. A backend-neutral eval package gates every change. LangChain's own "company harness" post says the hard part is not the agent loop. It is five pieces of infrastructure around it: **channels, identity, two-tier memory, sandboxed code execution with a secret proxy, and scheduled runs**. LangChain gets all five from Managed Deep Agents, which you have ruled out, so the integration glue is exactly what your platform team must own ([Blog](https://www.langchain.com/blog/components-building-company-harness); [MDA](https://docs.langchain.com/langsmith/python/managed-deep-agents-overview)). The stack is moving fast. deepagents shipped about 15 patch releases in a month, langchain-core 1.7 broke tool-call streaming, planning became opt-in in deepagents 0.7, and MCP went stateless on 2026-07-28. That makes version pinning plus contract tests a first-class component rather than housekeeping. For agent design, the evidence (including your own `sub_agents_to_main_loop_v1.0` A/B) points to the same default: a **single folded loop with skills and an adaptive tool surface**, with subagents reserved for parallel, read-only fan-out under a typed completion contract. Your `deep_agents_utils_v1.0` middleware is worth lifting into the platform after fixing a handful of concrete bugs. Isolation between tenants should be hard (separate databases, keys, gateways and trace projects) while code is shared. Isolation within a tenant can be soft, through namespaces and policy middleware.
 
 ## The company-harness blog describes infrastructure, and self-hosting means rebuilding its glue
 
@@ -82,7 +82,7 @@ agentkit/                              # uv workspace, one constraints.txt, priv
     agentkit-server/      # FastAPI host: auth, runs, SSE, queue, drain, scheduler hooks, Slack adapter
   libraries/              # content, owned by domain teams via CODEOWNERS
     tools/<domain>/       # separate distributions, discovered via entry points
-    skills/{org,pe-a,pe-b,products/<p>,teams/<t>}/<skill>/SKILL.md
+    skills/{org,tenant-a,tenant-b,products/<p>,teams/<t>}/<skill>/SKILL.md
     prompts/{fragments,agents}/<name>/v<semver>.yaml
     agents/<name>/agent.yaml   subagents/<name>/subagent.yaml
     evals/<agent>/{cases.jsonl,rubrics/,cassettes/}
@@ -140,7 +140,7 @@ from agentkit_prompts import compose_system_message
 
 @dataclass(frozen=True)
 class PlatformContext:                       # context_schema: immutable, never model-visible
-    tenant: Literal["pe_a", "pe_b"]
+    tenant: Literal["tenant_a", "pe_b"]
     product: str
     team: str
     user_id: str
@@ -201,7 +201,7 @@ Disable the general-purpose subagent by registering a platform profile, for exam
 
 ## A parallel LangGraph builder encodes the same policies for deterministic workflows
 
-Not every product feature is an open-ended agent. Deal-document intake, covenant checks and nightly portfolio roll-ups are workflows with agentic steps. LangChain's own multi-agent taxonomy lists "custom workflow" next to subagents, handoffs, skills and router, and recommends checking whether a single agent suffices before reaching for orchestration ([Multi-agent](https://docs.langchain.com/oss/python/langchain/multi-agent)). The Graph API is the right base. It has explicit state schemas, reducers, `Command` and `Send` routing, per-node `RetryPolicy`, `CachePolicy`, `timeout` and `error_handler`, and graph-wide `set_node_defaults`. One trap again: **subgraphs do not inherit node defaults** ([Fault tolerance](https://docs.langchain.com/oss/python/langgraph/fault-tolerance.md)).
+Not every product feature is an open-ended agent. Document intake, compliance checks and nightly reporting roll-ups are workflows with agentic steps. LangChain's own multi-agent taxonomy lists "custom workflow" next to subagents, handoffs, skills and router, and recommends checking whether a single agent suffices before reaching for orchestration ([Multi-agent](https://docs.langchain.com/oss/python/langchain/multi-agent)). The Graph API is the right base. It has explicit state schemas, reducers, `Command` and `Send` routing, per-node `RetryPolicy`, `CachePolicy`, `timeout` and `error_handler`, and graph-wide `set_node_defaults`. One trap again: **subgraphs do not inherit node defaults** ([Fault tolerance](https://docs.langchain.com/oss/python/langgraph/fault-tolerance.md)).
 
 The builder has four jobs. It applies org defaults: `RetryPolicy` with `max_attempts=3` and exponential jitter, a `TimeoutPolicy`, and a logging `error_handler` that can return `Command` to a compensation node. It re-applies those defaults to every subgraph it builds. It rejects sync nodes, because timeouts only work on async nodes and a sync node with `timeout=` fails at compile time. And it chooses durability by profile: `"sync"` for financial and approval workflows, `"async"` for chat ([Fault tolerance](https://docs.langchain.com/oss/python/langgraph/fault-tolerance.md); [Checkpointers](https://docs.langchain.com/oss/python/langgraph/checkpointers.md)).
 
@@ -279,7 +279,7 @@ The platform contract therefore requires:
 
 - a Pydantic `args_schema` with a described field for every argument;
 - a docstring that states when to use the tool and when not to;
-- tenant and identity read only from `ToolRuntime.context`, **never** as LLM-filled arguments, which is the single most important cross-firm isolation rule;
+- tenant and identity read only from `ToolRuntime.context`, **never** as LLM-filled arguments, which is the single most important cross-tenant isolation rule;
 - async I/O;
 - typed exceptions.
 
@@ -297,7 +297,7 @@ class DealLookupArgs(BaseModel):
     deal_name: str = Field(description="Deal code name as written in the CRM, e.g. 'Project Falcon'.")
     view: Literal["concise", "detailed"] = Field("concise", description="Use 'detailed' only when the user asks for terms.")
 
-@platform_tool(owner="pe-a/deal-team", tenants={"pe_a"}, side_effects="read",
+@platform_tool(owner="tenant-a/deal-team", tenants={"tenant_a"}, side_effects="read",
                identity="service", classification="confidential", version="1.3.0",
                examples=[{"deal_name": "Project Falcon", "view": "concise"}])
 @tool("deals_lookup", args_schema=DealLookupArgs)
@@ -363,7 +363,7 @@ Agent Skills is a folder standard. A `SKILL.md` carries a `name` (1–64 lowerca
 
 Two failure modes need guarding. Passing a skill directory instead of its parent "fails silently," and a stale later-layer skill with the same name shadows the real one ([Docs-Skills](https://docs.langchain.com/oss/python/deepagents/skills)).
 
-The library lives under `libraries/skills/{org,pe-a,pe-b,products,teams}`. CI runs:
+The library lives under `libraries/skills/{org,tenant-a,tenant-b,products,teams}`. CI runs:
 
 - `skills-ref validate`;
 - a name-and-directory match check;
@@ -398,14 +398,14 @@ The platform spec makes the safe path mandatory. It requires a `response_format`
 # libraries/subagents/credit-memo-analyst/subagent.yaml
 apiVersion: agentkit/v1
 kind: SubAgent
-metadata: {name: credit-memo-analyst, version: 2.1.0, owner: pe-a/risk, tenants: [pe_a], tags: [finance]}
+metadata: {name: credit-memo-analyst, version: 2.1.0, owner: tenant-a/risk, tenants: [tenant_a], tags: [finance]}
 spec:
   description: "Use to draft a credit memo from one deal's data room. Not for portfolio-wide questions."
   mode: isolated
   model: anthropic:claude-sonnet-4-6
-  prompt: {ref: prompts/risk/credit-memo@^2, fragments: [org/safety, pe-a/compliance]}
+  prompt: {ref: prompts/risk/credit-memo@^2, fragments: [org/safety, tenant-a/compliance]}
   tools: [connectors.postgres.query_readonly@1, finance.dcf_calc@^1]   # replaces parent tools
-  skills: [/skills/org/, /skills/pe-a/risk/]                          # not inherited; declare
+  skills: [/skills/org/, /skills/tenant-a/risk/]                          # not inherited; declare
   response_format: {ref: schemas/credit_memo.json}                    # REQUIRED completion contract
   side_effects: read                                                  # write requires approval_gate
 ```
@@ -527,7 +527,7 @@ It puts procedure in skills, actions and live data in tools, and reference mater
 | 13 | SA Stage 6 | Only three arms | Add `ProviderToolSearchMiddleware` (Anthropic/OpenAI only; not Fireworks GLM) and a retrieval arm |
 | 14 | Both | Pins at deepagents ≥0.7.22 | Move to the platform constraints (0.7.32 / 1.4.7 / 1.2.19 / openai 1.7.3) |
 
-Two verification flags apply to the table. The existence of the "OpenAI Decisions API" (`/v1/decisions`, `gpt-6-luna`) and of the catalog's model names could not be confirmed outside the repo. The `ExtendedModelResponse` plus `Command(update=...)` persistence path was not checked against the langchain 1.4.7 reference ([DH notes](https://github.com/cwijayasundara/deep_agents_utils_v1.0)).
+Two verification flags apply to the table. The OpenAI Decisions API (`/v1/decisions`, `gpt-6-luna`) is documented at https://developers.openai.com/api/docs/guides/decisions (confirmed 2026-11-01); the catalog's other model names still need checking. The `ExtendedModelResponse` plus `Command(update=...)` persistence path was not checked against the langchain 1.4.7 reference ([DH notes](https://github.com/cwijayasundara/deep_agents_utils_v1.0)).
 
 ### The ToolSurface layer: one contract, strategies chosen by catalog size
 
@@ -566,9 +566,9 @@ class ToolSurfaceMiddleware(AgentMiddleware):
                    recorder=rt.telemetry.selection_recorder, cache_scope="intent")
 ```
 
-## Hard walls between the two firms, soft walls within each
+## Hard walls between tenants, soft walls within each
 
-The two private-equity companies are separate legal and data domains. **Share code and content artifacts, never data planes.** Each firm gets its own deployment of the same images, with:
+Tenant organizations are separate legal and data domains. **Share code and content artifacts, never data planes.** Each tenant gets its own deployment of the same images, with:
 
 - its own Postgres database for checkpoints, store and pgvector;
 - its own `LANGGRAPH_AES_KEY` for `EncryptedSerializer`;
@@ -576,13 +576,13 @@ The two private-equity companies are separate legal and data domains. **Share co
 - its own secret paths and OAuth vault;
 - its own model-gateway keys and budgets;
 - its own OTel collector route and Langfuse project;
-- its own eval datasets, because golden sets built from traces contain confidential deal data.
+- its own eval datasets, because golden sets built from traces contain confidential business data.
 
-The `tenant_guard` middleware asserts that `runtime.context.tenant` matches the deployment tenant. This catches misrouted requests rather than providing the isolation itself. Tool and MCP registries filter on `tenants` metadata at build time, so a firm A tool never appears in a firm B graph.
+The `tenant_guard` middleware asserts that `runtime.context.tenant` matches the deployment tenant. This catches misrouted requests rather than providing the isolation itself. Tool and MCP registries filter on `tenants` metadata at build time, so a tenant A tool never appears in a tenant B graph.
 
-Within a firm, isolation is namespace-based. Store namespaces follow `(tenant, product, team, user_id | "global", kind)`. Threads carry `owner`, `tenant` and `product` metadata. The FastAPI host reimplements the semantics of `langgraph_sdk.Auth`: authenticate every request, stamp owner metadata on create, filter reads, and rewrite store namespaces. Self-hosted deployments have no default auth, and these handlers only run inside Agent Server ([Auth](https://docs.langchain.com/langsmith/auth.md)).
+Within a tenant, isolation is namespace-based. Store namespaces follow `(tenant, product, team, user_id | "global", kind)`. Threads carry `owner`, `tenant` and `product` metadata. The FastAPI host reimplements the semantics of `langgraph_sdk.Auth`: authenticate every request, stamp owner metadata on create, filter reads, and rewrite store namespaces. Self-hosted deployments have no default auth, and these handlers only run inside Agent Server ([Auth](https://docs.langchain.com/langsmith/auth.md)).
 
-Identity follows the blog's split. Each tool declares `identity: obo | service`. OBO tools appear only in DM or API contexts with a user token. Service-credential tools carry operation allowlists such as read and draft but not send ([Blog](https://www.langchain.com/blog/components-building-company-harness)). Sandboxes never hold credentials: the egress proxy injects them. Skills and prompts layer org → tenant → product → team, so firm-specific compliance fragments override org defaults without forking them.
+Identity follows the blog's split. Each tool declares `identity: obo | service`. OBO tools appear only in DM or API contexts with a user token. Service-credential tools carry operation allowlists such as read and draft but not send ([Blog](https://www.langchain.com/blog/components-building-company-harness)). Sandboxes never hold credentials: the egress proxy injects them. Skills and prompts layer org → tenant → product → team, so tenant-specific compliance fragments override org defaults without forking them.
 
 ## A contribution model with a central core and federated content
 
@@ -594,7 +594,7 @@ Anthropic's fold guidance gives the governance split: "a central team owns the s
 - the base prompt fragments;
 - the eval core and the end-to-end suites for each shared agent.
 
-Domain teams in each firm own `libraries/tools/<domain>`, skills, prompts, subagent specs and their agents' eval cases, enforced by CODEOWNERS.
+Domain teams in each tenant own `libraries/tools/<domain>`, skills, prompts, subagent specs and their agents' eval cases, enforced by CODEOWNERS.
 
 Every content PR must:
 
@@ -612,11 +612,11 @@ The phase durations are planning estimates for a team of about four to six engin
 
 | Phase | Weeks | Deliverables | Exit criterion |
 |---|---|---|---|
-| 0. Foundations | 0–3 | uv monorepo, constraints file, `agentkit-core` context, persistence (AsyncPostgresSaver/Store, encryption, pruning), OTel + Langfuse telemetry, contract-test suite, per-firm infra stamps | Both firms' empty deployments pass contract tests; traces land in separate projects |
-| 1. Factory v0 + eval core | 3–8 | `build_deep_agent` with fixed middleware order, memory tiers, permissions; tools registry with `@platform_tool`; Postgres/pgvector connectors; git prompt registry; eval core with single-step, full-run, deterministic and trajectory metrics; pytest plugin | One pilot folded agent per firm in production behind HITL, gated by a 20–50-case golden set |
-| 2. Libraries | 8–14 | MCP gateway (ContextForge or equivalent) + `load_mcp_tools`; skills library with CI and Store sync; subagent YAML specs with mandatory response schemas; `PlatformGraph` builder and `make_agent`; calibrated rubric judges | Second team per firm ships using only library references; judges have TPR/TNR cards |
+| 0. Foundations | 0–3 | uv monorepo, constraints file, `agentkit-core` context, persistence (AsyncPostgresSaver/Store, encryption, pruning), OTel + Langfuse telemetry, contract-test suite, per-tenant infra stamps | Each tenant's empty deployment pass contract tests; traces land in separate projects |
+| 1. Factory v0 + eval core | 3–8 | `build_deep_agent` with fixed middleware order, memory tiers, permissions; tools registry with `@platform_tool`; Postgres/pgvector connectors; git prompt registry; eval core with single-step, full-run, deterministic and trajectory metrics; pytest plugin | One pilot folded agent per tenant in production behind HITL, gated by a 20–50-case golden set |
+| 2. Libraries | 8–14 | MCP gateway (ContextForge or equivalent) + `load_mcp_tools`; skills library with CI and Store sync; subagent YAML specs with mandatory response schemas; `PlatformGraph` builder and `make_agent`; calibrated rubric judges | Second team per tenant ships using only library references; judges have TPR/TNR cards |
 | 3. Tool surface + repo uplift | 12–18 | Lift fixed `decision_harness` into `ToolSurfaceMiddleware`; repaired SA harness as the platform's architecture A/B tool with k-trial pass^k, provider-native and retrieval arms; tool-ceiling stress test | Strategy defaults chosen from measured data, not vendor claims |
-| 4. Company-harness glue | 16–24 | Slack adapter with breakout threads; OAuth vault + OBO policy; self-hosted sandbox + egress secret proxy; scheduler + `schedule_run` tool; async subagents on a self-hosted Agent Protocol server | First scheduled ("ambient") agent per firm; security review passed |
+| 4. Company-harness glue | 16–24 | Slack adapter with breakout threads; OAuth vault + OBO policy; self-hosted sandbox + egress secret proxy; scheduler + `schedule_run` tool; async subagents on a self-hosted Agent Protocol server | First scheduled ("ambient") agent per tenant; security review passed |
 | 5. Online evals + 1.0 | 24+ | Online sampler with reference-free judges, trace-to-golden mining, dashboards per tenant, governance automation | Platform 1.0 tagged; deprecation policy published |
 
 ## Risks and unverified items that need a decision or a test

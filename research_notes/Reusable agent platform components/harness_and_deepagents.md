@@ -266,7 +266,7 @@ DeepAgents assembles a **fixed, ordered stack** around user middleware:
   - `PIIMiddleware`
   - A custom identity and tool-policy middleware
 - They all land before Skills, Memory and HITL. That is the intended position for fallback and routing middleware: the Skills docstring says Skills goes "after summarization and any model fallback or routing middleware".
-- For PII-sensitive PE data, apply `TracePolicy` / `omit_payload` to the factory's own middleware.
+- For PII-sensitive data, apply `TracePolicy` / `omit_payload` to the factory's own middleware.
 
 ### Gaps
 - Full constructor arguments of each langchain built-in were not retrieved. Only names and exports were verified.
@@ -331,7 +331,7 @@ agent = create_deep_agent(
   - `BackendContext` was replaced by `Runtime` in 0.5.2. Its `.runtime` and `.state` accessors were removed in 0.7.
 
 ### Inferences
-- For two PE portcos with many teams, use namespace factories such as `(portco, team, user_id)` and `(portco, team, "global")` from `runtime.context` or `server_info`. Route `/memories/user/` and `/memories/global/` to separate `StoreBackend`s, which implements the blog's two memory tiers.
+- For multiple tenants with many teams, use namespace factories such as `(tenant, team, user_id)` and `(tenant, team, "global")` from `runtime.context` or `server_info`. Route `/memories/user/` and `/memories/global/` to separate `StoreBackend`s, which implements the blog's two memory tiers.
 - Backend tiers:
   - Ephemeral: `StateBackend` (lost when the thread is deleted).
   - Short-term: checkpointer-persisted state.
@@ -372,7 +372,7 @@ DeepAgents implements the **Agent Skills standard** (`SKILL.md`) with three-leve
 - Release notes: deepagents-code 0.2.1 added "skill-scoped MCP tools", and Talon 0.1.0 added "skills that can be pinned to scheduled jobs". — [Releases](https://github.com/langchain-ai/deepagents/releases)
 
 ### Inferences
-- A factory can ship a shared org skill library and let teams add team-level sources, with team overriding org: `skills=["/skills/org/", "/skills/portco/", "/skills/team/"]`. Back these with a read-only `StoreBackend` route, guarded by `FilesystemPermission(operations=["write"], paths=["/skills/**"], mode="deny")`.
+- A factory can ship a shared org skill library and let teams add team-level sources, with team overriding org: `skills=["/skills/org/", "/skills/tenant/", "/skills/team/"]`. Back these with a read-only `StoreBackend` route, guarded by `FilesystemPermission(operations=["write"], paths=["/skills/**"], mode="deny")`.
 - `include_tools` gives per-skill tool gating, which helps keep the tool list small across many teams.
 
 ### Gaps
@@ -509,13 +509,13 @@ from langgraph.checkpoint.postgres import PostgresSaver   # langgraph-checkpoint
 
 @dataclass(frozen=True)
 class RunContext:                 # immutable run-scoped identity (context_schema)
-    portco: str
+    tenant: str
     team: str
     user_id: str
     channel_kind: str             # "dm" | "channel" | "cron"
 
-def _ns_user(rt):   c = rt.context; return (c.portco, c.team, "user", c.user_id)
-def _ns_global(rt): c = rt.context; return (c.portco, c.team, "global")
+def _ns_user(rt):   c = rt.context; return (c.tenant, c.team, "user", c.user_id)
+def _ns_global(rt): c = rt.context; return (c.tenant, c.team, "global")
 
 OBO_TOOLS = {"send_email"}        # on-behalf-of tools allowed only in DMs (blog pattern)
 
@@ -533,7 +533,7 @@ def build_agent(*, spec, tools, checkpointer, store, sandbox=None):
         routes={
             "/memories/user/":   StoreBackend(namespace=_ns_user),
             "/memories/global/": StoreBackend(namespace=_ns_global),
-            "/skills/":          StoreBackend(namespace=lambda rt: (rt.context.portco, "skills")),
+            "/skills/":          StoreBackend(namespace=lambda rt: (rt.context.tenant, "skills")),
         },
     )
     return create_deep_agent(

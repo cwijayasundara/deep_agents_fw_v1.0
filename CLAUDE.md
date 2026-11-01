@@ -1,6 +1,6 @@
 # deep_agents_fw_v1.0 — agentkit
 
-Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for two PE firms.
+Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for multi-tenant organizations.
 
 - Research & architecture: `reports/Reusable agent platform components.md` (notes in `research_notes/`).
 - Current work: **Phase 0** — see `docs/superpowers/specs/2026-11-01-agentkit-phase0-design.md`.

@@ -1,6 +1,6 @@
 # agentkit — Phase 0 design
 
-Status: agreed direction, not yet a written plan. Next step: `superpowers:writing-plans` from this doc.
+Status: agreed direction. Implementation plan: `docs/superpowers/plans/2026-11-01-agentkit-phase0-plan.md`.
 
 ## Intent
 

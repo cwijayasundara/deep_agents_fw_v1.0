@@ -1,0 +1,44 @@
+[project]
+name = "agentkit-workspace"
+version = "0.0.1"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "agentkit-core", "agentkit-tools", "agentkit-middleware",
+  "agentkit-deep", "agentkit-evals", "research-agent",
+]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "respx", "ruff", "mypy", "types-pyyaml"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/*", "apps/*"]
+
+[tool.uv.sources]
+agentkit-core = { workspace = true }
+agentkit-tools = { workspace = true }
+agentkit-middleware = { workspace = true }
+agentkit-deep = { workspace = true }
+agentkit-evals = { workspace = true }
+research-agent = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["packages", "apps"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["live: hits real provider APIs (opt-in: pytest -m live)"]
+addopts = "-m 'not live' --import-mode=importlib"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["reports", "research_notes", "docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true

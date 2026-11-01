@@ -1,0 +1,6 @@
+# Single source of version pins (verified on PyPI 2026-11-01). Use: UV_CONSTRAINT=constraints.txt uv sync (the Makefile does this)
+deepagents==0.7.32
+langchain==1.4.7
+langchain-core==1.7.3
+langgraph==1.2.19
+openevals==0.2.2

@@ -1,2 +1,3 @@
 model: anthropic
 tier: default
+selection: decisions

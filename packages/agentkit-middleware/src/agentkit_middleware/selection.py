@@ -37,7 +37,9 @@ class Selection:
 
 
 class Selector(Protocol):
-    async def select(self, task: str, tools: list[ToolCard]) -> Selection: ...
+    async def select(
+        self, task: str, tools: list[ToolCard], *, thread_id: str | None = None
+    ) -> Selection: ...
 
 
 def _name(tool: Any) -> str | None:
@@ -89,7 +91,7 @@ class SelectionMiddleware(AgentMiddleware):
             if (n := _name(t)) is not None and n not in self._builtins
         ]
         try:
-            sel = await self._selector.select(_task_text(request), cards)
+            sel = await self._selector.select(_task_text(request), cards, thread_id=thread)
         except Exception as e:  # degrade: all tools, default tier
             log.warning("selection unavailable for thread %s (%s); using all tools", thread, e)
             sel = Selection(self._default_tier, frozenset(c.name for c in cards))

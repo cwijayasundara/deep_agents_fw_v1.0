@@ -22,7 +22,10 @@ NAMES = os.environ.get("RESEARCH_LIVE_CONFIGS", "anthropic").split(",")
 async def test_full_research_run(name):
     if not os.environ.get("TAVILY_API_KEY"):
         pytest.skip("TAVILY_API_KEY not set")
-    agent = build_research_agent(load_config(CFG_DIR / f"{name}.yaml"), Settings())
+    cfg = load_config(CFG_DIR / f"{name}.yaml")
+    if cfg.get("selection") and not os.environ.get("OPENAI_API_KEY"):
+        pytest.skip("OPENAI_API_KEY not set (needed for Decisions selection)")
+    agent = build_research_agent(cfg, Settings())
     out = await agent.ainvoke(
         {"messages": [HumanMessage("What is the Model Context Protocol? Keep it short.")]},
         config={"recursion_limit": 100},

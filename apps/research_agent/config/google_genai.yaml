@@ -1,2 +1,3 @@
 model: google_genai
 tier: default
+selection: decisions

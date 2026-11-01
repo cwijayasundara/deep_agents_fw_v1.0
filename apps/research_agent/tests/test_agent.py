@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from agentkit_core import ModelRegistry, Settings
+from agentkit_core import ConfigError, ModelRegistry, Settings
 from agentkit_deep.testing import scripted, tool_call
 from agentkit_tools import Page, Source
 from langchain_core.messages import AIMessage, HumanMessage
@@ -54,3 +54,19 @@ async def test_end_to_end_report_with_citation():
     assert "https://a.example/x" in text and "[1]" in text
     tool_msgs = [m.content for m in out["messages"] if m.type == "tool"]
     assert any("https://a.example/x" in str(c) for c in tool_msgs)  # citation was retrieved
+
+
+def test_decisions_selection_requires_openai_key():
+    cfg = {"model": "anthropic", "tier": "default", "selection": "decisions"}
+    with pytest.raises(ConfigError, match="OPENAI_API_KEY"):
+        build_research_agent(cfg, Settings(_env_file=None, tavily_api_key="t"), search=FakeSearch())
+
+
+def test_decisions_selection_builds_with_keys():
+    cfg = {"model": "anthropic", "tier": "default", "selection": "decisions"}
+    s = Settings(_env_file=None, tavily_api_key="t", openai_api_key="o", anthropic_api_key="a")
+    assert build_research_agent(cfg, s, search=FakeSearch(), fetch=FakeFetch())
+
+
+def test_shipped_configs_enable_decisions():
+    assert all(load_config(c).get("selection") == "decisions" for c in CONFIGS)

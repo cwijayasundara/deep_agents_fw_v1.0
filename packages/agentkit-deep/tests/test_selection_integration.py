@@ -21,7 +21,7 @@ class FakeSelector:
     def __init__(self, sel=None, boom=False):
         self.sel, self.boom, self.calls, self.seen = sel, boom, 0, []
 
-    async def select(self, task, tools: list[ToolCard]):
+    async def select(self, task, tools: list[ToolCard], **kw):
         self.calls += 1
         self.seen.append((task, [t.name for t in tools]))
         if self.boom:

@@ -38,9 +38,17 @@ Switching provider = pick a different file in `apps/research_agent/config/` (one
 - **Add a tool:** implement the `SearchTool`/`FetchTool` protocol or write a LangChain tool; pass it to `build_deep_agent(tools=...)`.
 - **Live tests:** mark with `@pytest.mark.live`; run with `uv run pytest -m live`.
 
-## Status (end of cloud session 1)
+## Status
 
-Done and tested offline: T1, T2, T3, T5, T6, T7, T8, and the resilience half of T4.
-Not done:
-- **T4 Decisions client** — schema now in `docs/reference/openai-decisions-api.md` (copied from the guide; fields it doesn't document are marked). Implement a `Selector` (see `agentkit_middleware.selection`) that makes one batched request and wraps `call_with_retry`/`CircuitBreaker`, then pass `SelectionMiddleware(selector)` to `build_deep_agent(middleware=[...])`.
-- **T9 live verification** — nothing has run against a real provider. Verify: Tavily request format, OpenAI/Gemini ids in `models.yaml` (placeholders), the three Fireworks ids, and the DeepAgents report extraction (`extract_report`) against a real run.
+Done and tested offline (53 tests): T1-T8, including the Decisions client/selector (T4) built from
+`docs/reference/openai-decisions-api.md` with mocked fixtures. The shipped provider configs enable
+`selection: decisions` (needs `OPENAI_API_KEY`) so Decisions picks the visible tools and the model tier.
+
+Not done - **T9 live verification** (needs network access to the provider/Tavily/OpenAI hosts and keys):
+- Record a real `/v1/decisions` response and replace the T4 fixtures; confirm the undocumented bits
+  (refusal shape, answer ordering, rate limits, timeouts) and that `usage.input_tokens_details.cached_tokens` > 0
+  on the second call of a thread.
+- Verify the Tavily request format, the OpenAI/Gemini ids in `models.yaml` (placeholders), the three Fireworks ids,
+  and `extract_report` against a real run.
+- `uv run pytest -m live`, then `research-eval` for all six configs; record results in `docs/phase0-results.md`.
+- Then generate the verification skill (see `CLAUDE.md`).

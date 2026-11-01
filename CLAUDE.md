@@ -4,7 +4,7 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
 
 - Research & architecture: `reports/Reusable agent platform components.md` (notes in `research_notes/`).
 - Current work: **Phase 0** — see `docs/superpowers/specs/2026-11-01-agentkit-phase0-design.md`.
-  Plan written: `docs/superpowers/plans/2026-11-01-agentkit-phase0-plan.md`. T1-T3, T5-T8 built (offline-tested). Next: T4 Decisions client (needs API schema), then T9 live verification. See README "Status".
+  Plan written: `docs/superpowers/plans/2026-11-01-agentkit-phase0-plan.md`. T1-T3, T5-T8 built (offline-tested). Next: T4 Decisions client (schema: `docs/reference/openai-decisions-api.md`), then T9 live verification. See README "Status".
 - Providers to support: OpenAI, Gemini, Anthropic, Fireworks (deepseek-v4p1-flash-1017,
   glm-5p3-flash, minimax-m3p1-flash). Model/tool selection via OpenAI Decisions API (`gpt-6-luna`).
 - Prior work to learn from (not vendored): github.com/cwijayasundara/deep_agents_utils_v1.0,

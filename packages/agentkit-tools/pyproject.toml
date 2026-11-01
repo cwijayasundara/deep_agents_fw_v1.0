@@ -2,7 +2,7 @@
 name = "agentkit-tools"
 version = "0.0.1"
 requires-python = ">=3.12,<3.13"
-dependencies = ["agentkit-core", "httpx"]
+dependencies = ["agentkit-core", "httpx", "langchain-core"]
 
 [build-system]
 requires = ["hatchling"]

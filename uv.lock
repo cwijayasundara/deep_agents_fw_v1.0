@@ -100,12 +100,14 @@ source = { editable = "packages/agentkit-tools" }
 dependencies = [
     { name = "agentkit-core" },
     { name = "httpx" },
+    { name = "langchain-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "agentkit-core", editable = "packages/agentkit-core" },
     { name = "httpx" },
+    { name = "langchain-core" },
 ]
 
 [[package]]

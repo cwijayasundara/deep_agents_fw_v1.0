@@ -2,7 +2,7 @@
 name = "agentkit-core"
 version = "0.0.1"
 requires-python = ">=3.12,<3.13"
-dependencies = ["pydantic-settings", "pyyaml", "langchain", "langchain-core"]
+dependencies = ["pydantic-settings", "pyyaml", "langchain", "langchain-core", "langchain-openai", "langchain-anthropic", "langchain-google-genai", "langchain-fireworks"]
 
 [build-system]
 requires = ["hatchling"]
@@ -10,3 +10,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agentkit_core"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/agentkit_core/models.yaml" = "agentkit_core/models.yaml"

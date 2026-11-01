@@ -4,3 +4,7 @@ langchain==1.4.7
 langchain-core==1.7.3
 langgraph==1.2.19
 openevals==0.2.2
+langchain-openai==1.7.3
+langchain-anthropic==1.7.7
+langchain-google-genai==4.4.2
+langchain-fireworks==1.7.1

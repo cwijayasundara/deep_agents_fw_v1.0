@@ -7,10 +7,18 @@ from typing import Any
 
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
+from pydantic import Field
 
 
 class ScriptedChatModel(GenericFakeChatModel):
+    """Scripted replies; records the tool names offered on every bind (one entry per model call)."""
+
+    bound: list[list[str]] = Field(default_factory=list)
+
     def bind_tools(self, tools: Sequence[Any], **kwargs: Any) -> ScriptedChatModel:
+        self.bound.append(
+            [t["name"] if isinstance(t, dict) else getattr(t, "name", str(t)) for t in tools]
+        )
         return self
 
 

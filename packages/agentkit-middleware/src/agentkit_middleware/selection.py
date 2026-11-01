@@ -20,7 +20,18 @@ log = logging.getLogger(__name__)
 
 # DeepAgents harness tools are never hidden from the model.
 BUILTIN_TOOLS = frozenset(
-    {"ls", "read_file", "write_file", "edit_file", "glob", "grep", "execute", "task", "write_todos"}
+    {
+        "ls",
+        "read_file",
+        "write_file",
+        "edit_file",
+        "delete",
+        "glob",
+        "grep",
+        "execute",
+        "task",
+        "write_todos",
+    }
 )
 
 

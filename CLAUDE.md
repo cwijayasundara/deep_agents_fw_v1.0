@@ -9,4 +9,8 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   glm-5p3-flash, minimax-m3p1-flash). Model/tool selection via OpenAI Decisions API (`gpt-6-luna`).
 - Prior work to learn from (not vendored): github.com/cwijayasundara/deep_agents_utils_v1.0,
   github.com/cwijayasundara/sub_agents_to_main_loop_v1.0.
+- After T9 (research agent runs end to end live), generate a project verification skill with
+  `/pstack:create-verification-skill` (pstack plugin from the `cursor/plugins` marketplace). It must
+  cover: launch the research agent CLI per provider/model, doctor (API keys present, Decisions API
+  reachable), drive one real research question, keep the report + trace + eval scores as evidence.
 - Conventions: uv workspace, Python 3.12, pinned versions in one constraints file, never commit `.env`.

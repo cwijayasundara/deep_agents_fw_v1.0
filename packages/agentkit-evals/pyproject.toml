@@ -2,7 +2,7 @@
 name = "agentkit-evals"
 version = "0.0.1"
 requires-python = ">=3.12,<3.13"
-dependencies = ["agentkit-core", "openevals"]
+dependencies = ["agentkit-core", "openevals", "pydantic", "langchain-core"]
 
 [build-system]
 requires = ["hatchling"]

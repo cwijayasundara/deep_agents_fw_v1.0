@@ -1,0 +1,10 @@
+{"id": "rag-vs-finetune", "question": "When should a team choose retrieval-augmented generation over fine-tuning an LLM?", "must_cover": ["knowledge freshness", "cost", "tradeoffs"]}
+{"id": "lang-graph", "question": "What is LangGraph and how does it differ from a plain LangChain agent loop?", "must_cover": ["stateful graph", "checkpointing", "control flow"]}
+{"id": "mcp", "question": "What is the Model Context Protocol and what problem does it solve?", "must_cover": ["tool/data integration", "standard protocol", "clients and servers"]}
+{"id": "prompt-cache", "question": "How does prompt caching work in major LLM APIs and what are its cost implications?", "must_cover": ["prefix reuse", "cache hit pricing", "ttl"]}
+{"id": "llm-judge", "question": "What are known biases and failure modes of LLM-as-a-judge evaluation?", "must_cover": ["position bias", "verbosity bias", "calibration"]}
+{"id": "agent-evals", "question": "How should teams evaluate multi-step LLM agents beyond final-answer accuracy?", "must_cover": ["trajectory", "tool use", "cost and latency"]}
+{"id": "vector-db", "question": "What are the main tradeoffs between HNSW and IVF indexes for vector search?", "must_cover": ["recall", "memory", "build time"]}
+{"id": "guardrails", "question": "What are common defenses against prompt injection in tool-using agents?", "must_cover": ["input isolation", "least privilege", "human approval"]}
+{"id": "context-eng", "question": "What is context engineering for LLM agents and which techniques are common?", "must_cover": ["compaction", "retrieval", "sub-agents"]}
+{"id": "oss-models", "question": "What factors matter when choosing between hosted frontier models and open-weight models?", "must_cover": ["cost", "data control", "capability gap"]}

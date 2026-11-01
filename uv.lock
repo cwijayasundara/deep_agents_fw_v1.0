@@ -48,6 +48,7 @@ dependencies = [
     { name = "agentkit-core" },
     { name = "agentkit-middleware" },
     { name = "deepagents" },
+    { name = "langchain-core" },
     { name = "langgraph" },
 ]
 
@@ -56,6 +57,7 @@ requires-dist = [
     { name = "agentkit-core", editable = "packages/agentkit-core" },
     { name = "agentkit-middleware", editable = "packages/agentkit-middleware" },
     { name = "deepagents" },
+    { name = "langchain-core" },
     { name = "langgraph" },
 ]
 
@@ -65,13 +67,17 @@ version = "0.0.1"
 source = { editable = "packages/agentkit-evals" }
 dependencies = [
     { name = "agentkit-core" },
+    { name = "langchain-core" },
     { name = "openevals" },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "agentkit-core", editable = "packages/agentkit-core" },
+    { name = "langchain-core" },
     { name = "openevals" },
+    { name = "pydantic" },
 ]
 
 [[package]]
@@ -1373,6 +1379,7 @@ dependencies = [
     { name = "agentkit-evals" },
     { name = "agentkit-middleware" },
     { name = "agentkit-tools" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
@@ -1382,6 +1389,7 @@ requires-dist = [
     { name = "agentkit-evals", editable = "packages/agentkit-evals" },
     { name = "agentkit-middleware", editable = "packages/agentkit-middleware" },
     { name = "agentkit-tools", editable = "packages/agentkit-tools" },
+    { name = "pyyaml" },
 ]
 
 [[package]]

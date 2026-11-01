@@ -2,7 +2,7 @@
 name = "research-agent"
 version = "0.0.1"
 requires-python = ">=3.12,<3.13"
-dependencies = ["agentkit-core", "agentkit-tools", "agentkit-middleware", "agentkit-deep", "agentkit-evals"]
+dependencies = ["agentkit-core", "agentkit-tools", "agentkit-middleware", "agentkit-deep", "agentkit-evals", "pyyaml"]
 
 [build-system]
 requires = ["hatchling"]
@@ -10,3 +10,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/research_agent"]
+
+[project.scripts]
+research = "research_agent.cli:main"
+research-eval = "research_agent.eval_cli:main"

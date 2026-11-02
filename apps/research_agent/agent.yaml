@@ -1,0 +1,10 @@
+apiVersion: agentkit/v1
+kind: Agent
+name: research_agent
+model: fireworks-glm
+tier: default
+selection: decisions
+prompt: research/orchestrator
+tools: [web_search, fetch_url]
+subagents: [researcher]
+output: /report.md

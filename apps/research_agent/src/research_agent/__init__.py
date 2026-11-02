@@ -1,5 +1,5 @@
-"""Deep-research agent built through the agentkit factory."""
+"""Deep-research agent, defined declaratively in agent.yaml."""
 
-from .agent import build_research_agent, extract_report, load_config
+from .agent import DEFAULT_AGENT
 
-__all__ = ["build_research_agent", "extract_report", "load_config"]
+__all__ = ["DEFAULT_AGENT"]

@@ -1,0 +1,6 @@
+apiVersion: agentkit/v1
+kind: SubAgent
+name: researcher
+description: Read-only researcher for one sub-question; returns sourced findings.
+prompt: research/researcher
+tools: [web_search, fetch_url]

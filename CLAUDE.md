@@ -6,8 +6,9 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
 - Current work: **Phase 0** — see `docs/superpowers/specs/2026-11-01-agentkit-phase0-design.md`.
   Plan written: `docs/superpowers/plans/2026-11-01-agentkit-phase0-plan.md`. T1-T9 done (T9 live, 2026-11-02; results `docs/phase0-results.md`).
   Live tests of sample agents use **fireworks-glm only**.
-- Next: **declarative agents + flows (YAML + loader)** — spec `docs/superpowers/specs/2026-11-01-agentkit-declarative-agents-design.md`,
-  plan `docs/superpowers/plans/2026-11-02-agentkit-declarative-agents-plan.md`. Then Phase 0b.
+- Declarative agents: spec `docs/superpowers/specs/2026-11-01-agentkit-declarative-agents-design.md`, plan
+  `docs/superpowers/plans/2026-11-02-agentkit-declarative-agents-plan.md`. The research agent is now
+  `apps/research_agent/agent.yaml` built via `agentkit-config` `load_agent` (CLIs take `--agent`/`--model`). Then Phase 0b.
 - Phase 0b (report's Phase 0 foundations: contracts, PlatformContext, encrypted Postgres persistence, memory
   tiers, telemetry + cost ledger, per-tenant stamps): `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md`.
   Planned, not started (after declarative agents). Phase 0 is complete when that plan closes.

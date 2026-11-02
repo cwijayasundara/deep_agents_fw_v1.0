@@ -205,3 +205,7 @@ def test_subagent_unknown_model_and_tier(tmp_path: Path) -> None:
     m = _msgs(_run(tmp_path, _agent(subagents=[_sub(model="nope", tier="huge")])))
     assert "m1" in m["subagents[0].model"]
     assert "fast" in m["subagents[0].tier"]
+
+
+def test_output_file_path_is_not_a_schema_name(tmp_path: Path) -> None:
+    assert "output" not in _msgs(_run(tmp_path, _agent(output="/report.md")))

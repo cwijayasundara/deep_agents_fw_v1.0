@@ -168,3 +168,24 @@ def test_subagent_tier_uses_parent_entry(tmp_path):
     s = Settings(_env_file=None, anthropic_api_key=SecretStr("k"))
     kw = resolve_agent(spec, _lib(tmp_path), ModelRegistry.default(), s, model=scripted())
     assert "model" in kw["subagents"][0]
+
+
+def test_subagent_model_without_tier_uses_parent_tier(tmp_path, monkeypatch):
+    import agentkit_config.resolve as resolve_mod
+
+    seen: list[Any] = []
+    monkeypatch.setattr(resolve_mod, "get_model", lambda spec, settings: seen.append(spec) or spec)
+    p = _write(tmp_path, sub="model: openai\n")
+    spec = parse_agent(p).model_copy(update={"tier": "fast"})
+    tiers = {"fast": "m-fast", "default": "m-default", "strong": "m-strong"}
+    reg = ModelRegistry({"anthropic": tiers, "openai": tiers})
+    resolve_agent(spec, _lib(tmp_path), reg, SETTINGS, model=scripted())
+    assert [s.model_id for s in seen] == ["m-fast"]
+
+
+def test_bad_override_value_is_spec_errors(tmp_path):
+    spec = parse_agent(_write(tmp_path))
+    with pytest.raises(SpecErrors, match="selection"):
+        apply_overrides(spec, {"selection": "foo"})
+    with pytest.raises(SpecErrors, match="tier"):
+        apply_overrides(spec, {"tier": 3})  # type: ignore[dict-item]

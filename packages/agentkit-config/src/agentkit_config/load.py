@@ -9,6 +9,7 @@ from typing import Any
 from agentkit_core import ModelRegistry, ModelSpec, Settings
 from agentkit_deep import build_deep_agent
 from langchain_core.language_models import BaseChatModel
+from pydantic import ValidationError
 
 from agentkit_config.errors import SpecError, SpecErrors
 from agentkit_config.library import Library
@@ -36,7 +37,15 @@ def apply_overrides(spec: AgentSpec, overrides: Mapping[str, str]) -> AgentSpec:
     changes: dict[str, Any] = dict(overrides)
     if changes.get("selection") == "off":
         changes["selection"] = None
-    return AgentSpec.model_validate({**spec.model_dump(), **changes})
+    try:
+        return AgentSpec.model_validate({**spec.model_dump(), **changes})
+    except ValidationError as e:
+        raise SpecErrors(
+            [
+                SpecError("<overrides>", ".".join(str(p) for p in err["loc"]), err["msg"])
+                for err in e.errors()
+            ]
+        ) from e
 
 
 def load_agent(
@@ -49,7 +58,7 @@ def load_agent(
 ) -> LoadedAgent:
     """parse -> overrides -> validate -> resolve -> build. Validation precedes any key check."""
     path = Path(path)
-    lib = library or Library.for_file(path, CodePools.from_entry_points())
+    lib = library if library is not None else Library.for_file(path, CodePools.from_entry_points())
     models = ModelRegistry.default()
     spec = parse_agent(path)
     if overrides:

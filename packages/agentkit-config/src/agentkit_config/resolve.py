@@ -49,9 +49,8 @@ def _subagent(
     parent: AgentSpec,
     today: str,
 ) -> dict[str, Any]:
-    # Only a tier: parent's entry at that tier. A model: that entry at its tier (default if unset).
-    inherited_tier = parent.tier if sub.model is None else "default"
-    spec = models.resolve(sub.model or parent.model, sub.tier or inherited_tier)
+    # An unset model or tier is inherited from the parent.
+    spec = models.resolve(sub.model or parent.model, sub.tier or parent.tier)
     ctx = BuildContext(settings, spec, sub.name)
     prompt = lib.prompts.get(sub.prompt, file=_FILE, path=sub.prompt)
     out: dict[str, Any] = {

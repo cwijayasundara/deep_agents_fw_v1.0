@@ -2,11 +2,12 @@ import json
 import os
 from pathlib import Path
 
-import research_agent.agent as agent_mod
+import agentkit_config.load as load_mod
+from agentkit_config import CodePools, Library, load_agent
 from agentkit_core import Settings
 from agentkit_deep.testing import describe_build
-from agentkit_tools import Page, Source
-from research_agent import build_research_agent
+from agentkit_tools import Page, Source, make_fetch_tool, make_web_search_tool
+from research_agent import DEFAULT_AGENT
 
 FIXTURE = Path(__file__).parent / "fixtures" / "python_build_snapshot.json"
 
@@ -21,19 +22,27 @@ class FakeFetch:
         return Page(url, "A", "body")
 
 
-def test_python_build_matches_snapshot(monkeypatch):
+def test_yaml_build_matches_python_snapshot(monkeypatch):
     recorded: dict = {}
 
     def recorder(**kwargs):
         recorded.update(kwargs)
         return object()
 
-    monkeypatch.setattr(agent_mod, "build_deep_agent", recorder)
-    build_research_agent(
-        {"model": "anthropic", "tier": "default", "selection": "decisions"},
-        Settings(_env_file=None, tavily_api_key="t", openai_api_key="o", anthropic_api_key="a"),
-        search=FakeSearch(),
-        fetch=FakeFetch(),
+    monkeypatch.setattr(load_mod, "build_deep_agent", recorder)
+    pools = CodePools.from_entry_points().override(
+        tools={
+            "web_search": lambda ctx, **kw: make_web_search_tool(FakeSearch()),
+            "fetch_url": lambda ctx, **kw: make_fetch_tool(FakeFetch()),
+        }
+    )
+    load_agent(
+        DEFAULT_AGENT,
+        settings=Settings(
+            _env_file=None, tavily_api_key="t", openai_api_key="o", anthropic_api_key="a"
+        ),
+        library=Library.for_file(DEFAULT_AGENT, pools),
+        overrides={"model": "anthropic"},
     )
     actual = describe_build(recorded)
     if os.environ.get("UPDATE_SNAPSHOT") == "1":

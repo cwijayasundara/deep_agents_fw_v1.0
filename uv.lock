@@ -1486,22 +1486,22 @@ name = "research-agent"
 version = "0.0.1"
 source = { editable = "apps/research_agent" }
 dependencies = [
+    { name = "agentkit-config" },
     { name = "agentkit-core" },
     { name = "agentkit-deep" },
     { name = "agentkit-evals" },
     { name = "agentkit-middleware" },
     { name = "agentkit-tools" },
-    { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "agentkit-config", editable = "packages/agentkit-config" },
     { name = "agentkit-core", editable = "packages/agentkit-core" },
     { name = "agentkit-deep", editable = "packages/agentkit-deep" },
     { name = "agentkit-evals", editable = "packages/agentkit-evals" },
     { name = "agentkit-middleware", editable = "packages/agentkit-middleware" },
     { name = "agentkit-tools", editable = "packages/agentkit-tools" },
-    { name = "pyyaml" },
 ]
 
 [[package]]

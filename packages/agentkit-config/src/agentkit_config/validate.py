@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from typing import Any
+from typing import Any, Literal
 
 from agentkit_core import TIERS, ModelRegistry
 from agentkit_middleware.selection import BUILTIN_TOOLS
@@ -20,8 +20,10 @@ class _Ctx:
     def __init__(self, lib: Library, models: ModelRegistry, file: str) -> None:
         self.lib, self.models, self.file = lib, models, file
 
-    def err(self, path: str, msg: str, severity: str = "error") -> SpecError:
-        return SpecError(self.file, path, msg, severity)  # type: ignore[arg-type]
+    def err(
+        self, path: str, msg: str, severity: Literal["error", "warning"] = "error"
+    ) -> SpecError:
+        return SpecError(self.file, path, msg, severity)
 
 
 def _join(prefix: str, leaf: str) -> str:
@@ -77,8 +79,8 @@ def _tool_errors(c: _Ctx, path: str, tools: list[ToolRef]) -> list[SpecError]:
             out.append(c.err(p, f"duplicate tool {t.name!r}"))
         seen.add(t.name)
         if c.lib.code is None:
-            continue
-        if t.name not in c.lib.code.tools:
+            out.append(c.err(p, f"no code pools loaded; cannot resolve tool {t.name!r}"))
+        elif t.name not in c.lib.code.tools:
             out.append(_unknown(c, p, "tool", t.name, c.lib.code.tools.names()))
         else:
             factory = c.lib.code.tools.get(t.name, file=c.file, path=p)
@@ -93,7 +95,7 @@ def _middleware_errors(c: _Ctx, path: str, mws: list[MiddlewareRef]) -> list[Spe
         if m.type == "selection":
             out.append(c.err(p, "use top-level 'selection:'"))
         elif c.lib.code is None:
-            continue
+            out.append(c.err(p, f"no code pools loaded; cannot resolve middleware {m.type!r}"))
         elif m.type not in c.lib.code.middleware:
             out.append(_unknown(c, p, "middleware", m.type, c.lib.code.middleware.names()))
         else:
@@ -103,8 +105,11 @@ def _middleware_errors(c: _Ctx, path: str, mws: list[MiddlewareRef]) -> list[Spe
 
 
 def _schema_errors(c: _Ctx, path: str, field: str, name: str | None) -> list[SpecError]:
-    if name is None or c.lib.code is None:
+    if name is None:
         return []
+    if c.lib.code is None:
+        msg = f"no code pools loaded; cannot resolve schema {name!r}"
+        return [c.err(_join(path, field), msg)]
     return _check_name(c, _join(path, field), "schema", name, c.lib.code.schemas)
 
 

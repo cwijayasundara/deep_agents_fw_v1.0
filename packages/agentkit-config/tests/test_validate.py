@@ -180,3 +180,28 @@ def test_validate_subagent_standalone(tmp_path: Path) -> None:
     sub = SubAgentSpec.model_validate(_sub(tools=["zzz"], model="m1"))
     errs = validate_subagent(sub, _lib(tmp_path), MODELS, file="s.yaml")
     assert [e.path for e in errs] == ["tools[0]"]
+
+
+def test_no_code_pools_is_an_error_not_a_skip(tmp_path: Path) -> None:
+    lib = Library.from_roots([_lib(tmp_path).roots[0]], None)
+    spec = _agent(
+        tools=["t1"],
+        middleware=[{"type": "call_limit"}],
+        output="Report",
+        subagents=[_sub(tools=["t2"])],
+    )
+    m = _msgs(validate_agent(spec, lib, MODELS, file="a.yaml"))
+    assert set(m) == {
+        "tools[0]",
+        "middleware[0]",
+        "output",
+        "subagents[0].tools[0]",
+        "subagents[0].response_schema",
+    }
+    assert all("no code pools loaded" in v for v in m.values())
+
+
+def test_subagent_unknown_model_and_tier(tmp_path: Path) -> None:
+    m = _msgs(_run(tmp_path, _agent(subagents=[_sub(model="nope", tier="huge")])))
+    assert "m1" in m["subagents[0].model"]
+    assert "fast" in m["subagents[0].tier"]

@@ -39,5 +39,5 @@ Preconditions:
 - The default `--judge` is `anthropic`; the helper pins `fireworks-glm` to keep live calls on one entry. Scores are not directly comparable to the anthropic-judged baseline.
 - A judge that omits its score is retried 3 times and then shows as `JudgeError` in the case's `error`; `completed` drops below 1.0. Report it; do not rerun until it passes.
 - The gate's mismatch check runs after the cases, so a mismatched `--gate` run still costs its turns. Never pass `--write-baseline` in a verification drive: it overwrites the committed baseline with a one-case, fireworks-judged run.
-- A gate run of the golden set is a release check, not a verification step: it costs 25 turns and 25 anthropic judge rounds (about 15-30 min).
+- A gate run of the golden set is a release check, not a verification step: it costs 25 turns and 25 anthropic judge rounds (about 10 min at the default `--concurrency 6`).
 - The `eval-<hex>` user's store items are never pruned (open item); harmless on a verify tenant that cleanup destroys.

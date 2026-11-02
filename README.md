@@ -53,7 +53,7 @@ write, run time); `-v` adds tool output and token counts, `-q` keeps warnings on
 reference: `docs/architecture.md` section 13.
 
 The agent runs a standard middleware stack, placed in a fixed order whatever the YAML order: model fallback
-to `fireworks-glm:strong`, two retries per model, a 60 model-call budget and 20 searches and 25 fetches per run (the report write is never budgeted), and PII
+to `fireworks-glm:strong`, two retries per model, a 60 model-call budget and 20 searches and 25 fetches for the orchestrator (each researcher delegation gets its own 30 calls and 25 tools; the report write is never budgeted), and PII
 redaction (e-mail) and masking (card numbers), and `require_output`, which sends a run that stops before
 saving `/report.md` back to the model (at most twice). Details: `docs/architecture.md` sections 3.1 and 4.
 

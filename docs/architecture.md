@@ -884,7 +884,8 @@ instead.
 `before_model`/`after_model` hook is its own graph step, so the standard stack costs about nine
 steps per model call, and the old limit of 100 ended runs after about eleven model calls (11 of 25
 golden cases failed with `GraphRecursionError` in the first Phase 1 baseline attempt). The
-`call_limit` and `tool_call_limit` middleware are what bound a run.
+`call_limit` and `tool_call_limit` middleware are what bound a run. That limit is set by `run_config`, so it
+applies to the CLIs; flow agent nodes invoke without a config and keep LangGraph's default of 9,999.
 
 - `run_id`: a fresh uuid4 (the ledger key; the trace id derives from it);
 - `configurable={"thread_id": ctx.thread_id}`;
@@ -1307,7 +1308,7 @@ rows in memory and prints the `usage:` total.
 fail fast, and builds an `LLMJudge` on the `--judge` entry's `strong` tier. Each case runs on its own
 new thread and agent build (inside its own `thread_lock` when persisted), with
 `run_with_progress(tool_outputs=...)` collecting every tool result, including those seen only inside
-subagents. `run_eval` runs cases two at a time; one failing case does not stop the others.
+subagents. `run_eval` runs cases concurrently (`research-eval --concurrency`, default 6); one failing case does not stop the others.
 
 Datasets are JSONL, one `EvalCase` per line: `id`, `question`, `must_cover` (at least one point),
 optional `tags`, `expect_tools` (default `["web_search"]`) and `min_sources` (default 1). Two ship:
@@ -1359,10 +1360,11 @@ uv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/g
   --judge anthropic --gate apps/research_agent/evals/gates.yaml [--write-baseline] --out <file.md>
 ```
 
-The committed baseline (`evals/baseline.json`, recorded 2026-11-02, 25/25 cases, agent
-`accounts/fireworks/models/glm-5p3-flash`, judge `claude-opus-5-5`): citation validity 0.98,
-completeness 0.97, groundedness 0.63, has_citation 1.00, source_count_ok 1.00, sources_section 0.96,
-tool_recall 1.00, mean latency 87 s, mean 261k total tokens per case. A run with a weakened prompt
+The committed baseline (`evals/baseline.json`, recorded 2026-11-02 on the final Phase 1 agent, with the
+`## Sources` prompt and `require_output`, 25/25 cases, agent `accounts/fireworks/models/glm-5p3-flash`,
+judge `claude-opus-5-5`): citation validity 0.96, completeness 0.97, groundedness 0.68, has_citation
+1.00, source_count_ok 1.00, sources_section 1.00, tool_recall 1.00, mean latency 102 s, mean 223k total
+tokens per case. Means move a few points between runs, so read these as one sample. A run with a weakened prompt
 (no citations) fails the gate with exit 1 on six metrics. Details, the four failed recording attempts
 and the fixes they led to: `docs/phase1-results.md`. The Phase 0 `smoke.jsonl` baseline was completed
 1.00, citation validity 0.96, completeness 0.97, groundedness 0.64.

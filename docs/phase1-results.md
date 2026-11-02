@@ -7,30 +7,30 @@ JSON are committed; raw `.stdout`/`.log` transcripts stay local).
 
 ## Golden baseline
 
-`apps/research_agent/evals/baseline.json`, 25 of 25 cases completed (`evidence/phase1/attempt4_sources_heading.*`):
+`apps/research_agent/evals/baseline.json`, 25 of 25 cases completed on the final agent (attempt 6,
+`evidence/phase1/rerecord/`; `--concurrency 6`, 589 s wall clock):
 
 | Metric | Baseline | Gate (`gates.yaml`) |
 |---|---|---|
 | completed | 1.00 | min 0.96 |
 | has_citation | 1.00 | min 0.96 |
-| sources_section | 0.96 | min 0.90 |
+| sources_section | 1.00 | min 0.90 |
 | source_count_ok | 1.00 | (not gated) |
-| citation_validity | 0.98 | min 0.85, max_drop 0.05 |
+| citation_validity | 0.96 | min 0.85, max_drop 0.05 |
 | completeness | 0.97 | min 0.85, max_drop 0.05 |
-| groundedness | 0.63 | min 0.55, max_drop 0.10 |
+| groundedness | 0.68 | min 0.55, max_drop 0.10 |
 | tool_recall | 1.00 | min 0.90 |
-| mean_latency_s | 87.2 | (not gated) |
-| mean_total_tokens | 261,337 | max_rise 0.30 |
+| mean_latency_s | 101.9 | (not gated) |
+| mean_total_tokens | 223,437 | max_rise 0.30 |
 
-Floors: unchanged. Every floor is met by both clean recordings (attempt 4 above, and attempt 5:
-citation validity 0.95, completeness 0.97, groundedness 0.71, sources_section 1.00, completed 0.96), so
-none needed lowering.
+Floors: unchanged. Attempts 4 and 6 (both 25/25) meet every floor; attempt 5 (24/25) meets the
+aggregate floors but fails the per-case `completed` rule.
 
-The baseline was recorded on the prompt before two later changes: the explicit `## Sources` heading
-(commit `acc9046`) and the `require_output` middleware (`8437852`). Attempt 5 ran with the `## Sources`
-prompt (sources_section 1.00) but one case ended without a report, so `--write-baseline` refused it.
-On the controller's instruction the baseline was not re-recorded again; attempt 4 is the only run with
-all 25 cases. Re-record with `--write-baseline` on the next live gate run that completes every case.
+Attempt 6 is the first recording with the `## Sources` prompt (`acc9046`) and `require_output`
+(`8437852`), so it replaced attempt 4's baseline. Its judge still used forced tool calling, which Opus 5.5
+does not support (a `UserWarning` on every call; the cause of attempt 5's error); the judge now asks
+Anthropic models for `json_schema` output (`751a4b8`), checked live with one judge call
+(`evidence/phase1/rerecord/judge_live_check.py`). Same judge model, so the baseline stands.
 
 ## Recording attempts and what they fixed
 
@@ -41,11 +41,11 @@ all 25 cases. Re-record with `--write-baseline` on the next live gate run that c
 | 3 | 1 empty report (`structured-output`) | The model replied "Let me delegate ..." with no tool call, ending the run | Prompt: never end the turn before `/report.md` is saved (`ca117ff`) |
 | 4 | 25/25, baseline written | `structured-output` scored sources_section 0 (no Markdown `Sources` heading) | Prompt asks for a `## Sources` heading; the regex was not loosened (`acc9046`) |
 | 5 | 24/25 (`structured-output` empty report) | Same "announce, no tool call" ending despite the prompt | `require_output` middleware nudges the model back, at most twice (`8437852`) |
+| 6 | 25/25, baseline re-recorded | none | (final agent; concurrency 6, 589 s) |
 
 No golden case was replaced: every error was an agent or configuration bug, not a flaky case.
 `structured-output` ("How do LLM APIs guarantee structured JSON output ...") is the case most prone to the
-early ending (attempts 3 and 5); the `require_output` fix is covered by offline tests but has not had a
-full live golden run yet.
+early ending (attempts 3 and 5); attempt 6 completed it with `require_output` in place.
 
 **sources_section validity.** Across 85 completed live reports in attempts 1-4, 84 had a Markdown
 `## Sources` heading and one did not. Reports are not stored by `research-eval`, so that one report's
@@ -95,5 +95,5 @@ does) fixed it, and those failed transcripts are kept under `failed-importerror/
   `@platform_tool`.
 - `research-eval` does not keep each case's report, so a low deterministic score cannot be inspected
   after the fact. Storing the report in `eval_results.json` would help.
-- A 25-case live gate run takes 20-27 minutes and its means move by a few points between runs (attempt
+- A 25-case live gate run took 20-27 minutes at concurrency 2 and about 10 at the new default of 6; its means move by a few points between runs (attempt
   4 vs 5: groundedness 0.63 vs 0.71, citation validity 0.98 vs 0.95), so `max_drop` values are loose.

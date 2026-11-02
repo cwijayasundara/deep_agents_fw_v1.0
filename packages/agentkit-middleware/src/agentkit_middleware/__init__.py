@@ -6,7 +6,14 @@ from .decisions import (
     DecisionsError,
     DecisionsSelector,
 )
-from .resilience import CircuitBreaker, Unavailable, backoff_delay, call_with_retry
+from .resilience import (
+    CircuitBreaker,
+    Unavailable,
+    backoff_delay,
+    call_with_retry,
+    reset_shared_breakers,
+    shared_breaker,
+)
 from .selection import (
     BUILTIN_TOOLS,
     DECISIONS_USAGE_EVENT,
@@ -37,4 +44,6 @@ __all__ = [
     "Unavailable",
     "backoff_delay",
     "call_with_retry",
+    "reset_shared_breakers",
+    "shared_breaker",
 ]

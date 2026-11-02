@@ -424,16 +424,20 @@ models:
     fast: gpt-6-luna
     default: gpt-6-luna
     strong: gpt-6-luna
-  # google_genai: gemini-3.8-flash, anthropic: claude-haiku-5-5 on every tier
+  # google_genai: gemini-3.8-flash on every tier
+  anthropic:
+    fast: claude-haiku-5-5
+    default: claude-haiku-5-5
+    strong: claude-opus-5-5
   fireworks-glm:
     provider: fireworks
     fast: accounts/fireworks/models/glm-5p3-flash
     default: accounts/fireworks/models/glm-5p3-flash
-    strong: accounts/fireworks/models/glm-5p3-flash
-  # fireworks-deepseek, fireworks-minimax: same shape
+    strong: accounts/fireworks/models/glm-5p3
+  # fireworks-minimax: strong is minimax-m3; fireworks-deepseek: same model on every tier
 ```
 
-| Entry | Provider | Model id (all tiers) | Key |
+| Entry | Provider | Model id (fast, default) | Key |
 |---|---|---|---|
 | `openai` | `openai` | `gpt-6-luna` | `OPENAI_API_KEY` |
 | `google_genai` | `google_genai` | `gemini-3.8-flash` | `GOOGLE_API_KEY` |
@@ -449,8 +453,10 @@ entry's `provider` key, else the entry name; it must be a `Provider` value (`ope
 model_provider=..., api_key=..., **kwargs)`.
 
 Switching provider is a config change: `--model <entry>` on the CLIs, or `model:` in the YAML. Tiers are
-`fast`, `default` and `strong` (`TIERS`). Today every tier of every entry is the same model (an
-operator decision to keep costs down), so tier switching is wired but has no effect on which model runs.
+`fast`, `default` and `strong` (`TIERS`). `fast` and `default` stay on the cheap model (an
+operator decision to keep costs down). `strong` is a bigger model for `anthropic` (`claude-opus-5-5`),
+`fireworks-glm` (`glm-5p3`) and `fireworks-minimax` (`minimax-m3`). `openai`, `google_genai` and
+`fireworks-deepseek` have no strong model chosen yet, so tier switching changes nothing on those entries.
 
 ### 5.2 How selection is wired
 
@@ -519,9 +525,10 @@ timeout). Other 4xx responses raise `DecisionsError` without retry. Every attemp
 `CircuitBreaker` (opens after 5 failures, half-opens after 30 s and lets one probe through). An open
 breaker or exhausted retries raise `Unavailable`.
 
-**Gap.** Each `DecisionsClient` creates its own breaker, and a new client is built for every
-`load_agent` call. The CLI builds one agent per process and `research-eval` builds one per case, so
-the breaker protects a single run rather than the process.
+Unless a breaker is passed in, every `DecisionsClient` uses the process-wide breaker for its endpoint
+(`shared_breaker("decisions:<url>")`). A new client is built for every `load_agent` call
+(`research-eval` builds one per case), so the breaker's state lasts for the whole process rather than one
+run. Tests reset it with `reset_shared_breakers()` (an autouse fixture in the root `conftest.py`).
 
 **Risk: vague prompts hide every tool.** Two real responses are recorded as fixtures
 (`packages/agentkit-middleware/tests/fixtures/decisions_live_orchestrator.json`,
@@ -540,11 +547,12 @@ the agent can recover instead of crashing.
 | Tool | Factory | Params | Behaviour |
 |---|---|---|---|
 | `web_search(query, k=5)` | `agentkit_tools.factories.web_search` | `backend`: `duckduckgo` (default) or `tavily` | Numbered results with title, URL and snippet. DuckDuckGo uses the `ddgs` package and needs no key. `backend: tavily` needs `TAVILY_API_KEY` (missing key: `ConfigError` at build). |
-| `fetch_url(url)` | `agentkit_tools.factories.fetch_url` | `max_chars` (default 20000) | Fetches a page with `httpx` (20 s timeout, follows redirects), reads at most 1,000,000 bytes, strips HTML to text (skipping `script`, `style`, `noscript`, `svg`, `head`), truncates to `max_chars` and appends `[truncated]`. |
+| `fetch_url(url)` | `agentkit_tools.factories.fetch_url` | `max_chars` (default 20000) | Fetches a page with `httpx` (20 s timeout, follows up to 5 redirects), reads at most 1,000,000 bytes, strips HTML to text (skipping `script`, `style`, `noscript`, `svg`, `head`), truncates to `max_chars` and appends `[truncated]`. |
 
 `fetch_url` refuses non-`http(s)` URLs, `localhost`, hosts ending in `.internal`, and IP literals that are
-not globally routable. DNS rebinding is out of scope for Phase 0, and redirect targets are not
-re-checked (see section 16).
+not globally routable. Redirects are followed by hand and every hop is re-checked
+against these rules, so a public URL cannot redirect to a private address. DNS rebinding is out of scope
+(see section 16).
 
 To use Tavily:
 
@@ -1346,9 +1354,8 @@ agent, flow and subagent. When you rely on a new upstream behaviour, pin it with
 | Prune has no tenant filter | Safe while each tenant has its own database; needs a tenant filter if tenants ever share one. |
 | Guard writes input before rejecting | When a persistent graph or flow is invoked directly, the guard refuses a mismatched run only after LangGraph has checkpointed its input (P4). Callers must pre-check, as `require_tenant` does. |
 | Store TTL off by default | `STORE_DEFAULT_TTL_MINUTES` is unset, so memory items never expire unless configured. |
-| `fetch_url` redirects | Redirects are followed and the redirect target is not re-checked against the private-host rules; DNS rebinding is also out of scope. |
-| Per-build circuit breaker | Section 5.4. |
-| Tier switching inert | Every tier of every shipped entry is the same model (section 5.1). |
+| `fetch_url` DNS rebinding | Hostnames are not resolved before fetching, so a public name that resolves to a private address is not blocked. |
+| Tier switching partial | `openai`, `google_genai` and `fireworks-deepseek` use the same model on every tier (section 5.1). |
 | Vague prompts and Decisions | A vague system prompt can make Decisions hide every tool; no minimum-tools guard yet. |
 | Not built yet | No hosted server (FastAPI or Agent Server), no authentication or identity (OAuth, on-behalf-of), no channels (Slack), no sandboxed code execution or secret proxy, no scheduler, no MCP gateway, no connectors, no layered or tenant-filtered pools, no online evals. |
 

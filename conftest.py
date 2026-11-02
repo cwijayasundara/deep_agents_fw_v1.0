@@ -24,3 +24,13 @@ def _default_deployment_tenant(
     _process_tenant.cache_clear()
     yield
     _process_tenant.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _fresh_shared_breakers() -> Iterator[None]:
+    """Process-wide circuit breakers must not carry failures from one test into the next."""
+    from agentkit_middleware import reset_shared_breakers
+
+    reset_shared_breakers()
+    yield
+    reset_shared_breakers()

@@ -63,6 +63,21 @@ class CircuitBreaker:
             self._opened_at = self._clock()
 
 
+_SHARED: dict[str, CircuitBreaker] = {}
+
+
+def shared_breaker(name: str) -> CircuitBreaker:
+    """The process-wide breaker for upstream `name`, so state survives rebuilding clients."""
+    if name not in _SHARED:
+        _SHARED[name] = CircuitBreaker()
+    return _SHARED[name]
+
+
+def reset_shared_breakers() -> None:
+    """Forget every shared breaker (tests)."""
+    _SHARED.clear()
+
+
 async def call_with_retry[T](
     fn: Callable[[], Awaitable[T]],
     *,

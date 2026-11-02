@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import hashlib
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -69,29 +70,38 @@ class BaselineMismatch(ValueError):
     """The baseline was recorded against a different dataset, model or judge."""
 
 
+def _distinct(a: float, b: float, unit: str = "") -> tuple[str, str]:
+    """Format two different numbers so they never print the same ("0.96 < min 0.96")."""
+    for digits in range(3, 18):
+        sa, sb = f"{a:.{digits}g}", f"{b:.{digits}g}"
+        if sa != sb:
+            return sa + unit, sb + unit
+    return repr(a) + unit, repr(b) + unit
+
+
 def _check_metric(
     name: str, gate: MetricGate, current: float, base: float | None
 ) -> list[GateFailure]:
+    if math.isnan(current):
+        return [GateFailure(name, "value is NaN in this run")]
+    if base is not None and math.isnan(base) and (gate.max_drop is not None or gate.max_rise):
+        return [GateFailure(name, "baseline value is NaN; re-record the baseline")]
     out: list[GateFailure] = []
     if gate.min is not None and current < gate.min - _EPS:
-        out.append(GateFailure(name, f"{current:.2f} < min {gate.min:.2f}"))
+        cur, lim = _distinct(current, gate.min)
+        out.append(GateFailure(name, f"{cur} < min {lim}"))
     if gate.max is not None and current > gate.max + _EPS:
-        out.append(GateFailure(name, f"{current:.2f} > max {gate.max:.2f}"))
+        cur, lim = _distinct(current, gate.max)
+        out.append(GateFailure(name, f"{cur} > max {lim}"))
     if gate.max_drop is not None and base is not None and current < base - gate.max_drop - _EPS:
+        drop, lim = _distinct(base - current, gate.max_drop)
         out.append(
-            GateFailure(
-                name,
-                f"{current:.2f} dropped {base - current:.2f} from baseline {base:.2f} "
-                f"(max_drop {gate.max_drop:.2f})",
-            )
+            GateFailure(name, f"{current:g} dropped {drop} from baseline {base:g} (max_drop {lim})")
         )
     if gate.max_rise is not None and base and current > base * (1 + gate.max_rise) + _EPS:
+        rise, lim = _distinct((current / base - 1) * 100, gate.max_rise * 100, "%")
         out.append(
-            GateFailure(
-                name,
-                f"{current:g} rose {(current / base - 1):.0%} above baseline {base:g} "
-                f"(max_rise {gate.max_rise:g})",
-            )
+            GateFailure(name, f"{current:g} rose {rise} above baseline {base:g} (max_rise {lim})")
         )
     return out
 
@@ -126,7 +136,11 @@ def check_gates(
 
     errors = {c["case_id"]: c.get("error") for c in cases}
     for case_id in baseline.completed_cases:
-        if errors.get(case_id):
+        if case_id not in errors:
+            failures.append(
+                GateFailure("completed", f"case {case_id} completed in baseline, missing from run")
+            )
+        elif errors[case_id]:
             failures.append(
                 GateFailure(
                     "completed",

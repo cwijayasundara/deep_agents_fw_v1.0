@@ -173,7 +173,8 @@ passes offline.
 
 Open items: P10 thread-to-user binding, P3 primitive state stored in plaintext, AES key rotation and
 backup, never-pruned store items of `eval-<hex>` users, and a prune tenant filter if tenants ever share a
-database (`docs/architecture.md` section 16). Next: the project verification skill, then Phase 1.
+database (`docs/architecture.md` section 16). Verify changes end to end with the `verify-agentkit` skill
+(`.claude/skills/verify-agentkit/`). Next: Phase 1.
 
 Design and plans: `docs/superpowers/specs/` and `docs/superpowers/plans/`; research and roadmap:
 `reports/Reusable agent platform components.md`.

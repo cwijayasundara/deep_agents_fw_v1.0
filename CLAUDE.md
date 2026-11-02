@@ -13,7 +13,7 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   tiers, telemetry + cost ledger, per-tenant stamps): `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md`.
   Delivered and live-verified (2026-11-02; `docs/phase0-results.md`). **Phase 0 is complete.** Per-tenant
   stamps: `make stamp TENANT=<t>` (`deploy/README.md`).
-- **Phase 1: partly done** (branch `phase1-early-fixes`; plan
+- **Phase 1: partly done** (merged to main 2026-11-02; plan
   `docs/superpowers/plans/2026-11-02-agentkit-phase1-plan.md`, results `docs/phase1-results.md`): middleware
   stack (fallback, retry, call limits, PII, canonical order) and eval gates (golden set, trajectory/source
   metrics, `research-eval --gate/--write-baseline` against `apps/research_agent/evals/baseline.json`).

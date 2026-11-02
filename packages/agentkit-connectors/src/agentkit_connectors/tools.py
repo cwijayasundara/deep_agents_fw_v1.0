@@ -241,19 +241,26 @@ NOT_READ_ONLY = "sql_query connector must log in as a read-only role (e.g. kb_re
 
 # Any row means the login could escape a READ ONLY transaction (COPY TO PROGRAM,
 # pg_read_file, ...) or write DDL into a configured schema. Membership, not just identity:
-# a member of a superuser role can `set_config('role', ...)` inside one statement.
+# a member of a superuser role can `set_config('role', ...)` inside one statement. Both the
+# login (session_user) and the active role (current_user) are checked, and they must match:
+# an admin login with a startup `role` (DSN options, server_settings, ALTER ROLE ... SET role)
+# gets back to the admin with `set_config('role', 'none', ...)`.
 _PRIVILEGE_CHECK = """
-select 1 from pg_roles r
-  where (r.rolsuper or r.rolbypassrls) and pg_has_role(current_user, r.oid, 'member')
+select 1 where session_user <> current_user
+union all
+select 1 from pg_roles r, unnest(array[current_user, session_user]) as u(name)
+  where (r.rolsuper or r.rolbypassrls) and pg_has_role(u.name, r.oid, 'member')
 union all
 select 1 from unnest(array['pg_execute_server_program', 'pg_read_server_files',
                            'pg_write_server_files', 'pg_read_all_data', 'pg_signal_backend',
-                           'pg_read_all_settings', 'pg_read_all_stats']) as g(name)
-  where to_regrole(g.name) is not null and pg_has_role(current_user, g.name, 'member')
+                           'pg_read_all_settings', 'pg_read_all_stats']) as g(name),
+              unnest(array[current_user, session_user]) as u(name)
+  where to_regrole(g.name) is not null and pg_has_role(u.name, g.name, 'member')
 union all
-select 1 from unnest(cast(:schemas as text[])) as s(name)
+select 1 from unnest(cast(:schemas as text[])) as s(name),
+              unnest(array[current_user, session_user]) as u(name)
   where exists (select 1 from pg_namespace n where n.nspname = s.name)
-    and has_schema_privilege(current_user, s.name, 'CREATE')
+    and has_schema_privilege(u.name, s.name, 'CREATE')
 limit 1
 """
 

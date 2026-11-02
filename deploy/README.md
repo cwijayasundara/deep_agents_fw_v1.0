@@ -113,7 +113,9 @@ chunks.
 
 Point the `sql_query` connector at `kb_reader` (`KB_READER_DATABASE_URL`). Its safety is layered
 and the role is the real wall. On first use `sql_query` checks the login and refuses to run
-(`ERROR: sql_query connector must log in as a read-only role (e.g. kb_reader)`) if it is a
+(`ERROR: sql_query connector must log in as a read-only role (e.g. kb_reader)`) if the active
+role differs from the login (an admin login with a startup `role` of kb_reader could `SET ROLE
+NONE` back to the admin), or if the login or the active role is a
 superuser or bypasses RLS or is a member of a role that is (a member could `set_config('role',
 ...)` inside one statement), is a member of `pg_execute_server_program`, `pg_read_server_files`,
 `pg_write_server_files`, `pg_read_all_data`, `pg_signal_backend`, `pg_read_all_settings` or

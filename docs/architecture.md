@@ -713,8 +713,10 @@ connection; they reach Postgres only through two curated tools.
 `sql_query`'s safety is layered, and the database role is the real wall:
 
 1. On first use it refuses to run (`ERROR: sql_query connector must log in as a read-only role ...`)
-   when the login is a superuser, bypasses RLS, is a member of a role that does, is in one of the
-   `pg_read_server_files`-style built-in roles, or can CREATE in a configured schema.
+   when the session's active role (`current_user`) differs from the login (`session_user`), as
+   with an admin login whose startup `role` is `kb_reader`, or when either of them is a superuser,
+   bypasses RLS, is a member of a role that does, is in one of the `pg_read_server_files`-style
+   built-in roles, or can CREATE in a configured schema.
 2. Anything after a `;` is refused (one statement only, conservatively, even inside a literal).
 3. Each call runs in a `READ ONLY` transaction with `SET LOCAL statement_timeout` and `search_path` set to
    the connector's `schemas`, through asyncpg `prepare` (one command), fetching at most `max_rows + 1`
@@ -1681,7 +1683,7 @@ agent, flow and subagent. When you rely on a new upstream behaviour, pin it with
 | Eval gate scope | The gate compares means over one live run; a single golden run has run-to-run noise (DuckDuckGo results, model sampling), so floors and `max_drop` are set loosely (`docs/phase1-results.md`). The judge is one model (`anthropic`, strong tier); judges are not calibrated yet (Phase 2). The gate checks only after all cases ran, so a mismatched run still costs its cases. |
 | Tool governance recorded, not enforced | `side_effects`, `identity` and `classification` are listed by `agentkit tools list` but not enforced; tenant policy is checked at build and validate time only (section 6.1). HITL for write tools is Phase 2. |
 | Secrets providers | Connector secrets resolve only `env://VAR`; Vault and cloud secret managers are Phase 2. Only pgvector and Postgres connectors exist (no Qdrant, Weaviate or Pinecone). |
-| `sql_query` one-statement check | Any `;` other than one trailing is refused, even inside a string literal (conservative). The `kb_reader` role is the real wall; never point `KB_READER_DATABASE_URL` at an admin login (it is refused on first use). |
+| `sql_query` one-statement check | Any `;` other than one trailing is refused, even inside a string literal (conservative). The `kb_reader` role is the real wall; never point `KB_READER_DATABASE_URL` at an admin login. On first use the tool refuses a login (`session_user`) or active role (`current_user`) that is or is a member of a superuser, BYPASSRLS or `pg_read_server_files`-style built-in role, or can CREATE in a configured schema, and refuses any login whose active role differs from it (a startup `role` setting). It checks role attributes and memberships, not object grants: an ordinary login granted SELECT on other tables passes and can read them. A passed check is cached for the built tool's lifetime, so a later role change needs a rebuild or restart. |
 | Single-step and gate sampling | Live eval cases are single samples (no pass^k): two single-step cases failed in the recorded baseline and passed in the plugin run minutes later; `mean_total_tokens` is heavy-tailed (`docs/phase1b-results.md`). No VCR replay, judge caching or judge calibration yet. |
 | Not built yet | No hosted server (FastAPI or Agent Server), no authentication or identity (OAuth, on-behalf-of), no channels (Slack), no sandboxed code execution or secret proxy, no scheduler, no MCP gateway, no Langfuse prompt sync, no layered or tenant-filtered pools, no online evals. |
 

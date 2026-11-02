@@ -141,7 +141,6 @@ HOSTILE = [
     "insert into kb.t values (99, 'x')",
     "with d as (delete from kb.t returning *) select * from d",
     "update kb.t set name = 'pwned'",
-    "set role postgres",
     "set role agentkit",
     "set session authorization agentkit",
     "select pg_sleep(10)",
@@ -385,3 +384,93 @@ async def test_kb_reader_cannot_escalate_through_set_config(tmp_path, monkeypatc
     t = tools.sql_query(_ctx(), connector="kbsql")
     out = await t.ainvoke({"sql": ESCALATE})
     assert out.startswith("ERROR: ") and "root:" not in out, out
+
+
+# `SET ROLE NONE` falls back to session_user: the login, not the startup role.
+ESCALATE_TO_LOGIN = (
+    "select set_config('role', 'none', true),"
+    " query_to_xml('select pg_read_file(''/etc/passwd'')', true, true, '')"
+)
+
+
+async def test_set_role_to_an_existing_superuser_is_denied(tmp_path, monkeypatch, reader, kb_table):
+    """Discriminates: the target exists and is a superuser, kb_reader just isn't a member."""
+    su = await kb_table.fetchval("select current_user")  # the stamp's superuser
+    assert await kb_table.fetchval("select rolsuper from pg_roles where rolname = $1", su)
+    assert not await kb_table.fetchval("select pg_has_role('kb_reader', $1, 'member')", su)
+    _lib(tmp_path, monkeypatch, KBTEST_SQL_URL=reader)
+    t = tools.sql_query(_ctx(), connector="kbsql")
+    for sql in (
+        f'set role "{su}"',
+        f'set session authorization "{su}"',
+        f"select set_config('role', {_lit(su)}, true) as r",
+    ):
+        out = await t.ainvoke({"sql": sql})
+        assert out.startswith("ERROR: permission denied to set"), (sql, out)
+
+
+async def _whoami(pool) -> tuple[str, str]:
+    from sqlalchemy import text
+
+    async with pool.connect() as conn:
+        row = (await conn.execute(text("select session_user, current_user"))).one()
+    return row[0], row[1]
+
+
+async def test_admin_login_with_a_startup_role_is_refused(admin_url, reader):
+    """Review I1: an admin login whose startup `role` is kb_reader passes a current_user-only
+    check, then `set_config('role', 'none', ...)` is back to the admin inside one statement."""
+    from agentkit_connectors.engines import _async_url
+    from langchain_postgres import PGEngine
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    pool = create_async_engine(
+        _async_url(admin_url), connect_args={"server_settings": {"role": "kb_reader"}}
+    )
+    try:
+        session, current = await _whoami(pool)
+        assert current == "kb_reader" and session != "kb_reader"  # the startup role took
+        engine = PGEngine.from_engine(pool)
+        runner = tools.PgSql(engine, schemas=["kb"], timeout_ms=1000, fetch=3)
+        t = tools.make_sql_query_tool(runner, max_rows=2)
+        for sql in ("select 1 as x", ESCALATE_TO_LOGIN):
+            assert await t.ainvoke({"sql": sql}) == f"ERROR: {tools.NOT_READ_ONLY}"
+    finally:
+        await pool.dispose()
+
+
+@pytest.fixture
+async def su_login_defaulting_to_reader(admin_url, reader):
+    """A superuser login with `ALTER ROLE ... SET role = kb_reader`: the same shape, via a DSN."""
+    pw = secrets.token_urlsafe(16)
+    conn = await asyncpg.connect(admin_url)
+    try:
+        await conn.execute("drop role if exists kbtest_su_login")
+        await conn.execute(f"create role kbtest_su_login login superuser password {_lit(pw)}")
+        await conn.execute("alter role kbtest_su_login set role = 'kb_reader'")
+        yield (
+            make_url(admin_url)
+            .set(username="kbtest_su_login", password=pw)
+            .render_as_string(hide_password=False)
+        )
+    finally:
+        await conn.execute("drop role if exists kbtest_su_login")
+        await conn.close()
+
+
+async def test_superuser_login_with_a_default_role_is_refused(
+    tmp_path, monkeypatch, su_login_defaulting_to_reader
+):
+    url = su_login_defaulting_to_reader
+    r = await asyncpg.connect(url)
+    try:
+        assert tuple(await r.fetchrow("select session_user, current_user")) == (
+            "kbtest_su_login",
+            "kb_reader",
+        )
+    finally:
+        await r.close()
+    _lib(tmp_path, monkeypatch, KBTEST_SQL_URL=url)
+    t = tools.sql_query(_ctx(), connector="kbsql")
+    for sql in ("select 1 as x", ESCALATE_TO_LOGIN):
+        assert await t.ainvoke({"sql": sql}) == f"ERROR: {tools.NOT_READ_ONLY}"

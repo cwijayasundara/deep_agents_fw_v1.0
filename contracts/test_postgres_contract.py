@@ -1,4 +1,7 @@
-"""Contract: encrypted Postgres checkpoints, concurrent-run behaviour, and store namespaces."""
+"""Contract: encrypted Postgres checkpoints, concurrent-run behaviour, and store namespaces.
+
+Each case runs twice: against a hand-built saver/store and against `open_persistence`.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +16,7 @@ from datetime import datetime
 from typing import Annotated, Any, TypedDict
 
 import pytest
+from agentkit_persistence import PersistenceSettings, open_persistence
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.checkpoint.serde.encrypted import EncryptedSerializer
@@ -23,6 +27,7 @@ from langgraph.store.postgres.aio import AsyncPostgresStore
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
+from pydantic import SecretStr
 
 DB_URL = os.environ.get("AGENTKIT_TEST_DATABASE_URL", "")
 AES_KEY = "0123456789abcdef0123456789abcdef"
@@ -50,25 +55,42 @@ async def pool() -> AsyncIterator[AsyncConnectionPool[Any]]:
         yield p
 
 
+Backends = tuple[AsyncPostgresSaver, AsyncPostgresStore]
+
+
+@pytest.fixture(params=["raw", "open_persistence"])
+async def backends(
+    request: pytest.FixtureRequest,
+    pool: AsyncConnectionPool[Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> AsyncIterator[Backends]:
+    if request.param == "raw":
+        monkeypatch.setenv("LANGGRAPH_AES_KEY", AES_KEY)
+        saver = AsyncPostgresSaver(pool, serde=EncryptedSerializer.from_pycryptodome_aes())
+        store = AsyncPostgresStore(pool)
+        await saver.setup()
+        await store.setup()
+        yield saver, store
+        return
+    settings = PersistenceSettings(
+        database_url=SecretStr(DB_URL), langgraph_aes_key=SecretStr(AES_KEY)
+    )
+    async with open_persistence(settings) as p:
+        yield p.saver, p.store
+
+
 @pytest.fixture
-async def app(
-    pool: AsyncConnectionPool[Any], monkeypatch: pytest.MonkeyPatch
-) -> CompiledStateGraph[Any, Any, Any, Any]:
-    monkeypatch.setenv("LANGGRAPH_AES_KEY", AES_KEY)
-    saver = AsyncPostgresSaver(pool, serde=EncryptedSerializer.from_pycryptodome_aes())
-    await saver.setup()
+def app(backends: Backends) -> CompiledStateGraph[Any, Any, Any, Any]:
     graph = StateGraph(Turns)
     graph.add_node("work", _slow_node)
     graph.add_edge(START, "work")
     graph.add_edge("work", END)
-    return graph.compile(checkpointer=saver)
+    return graph.compile(checkpointer=backends[0])
 
 
 @pytest.fixture
-async def store(pool: AsyncConnectionPool[Any]) -> AsyncPostgresStore:
-    s = AsyncPostgresStore(pool)
-    await s.setup()
-    return s
+def store(backends: Backends) -> AsyncPostgresStore:
+    return backends[1]
 
 
 def _thread() -> RunnableConfig:

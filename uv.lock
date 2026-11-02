@@ -9,6 +9,7 @@ members = [
     "agentkit-deep",
     "agentkit-evals",
     "agentkit-middleware",
+    "agentkit-persistence",
     "agentkit-tools",
     "agentkit-workspace",
     "research-agent",
@@ -136,6 +137,31 @@ requires-dist = [
 ]
 
 [[package]]
+name = "agentkit-persistence"
+version = "0.0.1"
+source = { editable = "packages/agentkit-persistence" }
+dependencies = [
+    { name = "agentkit-core" },
+    { name = "langgraph" },
+    { name = "langgraph-checkpoint-postgres" },
+    { name = "psycopg", extra = ["binary", "pool"] },
+    { name = "pycryptodome" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "agentkit-core", editable = "packages/agentkit-core" },
+    { name = "langgraph" },
+    { name = "langgraph-checkpoint-postgres" },
+    { name = "psycopg", extras = ["binary", "pool"] },
+    { name = "pycryptodome" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+]
+
+[[package]]
 name = "agentkit-tools"
 version = "0.0.1"
 source = { editable = "packages/agentkit-tools" }
@@ -164,6 +190,7 @@ dependencies = [
     { name = "agentkit-deep" },
     { name = "agentkit-evals" },
     { name = "agentkit-middleware" },
+    { name = "agentkit-persistence" },
     { name = "agentkit-tools" },
     { name = "research-agent" },
 ]
@@ -190,6 +217,7 @@ requires-dist = [
     { name = "agentkit-deep", editable = "packages/agentkit-deep" },
     { name = "agentkit-evals", editable = "packages/agentkit-evals" },
     { name = "agentkit-middleware", editable = "packages/agentkit-middleware" },
+    { name = "agentkit-persistence", editable = "packages/agentkit-persistence" },
     { name = "agentkit-tools", editable = "packages/agentkit-tools" },
     { name = "research-agent", editable = "apps/research_agent" },
 ]

@@ -191,7 +191,8 @@ uv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/g
 ```
 
 Exit 0 is `gate: PASS`, 1 a regression (`gate: FAIL <metric>: ...`), 2 a missing or mismatched baseline. It
-runs 25 cases (about 20-25 minutes). Still open from the roadmap's Phase 1: a pytest plugin, single-step
+runs 25 cases, 6 at a time by default (`--concurrency N`). While debugging, run a subset with
+`--case <id>` or `--tag <tag>` (both repeatable; not allowed with `--gate`, which needs the full set). Still open from the roadmap's Phase 1: a pytest plugin, single-step
 evals, connectors, a prompt registry and `@platform_tool`.
 
 Design and plans: `docs/superpowers/specs/` and `docs/superpowers/plans/`; research and roadmap:

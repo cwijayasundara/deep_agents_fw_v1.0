@@ -835,3 +835,87 @@ def test_eval_write_baseline_refuses_errored_case(gate_env, monkeypatch, capsys)
     assert run("--write-baseline") == 2
     assert not (tmp / "base.json").exists()
     assert "errored" in capsys.readouterr().err
+
+
+@pytest.fixture
+def subset_env(offline_cli, monkeypatch, tmp_path):
+    """Offline eval over a 3-case tagged dataset; returns run(*argv) -> exit code."""
+    from research_agent import eval_cli
+
+    data = tmp_path / "d.jsonl"
+    data.write_text(
+        '{"id": "a", "question": "a", "must_cover": ["x"], "tags": ["t1"]}\n'
+        '{"id": "b", "question": "b", "must_cover": ["x"], "tags": ["t2"]}\n'
+        '{"id": "c", "question": "c", "must_cover": ["x"], "tags": ["t2"]}\n'
+    )
+
+    class Judge:
+        def __init__(self, model):
+            pass
+
+        async def __call__(self, case, report, retrieved):
+            return {"score": 1.0}
+
+    monkeypatch.setattr(eval_cli, "LLMJudge", Judge)
+    monkeypatch.setattr(eval_cli, "get_model", lambda spec, settings: None)
+
+    def run(*extra):
+        monkeypatch.setattr(
+            "sys.argv", ["research-eval", "--dataset", str(data), "--user", "e1", *extra]
+        )
+        try:
+            eval_cli.main()
+        except SystemExit as e:
+            return e.code
+        return 0
+
+    return run, tmp_path
+
+
+def test_eval_case_and_tag_run_only_the_subset(subset_env, offline_cli):
+    import json
+
+    run, tmp = subset_env
+    assert run("--case", "a", "--tag", "t2") == 0
+    assert len(offline_cli) == 3
+    offline_cli.clear()
+    assert run("--tag", "t2") == 0
+    summary = json.loads((tmp / "eval_results.json").read_text())
+    assert [c["case_id"] for c in summary["cases"]] == ["b", "c"]
+    assert summary["subset"] == {"cases": [], "tags": ["t2"]}
+    assert len(offline_cli) == 2
+
+
+def test_eval_unknown_case_exits_2_naming_it(subset_env, offline_cli, capsys):
+    run, _ = subset_env
+    assert run("--case", "zzz") == 2
+    assert "zzz" in capsys.readouterr().err and offline_cli == []
+
+
+def test_eval_subset_with_gate_is_rejected(subset_env, tmp_path, capsys):
+    run, _ = subset_env
+    assert run("--tag", "t1", "--gate", str(tmp_path / "g.yaml")) == 2
+    assert "--gate" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("bad", ["0", "-1", "x"])
+def test_eval_concurrency_must_be_positive(subset_env, bad, capsys):
+    run, _ = subset_env
+    assert run("--concurrency", bad) == 2
+    assert "--concurrency" in capsys.readouterr().err
+
+
+def test_eval_concurrency_reaches_run_eval(subset_env, monkeypatch):
+    from research_agent import eval_cli
+
+    seen = {}
+    real = eval_cli.run_eval
+
+    async def spy(cases, run_agent, judge, concurrency=2):
+        seen["concurrency"] = concurrency
+        return await real(cases, run_agent, judge, concurrency=concurrency)
+
+    monkeypatch.setattr(eval_cli, "run_eval", spy)
+    run, _ = subset_env
+    assert run() == 0 and seen["concurrency"] == 6
+    assert run("--concurrency", "3") == 0 and seen["concurrency"] == 3

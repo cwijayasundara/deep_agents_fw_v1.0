@@ -1,6 +1,6 @@
 """agentkit-evals: minimal eval runner on openevals."""
 
-from .dataset import EvalCase, load_dataset
+from .dataset import EvalCase, load_dataset, select_cases
 from .gates import (
     Baseline,
     BaselineMismatch,
@@ -40,6 +40,7 @@ __all__ = [
     "extract_urls",
     "load_dataset",
     "run_eval",
+    "select_cases",
     "source_count_ok",
     "sources_section",
     "tool_recall",

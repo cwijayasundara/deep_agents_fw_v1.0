@@ -170,3 +170,41 @@ def test_aggregate_latency_and_tokens():
     bare = aggregate([CaseResult("d", {"s": 1.0})])
     assert "mean_latency_s" not in bare and "mean_total_tokens" not in bare
     assert "| a |" in to_markdown([ok1, ok2, bad])
+
+
+def _cases():
+    from agentkit_evals import EvalCase
+
+    return [
+        EvalCase(id="a", question="qa", must_cover=["x"], tags=["definition"]),
+        EvalCase(id="b", question="qb", must_cover=["x"], tags=["comparison"]),
+        EvalCase(id="c", question="qc", must_cover=["x"], tags=["comparison", "recent"]),
+    ]
+
+
+def test_select_cases_without_filters_keeps_all():
+    from agentkit_evals import select_cases
+
+    assert [c.id for c in select_cases(_cases())] == ["a", "b", "c"]
+
+
+def test_select_cases_unions_ids_and_tags_in_dataset_order():
+    from agentkit_evals import select_cases
+
+    picked = select_cases(_cases(), ids=["c", "a"], tags=["recent"])
+    assert [c.id for c in picked] == ["a", "c"]
+    assert [c.id for c in select_cases(_cases(), tags=["comparison"])] == ["b", "c"]
+
+
+def test_select_cases_unknown_id_names_it():
+    from agentkit_evals import select_cases
+
+    with pytest.raises(ValueError, match="nope"):
+        select_cases(_cases(), ids=["a", "nope"])
+
+
+def test_select_cases_no_match_is_an_error():
+    from agentkit_evals import select_cases
+
+    with pytest.raises(ValueError, match="no cases match"):
+        select_cases(_cases(), tags=["missing"])

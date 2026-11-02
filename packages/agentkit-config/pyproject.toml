@@ -1,0 +1,15 @@
+[project]
+name = "agentkit-config"
+version = "0.0.1"
+requires-python = ">=3.12,<3.13"
+dependencies = ["agentkit-core", "agentkit-deep", "agentkit-middleware", "pydantic", "pyyaml"]
+
+[project.scripts]
+agentkit = "agentkit_config.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentkit_config"]

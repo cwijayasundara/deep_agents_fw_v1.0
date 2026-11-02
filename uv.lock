@@ -4,6 +4,7 @@ requires-python = "==3.12.*"
 
 [manifest]
 members = [
+    "agentkit-config",
     "agentkit-core",
     "agentkit-deep",
     "agentkit-evals",
@@ -11,6 +12,27 @@ members = [
     "agentkit-tools",
     "agentkit-workspace",
     "research-agent",
+]
+
+[[package]]
+name = "agentkit-config"
+version = "0.0.1"
+source = { editable = "packages/agentkit-config" }
+dependencies = [
+    { name = "agentkit-core" },
+    { name = "agentkit-deep" },
+    { name = "agentkit-middleware" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "agentkit-core", editable = "packages/agentkit-core" },
+    { name = "agentkit-deep", editable = "packages/agentkit-deep" },
+    { name = "agentkit-middleware", editable = "packages/agentkit-middleware" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
 ]
 
 [[package]]
@@ -123,6 +145,7 @@ name = "agentkit-workspace"
 version = "0.0.1"
 source = { virtual = "." }
 dependencies = [
+    { name = "agentkit-config" },
     { name = "agentkit-core" },
     { name = "agentkit-deep" },
     { name = "agentkit-evals" },
@@ -143,6 +166,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "agentkit-config", editable = "packages/agentkit-config" },
     { name = "agentkit-core", editable = "packages/agentkit-core" },
     { name = "agentkit-deep", editable = "packages/agentkit-deep" },
     { name = "agentkit-evals", editable = "packages/agentkit-evals" },

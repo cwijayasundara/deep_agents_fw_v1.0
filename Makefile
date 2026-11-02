@@ -8,4 +8,4 @@ sync:
 test: sync
 	uv run pytest
 lint: sync
-	uv run ruff check . && uv run ruff format --check . && uv run mypy packages/*/src apps/*/src
+	uv run ruff check . && uv run ruff format --check . && uv run mypy packages/*/src apps/*/src && uv run agentkit validate apps/*/agent.yaml apps/*/flows/*.yaml libraries/subagents/*.yaml

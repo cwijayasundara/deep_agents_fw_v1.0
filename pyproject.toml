@@ -5,7 +5,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
   "agentkit-core", "agentkit-tools", "agentkit-middleware",
   "agentkit-deep", "agentkit-config", "agentkit-evals", "agentkit-persistence",
-  "agentkit-telemetry",
+  "agentkit-telemetry", "agentkit-connectors",
   "research-agent",
 ]
 
@@ -31,6 +31,7 @@ agentkit-config = { workspace = true }
 agentkit-evals = { workspace = true }
 agentkit-persistence = { workspace = true }
 agentkit-telemetry = { workspace = true }
+agentkit-connectors = { workspace = true }
 research-agent = { workspace = true }
 
 [tool.pytest.ini_options]

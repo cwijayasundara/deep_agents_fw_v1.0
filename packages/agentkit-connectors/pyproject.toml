@@ -1,0 +1,13 @@
+[project]
+name = "agentkit-connectors"
+version = "0.0.1"
+requires-python = ">=3.12,<3.13"
+dependencies = ["agentkit-core", "langchain-core", "langchain-fireworks", "langchain-openai",
+  "langchain-postgres", "pydantic", "pyyaml"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentkit_connectors"]

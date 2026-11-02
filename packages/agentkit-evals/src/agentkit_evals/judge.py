@@ -58,11 +58,22 @@ class LLMJudge:
     """LLM-as-judge via openevals. `model` is any chat model, so the judge provider is config."""
 
     def __init__(self, model: BaseChatModel) -> None:
+        # Opus 5.5 rejects forced tool calling (openevals' default), and a reply without the
+        # tool call fails the case; Anthropic's native json_schema output has no such gap.
+        kw = {"method": "json_schema"} if type(model).__name__ == "ChatAnthropic" else None
         self._g = create_llm_as_judge(
-            prompt=GROUNDED, feedback_key="groundedness", judge=model, continuous=True
+            prompt=GROUNDED,
+            feedback_key="groundedness",
+            judge=model,
+            continuous=True,
+            structured_output_kwargs=kw,
         )
         self._c = create_llm_as_judge(
-            prompt=COMPLETE, feedback_key="completeness", judge=model, continuous=True
+            prompt=COMPLETE,
+            feedback_key="completeness",
+            judge=model,
+            continuous=True,
+            structured_output_kwargs=kw,
         )
 
     async def __call__(self, case: EvalCase, report: str, retrieved: str) -> dict[str, float]:

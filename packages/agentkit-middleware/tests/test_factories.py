@@ -57,8 +57,35 @@ def test_model_fallback_missing_key_is_config_error():
 def test_model_fallback_rejects_empty_and_bad_tier():
     with pytest.raises(ConfigError):
         model_fallback(_ctx(), models=[])
-    with pytest.raises(ConfigError):
+    with pytest.raises(ConfigError, match="unknown tier 'bogus'"):
         model_fallback(_ctx(anthropic_api_key="a"), models=["anthropic:bogus"])
+    with pytest.raises(ConfigError, match="unknown model entry 'nope'"):
+        model_fallback(_ctx(), models=["nope"])
+
+
+@pytest.mark.parametrize("item", ["", ":strong", "a:b:c", "anthropic:"])
+def test_model_fallback_rejects_malformed_items(item):
+    with pytest.raises(ConfigError, match="bad model item"):
+        model_fallback(_ctx(anthropic_api_key="a"), models=[item])
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda c: call_limit(c, max_model_calls=3, exit_behavior="boom"),
+        lambda c: call_limit(c, max_model_calls=0),
+        lambda c: call_limit(c, max_model_calls=3, thread_limit=-1),
+        lambda c: tool_call_limit(c, run_limit=0),
+        lambda c: tool_call_limit(c, run_limit=2, thread_limit=0),
+        lambda c: model_retry(c, max_retries=-1),
+        lambda c: tool_retry(c, max_retries=-1),
+        lambda c: model_retry(c, initial_delay=-1.0),
+        lambda c: pii(c, type="email", strategy="shred"),
+    ],
+)
+def test_bad_params_raise_config_error(call):
+    with pytest.raises(ConfigError):
+        call(_ctx())
 
 
 def test_model_retry_raises_on_final_failure():

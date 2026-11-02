@@ -6,6 +6,7 @@ from .decisions import (
     DecisionsError,
     DecisionsSelector,
 )
+from .require_output import RequireOutputMiddleware
 from .resilience import (
     CircuitBreaker,
     Unavailable,
@@ -34,6 +35,7 @@ __all__ = [
     "DecisionsSelector",
     "DecisionsUsage",
     "MissingPlatformContext",
+    "RequireOutputMiddleware",
     "CircuitBreaker",
     "Selection",
     "SelectionMiddleware",

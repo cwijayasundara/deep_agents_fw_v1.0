@@ -125,6 +125,26 @@ async def test_tool_budget_never_blocks_writing_the_report():
     assert blocked  # the budget did bite on search/fetch
 
 
+async def test_a_reply_that_only_announces_more_work_is_sent_back_to_finish_the_report():
+    """Live glm runs sometimes end on "Let me delegate ..." with no tool call; the run goes on."""
+    report = "# R\nX [1]\n\n## Sources\n[1] https://a.example/x"
+    model = scripted(
+        tool_call("web_search", {"query": "x"}, "1"),
+        AIMessage(content="I still need more detail. Let me delegate the remaining gaps."),
+        tool_call("write_file", {"file_path": "/report.md", "content": report}, "2"),
+        AIMessage(content="done"),
+    )
+    loaded = load_agent(
+        DEFAULT_AGENT,
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
+        library=lib(),
+        overrides={"selection": "off"},
+        model=model,
+    )
+    out = await loaded.graph.ainvoke({"messages": [HumanMessage("what is x?")]}, context=ctx())
+    assert read_output(out, loaded.spec.output) == report
+
+
 def test_decisions_selection_requires_openai_key():
     with pytest.raises(ConfigError, match="OPENAI_API_KEY"):
         load_agent(
@@ -684,7 +704,7 @@ def test_shipped_agent_has_standard_stack():
         model=scripted(AIMessage(content="x")),
     )
     names = [type(m).__name__ for m in kw["middleware"]]
-    assert names[-8:] == [
+    assert names[-9:] == [
         "SelectionMiddleware",
         "ModelFallbackMiddleware",
         "ModelRetryMiddleware",
@@ -693,6 +713,7 @@ def test_shipped_agent_has_standard_stack():
         "ToolCallLimitMiddleware",
         "PIIMiddleware",
         "PIIMiddleware",
+        "RequireOutputMiddleware",
     ]
     (sub,) = kw["subagents"]
     # YAML lists call_limit before model_retry; canonical order puts retry first

@@ -7,7 +7,8 @@
     "ToolCallLimitMiddleware",
     "ToolCallLimitMiddleware",
     "PIIMiddleware",
-    "PIIMiddleware"
+    "PIIMiddleware",
+    "RequireOutputMiddleware"
   ],
   "name": "research_agent",
   "skills": null,

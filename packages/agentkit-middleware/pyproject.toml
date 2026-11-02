@@ -11,6 +11,7 @@ model_fallback = "agentkit_middleware.factories:model_fallback"
 model_retry = "agentkit_middleware.factories:model_retry"
 tool_retry = "agentkit_middleware.factories:tool_retry"
 pii = "agentkit_middleware.factories:pii"
+require_output = "agentkit_middleware.factories:require_output"
 
 [build-system]
 requires = ["hatchling"]

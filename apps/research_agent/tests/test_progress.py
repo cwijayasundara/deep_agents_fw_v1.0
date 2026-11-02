@@ -80,6 +80,7 @@ async def test_run_with_progress_collects_tool_call_names_from_subagents():
         tool_call("task", {"description": "look up x", "subagent_type": "researcher"}, "0"),
         tool_call("web_search", {"query": "x"}, "1"),
         AIMessage(content="found x"),
+        tool_call("write_file", {"file_path": "/report.md", "content": "x"}, "2"),
         AIMessage(content="done"),
     )
     loaded = build_agent(model)
@@ -87,4 +88,4 @@ async def test_run_with_progress_collects_tool_call_names_from_subagents():
     await run_with_progress(
         loaded.graph, {"messages": [HumanMessage("q")]}, context=ctx(), tool_calls=calls
     )
-    assert calls == ["task", "web_search"]
+    assert calls == ["task", "web_search", "write_file"]

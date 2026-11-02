@@ -14,6 +14,8 @@ from langchain.agents.middleware import (
 )
 from langchain.tools import BaseTool
 
+from .require_output import RequireOutputMiddleware
+
 # "url" is deliberately absent: redacting URLs would strip citations from answers.
 _PII_TYPES = ("email", "credit_card", "ip", "mac_address")
 _PII_STRATEGIES = ("block", "redact", "mask", "hash")
@@ -155,3 +157,10 @@ def pii(
         apply_to_tool_results=apply_to_tool_results,
     )
     return mw
+
+
+def require_output(ctx: BuildContext, *, path: str, max_nudges: int = 2) -> AgentMiddleware:
+    if not path.startswith("/"):
+        raise ConfigError(f"require_output path must be absolute, got {path!r}")
+    _required_positive("max_nudges", max_nudges)
+    return RequireOutputMiddleware(path, max_nudges=max_nudges)

@@ -116,7 +116,25 @@ A model whose keys are missing is skipped. Record each result in `docs/phase0-re
 | `agentkit-deep` | `build_deep_agent` factory, scripted fake model for tests |
 | `agentkit-evals` | dataset, citation checks, openevals LLM judge, runner |
 | `agentkit-config` | declarative `agent.yaml` loader (`load_agent`), libraries of prompts, skills, subagents |
+| `agentkit-persistence` | encrypted Postgres checkpoints and store (`open_persistence`), `thread_lock`, `agentkit-prune` |
+| `agentkit-telemetry` | tenant-tagged OTel tracing, `CostLedger` (`agentkit_usage`) |
 | `apps/research_agent` | `agent.yaml`, `research` and `research-eval` CLIs |
+| `deploy/` | dev Postgres + collector (`compose.dev.yaml`), per-tenant stamp (`compose.yaml`, `tenants/`) |
+
+## Per-tenant deployments
+
+Each tenant gets its own deployment: compose project `agentkit-<tenant>` with its own Postgres volume,
+collector, ports, database password and AES key. Nothing is shared. Needs Docker.
+
+```bash
+make stamp TENANT=tenant-a        # writes deploy/tenants/tenant-a.env once (git-ignored), starts it, sets up the DB
+scripts/tenant_env.sh tenant-a uv run research "your question" --tenant tenant-a --persist
+make contract TENANT=tenant-a     # contract suite against the tenant's database
+make phase0-exit                  # stamps tenant-a and tenant-b and proves they are separated
+make unstamp TENANT=tenant-a      # stop it and delete its database (keeps the env file and key)
+```
+
+Details, including Langfuse forwarding and what stays plaintext at rest, are in `deploy/README.md`.
 
 ## Extending
 
@@ -148,5 +166,10 @@ Web search defaults to DuckDuckGo (operator's call, 2026-11-02) after Tavily ret
 every call in the declarative re-run. The live eval re-run with DuckDuckGo is recorded in
 `docs/phase0-results.md`.
 
-**Phase 0b** (persistence, telemetry, tenant context, per-tenant stamps) is planned in
-`docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md` and not started.
+**Phase 0b** (plan: `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md`) is delivered except
+its last live run. Done: the upstream contract suite (`pytest -m contract`, `-m pg`), a validated
+`PlatformContext` with `TenantGuard` on every run, encrypted Postgres persistence and memory tiers behind
+`--persist`, tenant-tagged tracing and a per-run cost ledger, and per-tenant stamps.
+`make phase0-exit` passes offline (scripted models): two stamped tenants, each with its own database and
+collector, and neither tenant's spans or rows appear in the other's. Still open: the live research run
+against a stamped tenant (Phase 0b Task 7).

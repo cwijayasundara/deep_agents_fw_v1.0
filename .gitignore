@@ -12,3 +12,7 @@ evidence/**/status.txt
 
 # Local trace collector output (deploy/compose.dev.yaml, profile tracing)
 deploy/otel-out/
+
+# Per-tenant stamps: real tenant env files hold AES keys (only example.env is committed)
+deploy/tenants/*.env
+!deploy/tenants/example.env

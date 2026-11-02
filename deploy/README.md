@@ -10,6 +10,53 @@
   docker compose -p agentkit-dev -f deploy/compose.dev.yaml down -v
   ```
 
+## One deployment per tenant
+
+`compose.yaml` is the per-tenant stamp: Postgres (own named volume) plus a trace collector
+(`otel-collector.yaml`, own JSONL file). Each tenant runs it as compose project `agentkit-<tenant>`,
+so containers, network, volume, host ports, database password, AES key and collector are all its
+own; nothing is shared. Always start it through the stamp script:
+
+```bash
+make stamp TENANT=tenant-a      # = scripts/stamp_tenant.sh tenant-a
+```
+
+The first stamp writes `deploy/tenants/tenant-a.env` (shape: `tenants/example.env`; git-ignored,
+mode 600): a fresh 32-character `LANGGRAPH_AES_KEY`, a fresh database password, and two free host
+ports from 55500 up (never 15432/16379, never a port another tenant file holds; set `STAMP_PG_PORT`
+/ `STAMP_OTLP_PORT` to choose). Later stamps reuse the file unchanged, start the project if needed,
+and re-run the setup (`setup: no new migrations`). Back the env file up: it is the only copy of
+the tenant's key.
+
+Run anything as a tenant with `scripts/tenant_env.sh <tenant> <command>`, which exports the
+tenant's `AGENTKIT_TENANT`, `DATABASE_URL`, `LANGGRAPH_AES_KEY` and `OTEL_EXPORTER_OTLP_ENDPOINT`
+over the shell's. `AGENTKIT_TENANT` must not be set in the repo `.env` (it would win over every
+stamp; the helper refuses).
+
+```bash
+scripts/tenant_env.sh tenant-a uv run research "question" --tenant tenant-a --persist
+scripts/tenant_env.sh tenant-a uv run python scripts/smoke.py --persist --trace --tenant tenant-a
+make contract TENANT=tenant-a   # contract suite (incl. pg contracts) against the tenant's DB
+make phase0-exit                # stamps tenant-a + tenant-b and proves the separation
+make unstamp TENANT=tenant-a    # docker compose down -v: deletes the DB; keeps the env file
+```
+
+`make contract` writes the contract suite's own test threads and store items into the tenant's
+database (under the suite's fixed test key); run it on test tenants, not on one holding real data.
+
+Spans land in `deploy/otel-out/<tenant>/spans.jsonl` (git-ignored). To forward a tenant's spans to
+its own Langfuse project as well, set `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and
+`LANGFUSE_HOST` in its env file and stamp again: the script then adds the `otlp_http/langfuse`
+exporter to the collector pipeline (`AGENTKIT_OTEL_EXPORTERS`), with the endpoint
+`$LANGFUSE_HOST/api/public/otel` and Basic auth from the two keys.
+
+`scripts/phase0_exit.sh` (`make phase0-exit`) stamps `tenant-a` and `tenant-b`, checks that they
+share no port or key, runs the contract suite and one scripted, persisted, traced smoke run
+against each, then asserts that each collector file holds spans of its own tenant only (and never
+names the other), and that each database's checkpoints and `agentkit_usage` rows belong to its own
+tenant only. It ends with `phase0 exit: tenant-a OK, tenant-b OK, traces separated` and leaves both
+stamps running.
+
 ## Encryption at rest
 
 `agentkit-persistence` encrypts checkpoint blobs and writes, and store item values (Ruling P7), with
@@ -39,7 +86,7 @@ tail -n 1 deploy/otel-out/spans.jsonl          # one JSON line per exported batc
 ```
 
 Forwarding to Langfuse is configured but off in `otel-collector.dev.yaml` (no keys yet): uncomment
-the `otlphttp/langfuse` exporter and add it to the pipeline.
+the `otlp_http/langfuse` exporter and add it to the pipeline.
 
 Every CLI run is metered by a `CostLedger`: one row per run (tenant, thread, model, input / output /
 cached tokens, Decisions tokens). Without `--persist` the CLIs print a one-line `usage:` total; with

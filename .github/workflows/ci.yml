@@ -11,3 +11,27 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: make lint
       - run: make test
+  pg-contracts:
+    # The `pg` contracts (and other `pg` tests) against a real Postgres; they skip without one.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: agentkit
+          POSTGRES_PASSWORD: agentkit
+          POSTGRES_DB: agentkit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U agentkit -d agentkit"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      AGENTKIT_TEST_DATABASE_URL: postgresql://agentkit:agentkit@127.0.0.1:5432/agentkit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: make sync
+      - run: uv run pytest -m pg -rs

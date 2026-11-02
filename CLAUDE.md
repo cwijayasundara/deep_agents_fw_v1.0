@@ -11,7 +11,9 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   `apps/research_agent/agent.yaml` built via `agentkit-config` `load_agent` (CLIs take `--agent`/`--model`). Then Phase 0b.
 - Phase 0b (report's Phase 0 foundations: contracts, PlatformContext, encrypted Postgres persistence, memory
   tiers, telemetry + cost ledger, per-tenant stamps): `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md`.
-  Planned, not started (after declarative agents). Phase 0 is complete when that plan closes.
+  Delivered (Tasks 1-6 on branch `phase0b`; `make phase0-exit` passes with scripted models) except Task 7's
+  live research run against a stamped tenant. Per-tenant stamps: `make stamp TENANT=<t>` (`deploy/README.md`).
+  Phase 0 is complete when that plan closes.
 - Web search defaults to DuckDuckGo (no key); Tavily is opt-in via `web_search: {backend: tavily}`.
 - Providers to support: OpenAI, Gemini, Anthropic, Fireworks (deepseek-v4p1-flash-1017,
   glm-5p3-flash, minimax-m3p1-flash). Model/tool selection via OpenAI Decisions API (`gpt-6-luna`).

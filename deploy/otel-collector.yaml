@@ -1,0 +1,31 @@
+# Per-tenant trace collector (service `otel-collector` in deploy/compose.yaml); one per compose
+# project agentkit-<tenant>, so no collector ever sees another tenant's spans.
+# Always appends every span batch as one JSON line to /otel-out/spans.jsonl
+# (deploy/otel-out/<tenant>/spans.jsonl on the host). scripts/stamp_tenant.sh adds the Langfuse
+# exporter to the pipeline when the tenant's LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are set.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+
+exporters:
+  file:
+    path: /otel-out/spans.jsonl
+  # Defined always (validated at start), used only when listed in AGENTKIT_OTEL_EXPORTERS.
+  otlp_http/langfuse:
+    endpoint: ${env:LANGFUSE_OTLP_ENDPOINT}
+    headers:
+      Authorization: "Basic ${env:LANGFUSE_OTLP_AUTH}"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      # "[file]" or "[file, otlp_http/langfuse]", set by scripts/stamp_tenant.sh.
+      exporters: ${env:AGENTKIT_OTEL_EXPORTERS}

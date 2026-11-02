@@ -1,0 +1,39 @@
+# One isolated deployment per tenant: Postgres (own volume) + trace collector (own JSONL file).
+# Run it only through scripts/stamp_tenant.sh (`make stamp TENANT=<t>`), which runs it as compose
+# project agentkit-<tenant> with deploy/tenants/<tenant>.env, so each tenant gets its own
+# containers, network, volume, ports, database password, AES key and collector. Nothing is shared.
+#   docker compose -p agentkit-<t> --env-file deploy/tenants/<t>.env -f deploy/compose.yaml ps
+name: agentkit-${AGENTKIT_TENANT:?set AGENTKIT_TENANT}
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: agentkit
+      POSTGRES_PASSWORD: ${AGENTKIT_PG_PASSWORD:?set AGENTKIT_PG_PASSWORD}
+      POSTGRES_DB: agentkit
+    ports:
+      - "127.0.0.1:${AGENTKIT_PG_PORT:?set AGENTKIT_PG_PORT}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1: the image's init-time server listens on the socket only, so TCP means ready.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U agentkit -d agentkit"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.164.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    # Run as the host user so the spans file on the bind mount stays readable by the operator.
+    user: "${AGENTKIT_UID:-0}:${AGENTKIT_GID:-0}"
+    environment:
+      AGENTKIT_OTEL_EXPORTERS: ${AGENTKIT_OTEL_EXPORTERS:-[file]}
+      LANGFUSE_OTLP_ENDPOINT: ${LANGFUSE_OTLP_ENDPOINT:-https://cloud.langfuse.com/api/public/otel}
+      LANGFUSE_OTLP_AUTH: ${LANGFUSE_OTLP_AUTH:-}
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol/config.yaml:ro
+      - ./otel-out/${AGENTKIT_TENANT}:/otel-out
+    ports:
+      - "127.0.0.1:${AGENTKIT_OTLP_PORT:?set AGENTKIT_OTLP_PORT}:4318"
+volumes:
+  pgdata:

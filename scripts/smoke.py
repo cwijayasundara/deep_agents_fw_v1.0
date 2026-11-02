@@ -144,6 +144,8 @@ async def persistent_turn(a: argparse.Namespace, ctx: PlatformContext) -> int:
             else:
                 print(f"thread: {ctx.thread_id}")
             out = await agent.ainvoke({"messages": [HumanMessage(a.say)]}, config, context=ctx)
+    if (trace := trace_id(config)) is not None:
+        print(f"  trace: {trace}")
     said = [str(m.content) for m in out["messages"] if m.type == "human"]
     print(f"  turns on this thread: {said}")
     print(ledger.summary())

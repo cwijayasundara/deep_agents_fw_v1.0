@@ -19,7 +19,7 @@ exporters:
   # this exporter, add it to the traces pipeline below, and set LANGFUSE_OTLP_ENDPOINT
   # (e.g. https://cloud.langfuse.com/api/public/otel) and LANGFUSE_OTLP_AUTH
   # (base64 of "<public key>:<secret key>") in the collector's environment.
-  # otlphttp/langfuse:
+  # otlp_http/langfuse:
   #   endpoint: ${env:LANGFUSE_OTLP_ENDPOINT}
   #   headers:
   #     Authorization: "Basic ${env:LANGFUSE_OTLP_AUTH}"
@@ -29,4 +29,4 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [file]  # add otlphttp/langfuse here to forward
+      exporters: [file]  # add otlp_http/langfuse here to forward

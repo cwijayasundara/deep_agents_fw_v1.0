@@ -1,0 +1,17 @@
+{
+  "agent": "apps/research_agent/agent.yaml",
+  "overrides": {
+    "model": "fireworks-glm"
+  },
+  "model": "fireworks-glm",
+  "tier": "default",
+  "selection": "decisions",
+  "judge": "anthropic",
+  "aggregate": {
+    "citation_validity": 0.9875,
+    "completeness": 0.945,
+    "groundedness": 0.662,
+    "has_citation": 1.0,
+    "completed": 1.0
+  }
+}

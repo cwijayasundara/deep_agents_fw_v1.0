@@ -117,3 +117,21 @@ Evidence: `evidence/declarative/` (reports, `eval.md`, `eval.json`, `agent-ddg.y
 - Log the HTTP status code in search errors.
 - Consider DuckDuckGo as the default for local and eval runs.
 - The researcher subagent cannot switch backend unless the subagent YAML sets it.
+
+## DuckDuckGo default re-run, 2026-11-02
+
+After Tavily failed on every call, web search was switched to DuckDuckGo by default (operator's call). The
+fireworks-glm eval was re-run once through `apps/research_agent/agent.yaml` (judge `anthropic`, 10 questions).
+
+| Metric | Baseline (run 2) | DuckDuckGo default | Delta |
+|---|---|---|---|
+| completed | 1.00 | 1.00 | 0.00 |
+| citation_validity | 0.96 | 0.99 | +0.03 |
+| completeness | 0.97 | 0.94 | -0.03 |
+| groundedness | 0.64 | 0.66 | +0.02 |
+
+**Pass**: no metric is more than 0.10 below the baseline. Search actually ran this time: DuckDuckGo answered 59 of
+105 `web_search` calls (orchestrator 41/71, researcher subagent 18/34); the failures are DuckDuckGo rate limiting
+under the eval's two concurrent questions. `fetch_url` succeeded 121 of 137 times. This closes the open item from
+the declarative re-run: the YAML-built agent is live-verified with working search. Evidence:
+`evidence/ddg-default/eval.md` and `eval.json` (logs are local-only).

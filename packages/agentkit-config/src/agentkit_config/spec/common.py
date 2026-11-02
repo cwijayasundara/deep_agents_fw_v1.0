@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
 from agentkit_config.errors import SpecError, SpecErrors
 
@@ -56,3 +57,39 @@ class ToolRef(BaseModel):
                 raise ValueError(f"params for {name!r} must be a mapping")
             return {"name": name, "params": params}
         return value
+
+
+def format_loc(loc: tuple[int | str, ...]) -> str:
+    """Render a pydantic error location as `nodes.review` / `edges[2]`."""
+    out = ""
+    for part in loc:
+        if isinstance(part, int):
+            out += f"[{part}]"
+        else:
+            out += f".{part}" if out else part
+    return out
+
+
+def to_spec_errors(
+    exc: ValidationError, file: str, tags: frozenset[str] = frozenset()
+) -> SpecErrors:
+    """Convert a ValidationError, dropping union-tag segments named in `tags` from the path."""
+    return SpecErrors(
+        [
+            SpecError(file, format_loc(tuple(p for p in e["loc"] if p not in tags)), e["msg"])
+            for e in exc.errors()
+        ]
+    )
+
+
+def parse_model[M: BaseModel](
+    path: Path,
+    model: type[M],
+    convert: Callable[[ValidationError, str], SpecErrors] = to_spec_errors,
+) -> M:
+    """Load YAML and validate it against `model`; failures become SpecErrors naming the file."""
+    data = load_yaml(path)
+    try:
+        return model.model_validate(data)
+    except ValidationError as exc:
+        raise convert(exc, str(path)) from exc

@@ -6,7 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 from agentkit_config.errors import SpecError, SpecErrors
-from agentkit_config.spec.common import ToolRef, load_yaml
+from agentkit_config.spec.common import ToolRef, format_loc, parse_model
 
 API_VERSION = "agentkit/v1"
 _UNION_TAGS = {"str", "SubAgentSpec"}
@@ -64,16 +64,6 @@ class AgentSpec(_Strict):
     output: str | None = None
 
 
-def _format_loc(loc: tuple[int | str, ...]) -> str:
-    out = ""
-    for part in loc:
-        if isinstance(part, int):
-            out += f"[{part}]"
-        else:
-            out += f".{part}" if out else part
-    return out
-
-
 def _to_spec_errors(exc: ValidationError, file: str) -> SpecErrors:
     errors = exc.errors()
     # A subagent entry is `str | SubAgentSpec`; when the model branch reported problems the
@@ -89,21 +79,13 @@ def _to_spec_errors(exc: ValidationError, file: str) -> SpecErrors:
         if "str" in loc and loc[: loc.index("str")] in model_entries:
             continue
         loc = tuple(p for p in loc if p not in _UNION_TAGS)
-        out.append(SpecError(file, _format_loc(loc), e["msg"]))
+        out.append(SpecError(file, format_loc(loc), e["msg"]))
     return SpecErrors(out)
 
 
-def _parse[M: BaseModel](path: Path, model: type[M]) -> M:
-    data = load_yaml(path)
-    try:
-        return model.model_validate(data)
-    except ValidationError as exc:
-        raise _to_spec_errors(exc, str(path)) from exc
-
-
 def parse_agent(path: Path) -> AgentSpec:
-    return _parse(path, AgentSpec)
+    return parse_model(path, AgentSpec, _to_spec_errors)
 
 
 def parse_subagent(path: Path) -> SubAgentSpec:
-    return _parse(path, SubAgentSpec)
+    return parse_model(path, SubAgentSpec, _to_spec_errors)

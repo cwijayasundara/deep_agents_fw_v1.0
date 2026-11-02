@@ -139,6 +139,7 @@ name = "agentkit-evals"
 version = "0.0.1"
 source = { editable = "packages/agentkit-evals" }
 dependencies = [
+    { name = "agentkit-config" },
     { name = "agentkit-core" },
     { name = "langchain-core" },
     { name = "openevals" },
@@ -148,6 +149,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "agentkit-config", editable = "packages/agentkit-config" },
     { name = "agentkit-core", editable = "packages/agentkit-core" },
     { name = "langchain-core" },
     { name = "openevals" },

@@ -2,7 +2,10 @@
 name = "agentkit-evals"
 version = "0.0.1"
 requires-python = ">=3.12,<3.13"
-dependencies = ["agentkit-core", "openevals", "pydantic", "langchain-core", "pyyaml"]
+dependencies = ["agentkit-core", "agentkit-config", "openevals", "pydantic", "langchain-core", "pyyaml"]
+
+[project.entry-points.pytest11]
+agentkit = "agentkit_evals.pytest_plugin"
 
 [build-system]
 requires = ["hatchling"]

@@ -20,7 +20,8 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   prompt registry (`libraries/prompts/<name>/v<x.y.z>.md`, `labels.yaml`), `agentkit-connectors`
   (`kb_search`, `sql_query`, `agentkit-kb setup|ingest`), single-step evals (`steps.jsonl`, `baseline_steps.json`),
   the pytest plugin (`--agentkit-live`), and the KB pilot `apps/kb_agent` (20-case gate passes; baseline
-  `apps/kb_agent/evals/baseline.json`). Research golden baseline re-recorded 2026-11-02 (token variance).
+  `apps/kb_agent/evals/baseline.json`). Research golden baseline re-recorded 2026-11-02 from an outlier run (297k mean tokens; median 185k):
+  token ceiling ~290k -> ~386k, groundedness reference -0.06; Phase 2: gate a median/trimmed token metric.
   KB runs: both `KB_DATABASE_URL` and `KB_READER_DATABASE_URL` are kb_reader DSNs; admin DSN only for setup/ingest.
   The shipped research agent needs `FIREWORKS_API_KEY` for any `--model` (fallback).
   Open items: P10 thread-to-user binding, P3 primitive state plaintext, AES key rotation/backup;

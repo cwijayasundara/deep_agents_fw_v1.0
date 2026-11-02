@@ -1512,8 +1512,12 @@ change, 25/25 cases, agent `accounts/fireworks/models/glm-5p3-flash`, judge `cla
 validity 0.96, completeness 0.98, groundedness 0.62, has_citation 1.00, source_count_ok 1.00,
 sources_section 1.00, tool_recall 1.00, mean latency 90 s, mean 297k total tokens per case. The previous
 baseline (223k tokens) failed only `mean_total_tokens` (+32.7%), traced to a few outlier cases, not the
-tool descriptions (`docs/phase1b-results.md`). Means move a few points between runs, so read these as one
-sample. A run with a weakened prompt
+tool descriptions (`docs/phase1b-results.md`). The new baseline is itself an outlier sample: 297k is above
+every earlier valid run (209k-268k), while that run's per-case median was 185k (189k mean without the top
+3). Re-recording from it raised the token ceiling from about 290k to about 386k and lowered the
+groundedness `max_drop` reference by 0.06, so the `min` floors are unchanged but the effective gate is
+looser. Phase 2 should gate a median or trimmed token metric over a multi-run baseline. Means move a few
+points between runs, so read these as one sample. A run with a weakened prompt
 (no citations) fails the gate with exit 1 on six metrics. Details, the four failed recording attempts
 and the fixes they led to: `docs/phase1-results.md`. The Phase 0 `smoke.jsonl` baseline was completed
 1.00, citation validity 0.96, completeness 0.97, groundedness 0.64.
@@ -1684,7 +1688,7 @@ agent, flow and subagent. When you rely on a new upstream behaviour, pin it with
 | Tool governance recorded, not enforced | `side_effects`, `identity` and `classification` are listed by `agentkit tools list` but not enforced; tenant policy is checked at build and validate time only (section 6.1). HITL for write tools is Phase 2. |
 | Secrets providers | Connector secrets resolve only `env://VAR`; Vault and cloud secret managers are Phase 2. Only pgvector and Postgres connectors exist (no Qdrant, Weaviate or Pinecone). |
 | `sql_query` one-statement check | Any `;` other than one trailing is refused, even inside a string literal (conservative). The `kb_reader` role is the real wall; never point `KB_READER_DATABASE_URL` at an admin login. On first use the tool refuses a login (`session_user`) or active role (`current_user`) that is or is a member of a superuser, BYPASSRLS or `pg_read_server_files`-style built-in role, or can CREATE in a configured schema, and refuses any login whose active role differs from it (a startup `role` setting). It checks role attributes and memberships, not object grants: an ordinary login granted SELECT on other tables passes and can read them. A passed check is cached for the built tool's lifetime, so a later role change needs a rebuild or restart. |
-| Single-step and gate sampling | Live eval cases are single samples (no pass^k): two single-step cases failed in the recorded baseline and passed in the plugin run minutes later; `mean_total_tokens` is heavy-tailed (`docs/phase1b-results.md`). No VCR replay, judge caching or judge calibration yet. |
+| Single-step and gate sampling | Live eval cases are single samples (no pass^k): two single-step cases failed in the recorded baseline and passed in one further run (the plugin run, minutes later), which cannot tell variance from an intermittent gap; `mean_total_tokens` is heavy-tailed, and the re-recorded research baseline (an outlier at 297k) loosened the token ceiling to about 386k (`docs/phase1b-results.md`). No VCR replay, judge caching or judge calibration yet. |
 | Not built yet | No hosted server (FastAPI or Agent Server), no authentication or identity (OAuth, on-behalf-of), no channels (Slack), no sandboxed code execution or secret proxy, no scheduler, no MCP gateway, no Langfuse prompt sync, no layered or tenant-filtered pools, no online evals. |
 
 ---

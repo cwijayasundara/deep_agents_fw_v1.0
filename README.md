@@ -232,8 +232,10 @@ database (`docs/architecture.md` section 16). Verify changes end to end with the
 Phase 1 is complete (`docs/phase1-results.md`, `docs/phase1b-results.md`): the standard middleware
 stack (fallback, retry, call and tool budgets, PII, `require_output`), eval gates, `@platform_tool` and
 tenant tool policy, the versioned prompt registry, connectors with `kb_search` / `sql_query`, single-step
-evals, the pytest plugin, and the knowledge-base pilot, whose 20-case gate passes. Gate a change against
-the committed golden baseline:
+evals, the pytest plugin, and the knowledge-base pilot, whose 20-case gate passes. The research golden
+baseline was re-recorded from an outlier run (297k mean tokens per case, median 185k), which loosened the
+token ceiling to about 386k and the groundedness reference by 0.06 (`docs/phase1b-results.md`); Phase 2
+gates a median or trimmed token metric instead. Gate a change against the committed golden baseline:
 
 ```bash
 uv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/golden.jsonl \

@@ -62,13 +62,25 @@ change in the agent. So `apps/research_agent/evals/baseline.json` was re-recorde
 run. It goes through the same checks and the same `Baseline.from_summary` path that `--write-baseline`
 uses, so there was no extra live run (`evidence/phase1b/golden/rerecord.txt`; the previous baseline is
 kept as `evidence/phase1b/golden/baseline_before.json`). Against the new baseline the run gives `gate:
-PASS`. The floors are unchanged.
+PASS`. The `min` floors in `gates.yaml` are unchanged, but the effective gate moved, because the
+`max_drop` and `max_rise` checks are relative to the baseline.
 
 New baseline: citation validity 0.96, completeness 0.98, groundedness 0.62, the four binary metrics
-1.00, mean latency 90 s and 297k mean total tokens. The token gate now allows up to about 386k.
+1.00, mean latency 90 s and 297k mean total tokens.
 
-A concern for Phase 2: one 25-case sample per baseline makes `mean_total_tokens` noisy. A median, or
-pass^k runs, would gate it better.
+**Caveat: the re-record relaxed the gate.** The new baseline is itself an outlier sample.
+
+- **Tokens.** 297k is above every earlier valid full run (209k-268k). Within this run, the per-case
+  median is 185k and the mean without the top 3 cases is 189k; both are below the old 223k mean. The
+  token ceiling (`max_rise` 0.30) went from about 290k to about 386k, so a real 30-70% token
+  regression against a typical run would now pass.
+- **Groundedness.** The `max_drop` reference fell by 0.06 (0.675 to 0.615), so the effective
+  groundedness gate went from 0.575 (0.675 - 0.10) down to the 0.55 floor.
+- **Others.** Citation validity and completeness rose slightly, so their `max_drop` gates tightened
+  by under 0.01.
+
+**Recommendation for Phase 2:** gate a median or trimmed `total_tokens` metric instead of
+`mean_total_tokens`, and record baselines over several runs (pass^k), then re-record.
 
 ## Single-step baseline and the plugin (Step 2)
 
@@ -90,8 +102,9 @@ clears the `step_pass` 0.80 floor.
 | follow-up-needs-new-facts | pass | pass |
 | first-multi-part | pass | pass |
 
-Neither failure repeated: the plugin run, minutes later, passed all 12. These two are model sampling
-variance, not a consistent behaviour gap, so no case was changed.
+Neither failure repeated in one further run: the plugin run, minutes later, passed all 12. Two
+samples cannot tell sampling variance from an intermittent behaviour gap, so no case was changed and
+pass^k runs (Phase 2) are needed to settle it.
 
 - `first-comparison`: the agent sometimes opens a comparison with prose instead of a plan or a search.
 - `write-after-enough-sources`: it sometimes fetches one more source before writing.
@@ -149,8 +162,9 @@ and `completeness` 0.80 went up to 0.76 and 0.87.
 **Two uncited reports in the baseline.** `validate-yaml` and `stamp-tenant` produced correct, judged-
 complete reports with `[n]` markers but no `## Sources` list and no URL, so has_citation,
 sources_section, citation_validity and source_count_ok were 0. The prompt (`kb/answerer@1.0.0`) asks for
-the list. In the gate re-run both cases cited fully (all 20 cases 1.00 on the binary metrics), so this is
-an occasional formatting lapse, not a consistent gap. The cases were not loosened.
+the list. In the gate re-run both cases cited fully (all 20 cases 1.00 on the binary metrics), so the
+lapse did not repeat in one further run; two samples cannot say how often it happens. The cases were
+not loosened.
 
 Compared with the research agent, the KB agent is about 8x faster (11 s against 90 s per case) and uses
 about 13x fewer tokens (22k against 297k). Its groundedness is much higher (0.89 against 0.62): it
@@ -176,7 +190,9 @@ gained `features/kb-agent.md` and plugin and single-step entries in `features/re
 
 ## Open items
 
-- **Research token gate.** One sample per baseline is noisy for `mean_total_tokens`; see Step 1.
+- **Research token gate.** The re-recorded baseline relaxed the token ceiling to about 386k and the
+  groundedness reference by 0.06 (see Step 1). Phase 2: gate a median or trimmed token metric over a
+  multi-run baseline.
 - **Single-step flakiness.** Live single-step cases are single samples. pass^k (k-trial) runs are a
   Phase 2 item.
 - **KB `## Sources` lapses.** The kb agent occasionally omits its `## Sources` list (2/20 in one run, 0/20

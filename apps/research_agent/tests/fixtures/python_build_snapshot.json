@@ -3,12 +3,12 @@
     "SelectionMiddleware",
     "ModelFallbackMiddleware",
     "ModelRetryMiddleware",
+    "RequireOutputMiddleware",
     "ModelCallLimitMiddleware",
     "ToolCallLimitMiddleware",
     "ToolCallLimitMiddleware",
     "PIIMiddleware",
-    "PIIMiddleware",
-    "RequireOutputMiddleware"
+    "PIIMiddleware"
   ],
   "name": "research_agent",
   "skills": null,

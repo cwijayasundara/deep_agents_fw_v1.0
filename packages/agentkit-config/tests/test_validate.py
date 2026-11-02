@@ -227,6 +227,7 @@ def _mwpools() -> CodePools:
                 "model_retry": _mw,
                 "pii": _mw_kw,
                 "tool_call_limit": _mw_kw,
+                "require_output": _mw_kw,
             },
         ),
         Registry("node", {}),
@@ -254,6 +255,12 @@ def test_duplicate_singleton_middleware_is_error(tmp_path: Path) -> None:
         middleware=[CL, {"type": "model_retry"}, {"type": "model_retry", "enabled": False}]
     )
     assert _run_mw(tmp_path, off) == []
+
+
+def test_duplicate_require_output_is_error(tmp_path: Path) -> None:
+    ro = {"type": "require_output", "params": {"path": "/report.md"}}
+    m = _msgs(_run_mw(tmp_path, _agent(middleware=[ro, ro])))
+    assert m["middleware[1]"] == "duplicate middleware 'require_output'"
 
 
 def test_two_pii_types_ok_same_type_error(tmp_path: Path) -> None:

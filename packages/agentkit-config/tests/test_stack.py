@@ -178,3 +178,30 @@ def test_yaml_file_order_no_longer_matters(tmp_path: Path, monkeypatch) -> None:
         "ModelRetryMiddleware",
         "ModelCallLimitMiddleware",
     ]
+
+
+CTX = {
+    "tenant": "default",
+    "product": "agentkit",
+    "team": "platform",
+    "user_id": "local",
+    "agent_name": "demo",
+    "agent_version": "0",
+}
+REQUIRE = "{type: require_output, params: {path: /report.md}}"
+
+
+async def test_nudged_calls_count_against_the_call_limit(tmp_path: Path) -> None:
+    """A model that only replies in text gets nudged; every nudged call is still in budget."""
+    model = scripted(*[AIMessage(f"Let me look into it ({i}).") for i in range(10)])
+    p = _agent(tmp_path, [REQUIRE, "{type: call_limit, params: {max_model_calls: 2}}"])
+    loaded = load_agent(
+        p,
+        settings=SETTINGS,
+        library=Library.from_roots([tmp_path], CodePools.from_entry_points()),
+        model=model,
+    )
+    await loaded.graph.ainvoke(
+        {"messages": [HumanMessage("hi")]}, context={**CTX, "thread_id": "t3"}
+    )
+    assert len(model.bound) == 2

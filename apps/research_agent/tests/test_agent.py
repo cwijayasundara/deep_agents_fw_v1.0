@@ -704,16 +704,16 @@ def test_shipped_agent_has_standard_stack():
         model=scripted(AIMessage(content="x")),
     )
     names = [type(m).__name__ for m in kw["middleware"]]
-    assert names[-9:] == [
+    assert names == [
         "SelectionMiddleware",
         "ModelFallbackMiddleware",
         "ModelRetryMiddleware",
+        "RequireOutputMiddleware",
         "ModelCallLimitMiddleware",
         "ToolCallLimitMiddleware",
         "ToolCallLimitMiddleware",
         "PIIMiddleware",
         "PIIMiddleware",
-        "RequireOutputMiddleware",
     ]
     (sub,) = kw["subagents"]
     # YAML lists call_limit before model_retry; canonical order puts retry first

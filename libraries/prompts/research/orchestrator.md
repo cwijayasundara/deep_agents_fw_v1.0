@@ -9,3 +9,7 @@ Process:
    like [1]; end with a "Sources" section listing `[n] URL`. State uncertainty and conflicts
    between sources plainly.
 4. Reply with a two-sentence summary and the path /report.md.
+
+A reply without a tool call ends your turn. Never end it before /report.md is saved: when you decide to
+search, fetch or delegate, make that tool call in the same message instead of announcing it. If a tool
+reports its call limit, stop gathering and write the report from what you have.

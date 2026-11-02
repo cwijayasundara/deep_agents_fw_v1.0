@@ -9,11 +9,13 @@ from .duckduckgo import DuckDuckGoSearch
 from .fetch import HttpFetch
 from .langchain_tools import make_fetch_tool, make_web_search_tool
 from .models import SearchTool
+from .platform import platform_tool
 from .tavily import TavilySearch
 
 BACKENDS = ("tavily", "duckduckgo")
 
 
+@platform_tool(owner="platform", version="1.0.0", side_effects="external", classification="public")
 def web_search(
     ctx: BuildContext, *, backend: Literal["tavily", "duckduckgo"] = "duckduckgo"
 ) -> BaseTool:
@@ -31,5 +33,6 @@ def web_search(
     return make_web_search_tool(search)
 
 
+@platform_tool(owner="platform", version="1.0.0", side_effects="external", classification="public")
 def fetch_url(ctx: BuildContext, *, max_chars: int = 20_000) -> BaseTool:
     return make_fetch_tool(HttpFetch(max_chars=max_chars))

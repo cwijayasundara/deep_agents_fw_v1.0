@@ -72,6 +72,30 @@ Live evals should run one config at a time.
 Evidence: `evidence/t9/run1/`, `evidence/t9/run2/` (Markdown and JSON per config) and
 `evidence/t9/decisions-response*.json`. Raw run logs are kept locally and are not committed.
 
+## Declarative re-run (agent.yaml), 2026-11-02
+
+T9 re-run with the agent built from `apps/research_agent/agent.yaml` via `load_agent`, `fireworks-glm` only
+(`uv run research-eval --model fireworks-glm --judge anthropic`, default concurrency, one run).
+
+| Run | Completed | Citation validity | Completeness | Groundedness |
+|---|---|---|---|---|
+| Baseline (run 2, Python-built) | 1.00 | 0.96 | 0.97 | 0.64 |
+| Declarative (agent.yaml) | 1.00 | 0.96 | 0.96 | 0.65 |
+| Delta | 0.00 | 0.00 | -0.01 | +0.01 |
+
+Pass: no metric is more than 0.10 below baseline. All 10 cases completed with a citation (`has_citation` 1.00).
+The weakest case was `llm-judge` (citation validity 0.62), as noise within baseline variation.
+
+Single-question runs ("What is the Model Context Protocol?"):
+
+- Tavily (`evidence/declarative/glm.md`): pass. 12 lines with `[n]` citations, a Sources section, log shows
+  `selection=decisions` and "Decisions API: asking 3 questions (gpt-6-luna)". 25.9s.
+- DuckDuckGo (`evidence/declarative/agent-ddg.yaml`, name `research_agent_ddg`, `web_search: {backend: duckduckgo}`
+  on the orchestrator; `evidence/declarative/glm-ddg.md`): pass. 19 lines with citations, no rate limiting, 31.2s.
+  The `researcher` subagent comes from the shared library and still uses Tavily (subagent tools replace the parent's).
+
+Evidence: `evidence/declarative/` (reports, `eval.md`, `eval.json`, `agent-ddg.yaml`). Logs are git-ignored.
+
 ## Follow-ups
 
 - The declarative-agents plan (`docs/superpowers/plans/2026-11-02-agentkit-declarative-agents-plan.md`)

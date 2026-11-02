@@ -1,0 +1,17 @@
+{
+  "agent": "/Users/chamindawijayasundara/Documents/learning_102/deep_agents_fw_v1.0/apps/research_agent/agent.yaml",
+  "overrides": {
+    "model": "fireworks-glm"
+  },
+  "model": "fireworks-glm",
+  "tier": "default",
+  "selection": "decisions",
+  "judge": "anthropic",
+  "aggregate": {
+    "citation_validity": 0.9615384615384616,
+    "completeness": 0.962,
+    "groundedness": 0.646,
+    "has_citation": 1.0,
+    "completed": 1.0
+  }
+}

@@ -37,7 +37,7 @@ def test_every_registry_entry_loads_with_model_override():
     for name in ModelRegistry.default().names():
         loaded = load_agent(
             DEFAULT_AGENT,
-            settings=Settings(_env_file=None),
+            settings=Settings(_env_file=None, fireworks_api_key="f"),
             library=lib(),
             overrides={"model": name, "selection": "off"},
             model=scripted(AIMessage(content="x")),
@@ -55,7 +55,7 @@ async def test_end_to_end_report_with_citation():
     )
     loaded = load_agent(
         DEFAULT_AGENT,
-        settings=Settings(_env_file=None),
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
         library=lib(),
         overrides={"model": "anthropic", "selection": "off"},
         model=model,
@@ -71,14 +71,20 @@ def test_decisions_selection_requires_openai_key():
     with pytest.raises(ConfigError, match="OPENAI_API_KEY"):
         load_agent(
             DEFAULT_AGENT,
-            settings=Settings(_env_file=None, tavily_api_key="t"),
+            settings=Settings(_env_file=None, tavily_api_key="t", fireworks_api_key="f"),
             library=lib(),
             overrides={"model": "anthropic"},
         )
 
 
 def test_decisions_selection_builds_with_keys():
-    s = Settings(_env_file=None, tavily_api_key="t", openai_api_key="o", anthropic_api_key="a")
+    s = Settings(
+        _env_file=None,
+        tavily_api_key="t",
+        openai_api_key="o",
+        anthropic_api_key="a",
+        fireworks_api_key="f",
+    )
     loaded = load_agent(DEFAULT_AGENT, settings=s, library=lib(), overrides={"model": "anthropic"})
     assert loaded.graph is not None
 
@@ -94,7 +100,7 @@ def test_unknown_model_override_lists_registry():
     with pytest.raises(SpecErrors, match="anthropic"):
         load_agent(
             DEFAULT_AGENT,
-            settings=Settings(_env_file=None),
+            settings=Settings(_env_file=None, fireworks_api_key="f"),
             library=lib(),
             overrides={"model": "nope"},
         )
@@ -152,7 +158,7 @@ def test_shipped_agent_loads_without_tavily_key(monkeypatch):
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     loaded = load_agent(
         DEFAULT_AGENT,
-        settings=Settings(_env_file=None),
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
         library=lib(CodePools.from_entry_points()),
         overrides={"selection": "off"},
         model=scripted(AIMessage(content="x")),
@@ -335,7 +341,7 @@ def _scripted_cli(monkeypatch, model):
         loaded.append(
             load_agent(
                 path,
-                settings=Settings(_env_file=None),
+                settings=Settings(_env_file=None, fireworks_api_key="f"),
                 library=lib(),
                 overrides={"model": "anthropic", "selection": "off"},
                 model=model,
@@ -605,3 +611,34 @@ def test_eval_checks_the_tenant_up_front_without_persist(
     err = capsys.readouterr().err
     assert "run tenant 'other' != deployment tenant 'default'" in err and "Traceback" not in err
     assert offline_cli == [] and not (tmp_path / "eval_results.md").exists()
+
+
+def test_shipped_agent_has_standard_stack():
+    from agentkit_config.resolve import resolve_agent
+    from agentkit_config.spec import parse_agent
+
+    s = Settings(_env_file=None, openai_api_key="o", anthropic_api_key="a", fireworks_api_key="f")
+    kw = resolve_agent(
+        parse_agent(DEFAULT_AGENT),
+        lib(),
+        ModelRegistry.default(),
+        s,
+        model=scripted(AIMessage(content="x")),
+    )
+    names = [type(m).__name__ for m in kw["middleware"]]
+    assert names[-7:] == [
+        "SelectionMiddleware",
+        "ModelFallbackMiddleware",
+        "ModelRetryMiddleware",
+        "ModelCallLimitMiddleware",
+        "ToolCallLimitMiddleware",
+        "PIIMiddleware",
+        "PIIMiddleware",
+    ]
+    (sub,) = kw["subagents"]
+    # YAML lists call_limit before model_retry; canonical order puts retry first
+    assert [type(m).__name__ for m in sub["middleware"]] == [
+        "ModelRetryMiddleware",
+        "ModelCallLimitMiddleware",
+        "ToolCallLimitMiddleware",
+    ]

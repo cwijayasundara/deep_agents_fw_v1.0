@@ -8,3 +8,10 @@ prompt: research/orchestrator
 tools: [web_search, fetch_url]
 subagents: [researcher]
 output: /report.md
+middleware:
+  - {type: model_fallback, params: {models: ["fireworks-glm:strong"]}}
+  - {type: model_retry, params: {max_retries: 2}}
+  - {type: call_limit, params: {max_model_calls: 60}}
+  - {type: tool_call_limit, params: {run_limit: 40}}
+  - {type: pii, params: {type: email}}
+  - {type: pii, params: {type: credit_card, strategy: mask}}

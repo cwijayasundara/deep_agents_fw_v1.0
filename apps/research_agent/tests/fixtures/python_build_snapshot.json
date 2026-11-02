@@ -1,6 +1,12 @@
 {
   "middleware": [
-    "SelectionMiddleware"
+    "SelectionMiddleware",
+    "ModelFallbackMiddleware",
+    "ModelRetryMiddleware",
+    "ModelCallLimitMiddleware",
+    "ToolCallLimitMiddleware",
+    "PIIMiddleware",
+    "PIIMiddleware"
   ],
   "name": "research_agent",
   "skills": null,

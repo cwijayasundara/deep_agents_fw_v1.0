@@ -117,3 +117,14 @@ async def test_cli_from_other_cwd(tmp_path, monkeypatch):
     monkeypatch.setattr(cli, "run_with_progress", fake_run)
     assert await cli.run("q", str(DEFAULT_AGENT), {}) == "# r"
     assert built["name"] == "research_agent"
+
+
+def test_cli_bad_model_exits_2_with_error_text(monkeypatch, capsys):
+    from research_agent import cli
+
+    monkeypatch.setattr("sys.argv", ["research", "q", "--model", "nope"])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "nope" in err and "anthropic" in err and "Traceback" not in err

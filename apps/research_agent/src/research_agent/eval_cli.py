@@ -13,7 +13,7 @@ from agentkit_core import ModelRegistry, Settings, get_model
 from agentkit_evals import LLMJudge, RunResult, aggregate, load_dataset, run_eval, to_markdown
 from langchain_core.messages import HumanMessage
 
-from .agent import add_agent_args, overrides_from
+from .agent import add_agent_args, exit_on_spec_errors, overrides_from
 from .progress import run_with_progress, setup_logging
 
 log = logging.getLogger("research_agent")
@@ -23,8 +23,8 @@ async def evaluate(
     agent_path: str | Path, overrides: Mapping[str, str], dataset: str, judge_entry: str
 ) -> tuple[str, dict[str, Any]]:
     settings = Settings()
-    judge = LLMJudge(get_model(ModelRegistry.default().resolve(judge_entry, "strong"), settings))
     first = load_agent(agent_path, settings=settings, overrides=overrides)  # fail fast on bad specs
+    judge = LLMJudge(get_model(ModelRegistry.default().resolve(judge_entry, "strong"), settings))
     spec = first.model_spec
     log.info(
         "agent %s -> %s %s (tier=%s, selection=%s)",
@@ -61,7 +61,7 @@ async def evaluate(
     return md, summary
 
 
-def main() -> None:
+def _main() -> None:
     p = argparse.ArgumentParser(prog="research-eval")
     add_agent_args(p)
     p.add_argument("--dataset", default="apps/research_agent/evals/smoke.jsonl")
@@ -75,3 +75,7 @@ def main() -> None:
     a.out.write_text(md)
     a.out.with_suffix(".json").write_text(json.dumps(summary, indent=2))
     print(md)
+
+
+def main() -> None:
+    exit_on_spec_errors(_main)

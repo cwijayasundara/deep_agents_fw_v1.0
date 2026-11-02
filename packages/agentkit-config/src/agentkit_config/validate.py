@@ -174,7 +174,7 @@ def validate_agent(
     out += _tool_errors(c, "", spec.tools)
     out += _skill_errors(c, "", spec.skills, spec.tools)
     out += _middleware_errors(c, "", spec.middleware)
-    if spec.output is not None and not spec.output.startswith("/"):  # "/x" is a result file
-        out += _schema_errors(c, "", "output", spec.output)
+    if spec.output is not None and not spec.output.startswith("/"):
+        out.append(c.err("output", "output must be an absolute file path like /report.md"))
     out += _subagent_errors(c, spec)
     return out

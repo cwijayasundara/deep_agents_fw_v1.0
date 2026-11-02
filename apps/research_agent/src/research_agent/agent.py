@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Mapping
+import sys
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from agentkit_config import read_output
+from agentkit_config import SpecErrors, read_output
 
 DEFAULT_AGENT = Path(__file__).parents[2] / "agent.yaml"
 
@@ -21,4 +22,20 @@ def overrides_from(a: argparse.Namespace) -> Mapping[str, str]:
     return {k: v for k, v in out.items() if v is not None}
 
 
-__all__ = ["DEFAULT_AGENT", "add_agent_args", "overrides_from", "read_output"]
+def exit_on_spec_errors(main: Callable[[], None]) -> None:
+    """Run a CLI main; print load-time spec errors one per line to stderr and exit 2."""
+    try:
+        main()
+    except SpecErrors as e:
+        for err in e.errors:
+            print(err, file=sys.stderr)
+        raise SystemExit(2) from None
+
+
+__all__ = [
+    "DEFAULT_AGENT",
+    "add_agent_args",
+    "exit_on_spec_errors",
+    "overrides_from",
+    "read_output",
+]

@@ -37,7 +37,7 @@ current directory. Each step below costs real tokens except step 1.
 ### 1. Check the offline build
 
 ```bash
-make test        # expect: 144 passed, 7 deselected
+make test        # expect: 145 passed, 7 deselected
 make lint        # expect: no ruff or mypy errors
 ```
 
@@ -126,7 +126,7 @@ A model whose keys are missing is skipped. Record each result in `docs/phase0-re
 
 ## Status
 
-Done: T1-T9. There are 66 offline tests. T9 passed live on 2026-11-02. All six model ids answer a live call,
+Done: T1-T9. There are 145 offline tests. T9 passed live on 2026-11-02. All six model ids answer a live call,
 two real Decisions responses are now test fixtures, and the research agent runs end to end with Decisions
 and Tavily. Results and eval scores are in `docs/phase0-results.md`.
 

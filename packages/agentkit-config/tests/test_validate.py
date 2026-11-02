@@ -113,9 +113,8 @@ def test_pool_subagent_is_validated(tmp_path: Path) -> None:
 
 
 def test_unknown_middleware_and_schema(tmp_path: Path) -> None:
-    m = _msgs(_run(tmp_path, _agent(middleware=[{"type": "zzz"}], output="Nope")))
+    m = _msgs(_run(tmp_path, _agent(middleware=[{"type": "zzz"}])))
     assert "call_limit" in m["middleware[0]"]
-    assert "Report" in m["output"]
 
 
 def test_unknown_response_schema_in_subagent(tmp_path: Path) -> None:
@@ -187,14 +186,12 @@ def test_no_code_pools_is_an_error_not_a_skip(tmp_path: Path) -> None:
     spec = _agent(
         tools=["t1"],
         middleware=[{"type": "call_limit"}],
-        output="Report",
         subagents=[_sub(tools=["t2"])],
     )
     m = _msgs(validate_agent(spec, lib, MODELS, file="a.yaml"))
     assert set(m) == {
         "tools[0]",
         "middleware[0]",
-        "output",
         "subagents[0].tools[0]",
         "subagents[0].response_schema",
     }
@@ -207,5 +204,7 @@ def test_subagent_unknown_model_and_tier(tmp_path: Path) -> None:
     assert "fast" in m["subagents[0].tier"]
 
 
-def test_output_file_path_is_not_a_schema_name(tmp_path: Path) -> None:
+def test_output_must_be_an_absolute_file_path(tmp_path: Path) -> None:
     assert "output" not in _msgs(_run(tmp_path, _agent(output="/report.md")))
+    m = _msgs(_run(tmp_path, _agent(output="report")))
+    assert m["output"] == "output must be an absolute file path like /report.md"

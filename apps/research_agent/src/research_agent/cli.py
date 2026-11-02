@@ -10,7 +10,7 @@ from agentkit_config import load_agent, read_output
 from agentkit_core import Settings
 from langchain_core.messages import HumanMessage
 
-from .agent import add_agent_args, overrides_from
+from .agent import add_agent_args, exit_on_spec_errors, overrides_from
 from .progress import run_with_progress, setup_logging
 
 log = logging.getLogger("research_agent")
@@ -40,7 +40,7 @@ async def run(question: str, agent_path: str | Path, overrides: Mapping[str, str
     return report
 
 
-def main() -> None:
+def _main() -> None:
     p = argparse.ArgumentParser(prog="research")
     p.add_argument("question")
     add_agent_args(p)
@@ -53,3 +53,7 @@ def main() -> None:
     a.out.write_text(report)
     log.info("wrote %s (%d chars)", a.out, len(report))
     print(f"wrote {a.out}")
+
+
+def main() -> None:
+    exit_on_spec_errors(_main)

@@ -10,6 +10,11 @@
   docker compose -p agentkit-dev -f deploy/compose.dev.yaml down -v
   ```
 
+  **Never point `AGENTKIT_TEST_DATABASE_URL` at a real tenant database for `pytest -m pg`.** The
+  package pg tests write rows and create and drop throwaway schemas; run them against the dev
+  database only. `make contract` / `scripts/phase0_exit.sh` aim it at a tenant database on purpose
+  and run only `contracts/`, which writes test threads under fresh ids and drops nothing.
+
 ## One deployment per tenant
 
 `compose.yaml` is the per-tenant stamp: Postgres (own named volume) plus a trace collector
@@ -76,7 +81,9 @@ Prune idle threads with `uv run agentkit-prune --older-than 30d` (needs `DATABAS
 Tracing is off unless `OTEL_EXPORTER_OTLP_ENDPOINT` is set. `agentkit-telemetry` then emits
 Langfuse-shaped OTel spans (resource `agentkit.tenant`, span `user.id`, `session.id`,
 `langfuse.trace.metadata.*`) to that collector only. Prompt and completion text is dropped at export
-unless `AGENTKIT_TRACE_PAYLOADS=1`. `LANGSMITH_TRACING` is never set. A dead collector costs one
+unless `AGENTKIT_TRACE_PAYLOADS=1`. Error text is masked too: exception messages, stack traces and
+status descriptions (including an error tool message's content) are replaced, and only the
+exception type name (e.g. `ValueError`) is kept. `LANGSMITH_TRACING` is never set. A dead collector costs one
 warning line; spans are dropped, the run is not affected.
 
 ```bash

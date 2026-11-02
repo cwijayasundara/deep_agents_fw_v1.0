@@ -1,6 +1,8 @@
 """Shared fixtures for the persistence tests.
 
 `pg` tests use AGENTKIT_TEST_DATABASE_URL and skip (naming that variable) when it is unset.
+WARNING: never point AGENTKIT_TEST_DATABASE_URL at a real tenant database for `pytest -m pg`;
+these tests write test data. Use the agentkit-dev database (deploy/README.md).
 """
 
 from __future__ import annotations

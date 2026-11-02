@@ -1,7 +1,9 @@
 import asyncio
 import json
+import os
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -13,6 +15,8 @@ from agentkit_middleware.tenant_guard import TenantMismatch
 from agentkit_telemetry import CostLedger, UsageRow, run_config, setup
 from langchain.tools import tool
 from langchain_core.messages import AIMessage, HumanMessage
+from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
 
 FIXTURE = (
     Path(__file__).parents[2]
@@ -137,9 +141,31 @@ async def test_rows_are_written_to_postgres(persistence):
 
 @pytest.mark.pg
 async def test_concurrent_first_setup_is_safe(persistence):
+    """Runs in a throwaway schema: never drop the real `agentkit_usage` (the test database URL
+    may point at a database that holds a real ledger)."""
+    schema = f"t_{uuid.uuid4().hex}"
+    url = os.environ["AGENTKIT_TEST_DATABASE_URL"]
     async with persistence.pool.connection() as conn:
-        await conn.execute("drop table if exists agentkit_usage")
-    await asyncio.gather(*(setup(persistence) for _ in range(6)))
-    async with persistence.pool.connection() as conn:
-        cur = await conn.execute("select to_regclass('agentkit_usage') is not null as ok")
-        assert (await cur.fetchone())["ok"]
+        await conn.execute(f"create schema {schema}")
+    try:
+        async with AsyncConnectionPool(
+            url,
+            min_size=1,
+            max_size=6,
+            open=False,
+            kwargs={
+                "autocommit": True,
+                "row_factory": dict_row,
+                "options": f"-c search_path={schema}",
+            },
+        ) as pool:
+            scratch = SimpleNamespace(pool=pool)
+            await asyncio.gather(*(setup(scratch) for _ in range(6)))  # type: ignore[arg-type]
+            async with pool.connection() as conn:
+                cur = await conn.execute(
+                    "select to_regclass(%s) is not null as ok", (f"{schema}.agentkit_usage",)
+                )
+                assert (await cur.fetchone())["ok"]
+    finally:
+        async with persistence.pool.connection() as conn:
+            await conn.execute(f"drop schema {schema} cascade")

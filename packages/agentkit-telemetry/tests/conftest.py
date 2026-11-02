@@ -1,6 +1,9 @@
 """Shared fixtures: an in-memory span exporter behind `configure_tracing`, and pg settings.
 
 `pg` tests use AGENTKIT_TEST_DATABASE_URL and skip (naming that variable) when it is unset.
+WARNING: never point AGENTKIT_TEST_DATABASE_URL at a real tenant database for `pytest -m pg`;
+these tests write rows and create/drop throwaway schemas. Use the agentkit-dev database
+(deploy/README.md).
 """
 
 from __future__ import annotations

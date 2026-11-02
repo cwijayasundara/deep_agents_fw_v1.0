@@ -11,13 +11,18 @@ def _ctx(**env: str) -> BuildContext:
     return BuildContext(settings, ModelRegistry.default().resolve(), "agent")
 
 
-def test_web_search_requires_tavily_key():
+def test_web_search_defaults_to_duckduckgo_without_key():
+    # DuckDuckGo is the default backend: no key needed (operator's call, 2026-11-02)
+    assert web_search(_ctx()).name == "web_search"
+
+
+def test_web_search_tavily_requires_key():
     with pytest.raises(ConfigError, match="TAVILY_API_KEY is required"):
-        web_search(_ctx())
+        web_search(_ctx(), backend="tavily")
 
 
 def test_web_search_tavily_builds_with_key():
-    assert web_search(_ctx(tavily_api_key="k")).name == "web_search"
+    assert web_search(_ctx(tavily_api_key="k"), backend="tavily").name == "web_search"
 
 
 def test_web_search_duckduckgo_needs_no_key():

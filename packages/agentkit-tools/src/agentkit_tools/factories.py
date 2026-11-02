@@ -15,8 +15,9 @@ BACKENDS = ("tavily", "duckduckgo")
 
 
 def web_search(
-    ctx: BuildContext, *, backend: Literal["tavily", "duckduckgo"] = "tavily"
+    ctx: BuildContext, *, backend: Literal["tavily", "duckduckgo"] = "duckduckgo"
 ) -> BaseTool:
+    """Web search tool. DuckDuckGo (no key) is the default; `backend: tavily` needs a key."""
     search: SearchTool
     if backend == "tavily":
         key = ctx.settings.tavily_api_key

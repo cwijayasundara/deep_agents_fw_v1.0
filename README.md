@@ -12,7 +12,7 @@ make test                   # uv sync (pinned via constraints.txt) + offline tes
 make lint                   # ruff + mypy
 ```
 
-Run the research agent (needs the chosen provider's key plus `TAVILY_API_KEY`):
+Run the research agent (needs the chosen provider's key; web search uses DuckDuckGo and needs no key):
 
 ```bash
 UV_CONSTRAINT=constraints.txt uv run research "your question"
@@ -52,16 +52,14 @@ Each run needs these keys.
 
 | What you run | Keys it needs |
 |---|---|
-| The shipped `apps/research_agent/agent.yaml` | `TAVILY_API_KEY`, `OPENAI_API_KEY` (it sets `selection: decisions`), and the provider's own key |
-| Any run with `--no-selection` | `TAVILY_API_KEY` and the provider's own key |
+| The shipped `apps/research_agent/agent.yaml` | `OPENAI_API_KEY` (it sets `selection: decisions`) and the provider's own key |
+| Any run with `--no-selection` | The provider's own key |
 | `research-eval` | The above, plus the key of the `--judge` entry (default `anthropic`) |
 
 To try a provider without an OpenAI key, pass `--no-selection`. The agent then sees every tool and stays on
-the configured tier. To search without a Tavily key, set `backend: duckduckgo` on the `web_search` tool
-(`tools: [{web_search: {backend: duckduckgo}}, fetch_url]`). A subagent's `tools` replace the parent's, so the
-subagent needs the same backend: use the shipped `researcher_ddg` subagent (`subagents: [researcher_ddg]`)
-together with the parent change. With only the parent changed, the default `researcher` still asks for Tavily
-and the build fails with `TAVILY_API_KEY is required`.
+the configured tier. Web search defaults to DuckDuckGo (no key). To use Tavily instead, set
+`tools: [{web_search: {backend: tavily}}, fetch_url]` and `TAVILY_API_KEY`. A subagent's `tools` replace the
+parent's, so set the backend on each subagent too (the shipped `researcher` uses the default).
 
 ### 3. Check that each model answers
 
@@ -113,7 +111,7 @@ A model whose keys are missing is skipped. Record each result in `docs/phase0-re
 | Package | Purpose |
 |---|---|
 | `agentkit-core` | settings, model registry (`models.yaml`), `get_model` |
-| `agentkit-tools` | Tavily search, HTTP fetch, LangChain tool wrappers |
+| `agentkit-tools` | web search (DuckDuckGo default, Tavily optional), HTTP fetch, tool pool factories |
 | `agentkit-middleware` | retry/backoff + circuit breaker, per-thread `SelectionMiddleware` |
 | `agentkit-deep` | `build_deep_agent` factory, scripted fake model for tests |
 | `agentkit-evals` | dataset, citation checks, openevals LLM judge, runner |
@@ -146,9 +144,9 @@ skills, prompts, subagents and middleware from shared pools.
 Spec: `docs/superpowers/specs/2026-11-01-agentkit-declarative-agents-design.md`.
 Plan: `docs/superpowers/plans/2026-11-02-agentkit-declarative-agents-plan.md`.
 
-**Open item:** Tavily returned `HTTPStatusError` on every call in the 2026-11-02 declarative re-run (see
-`docs/phase0-results.md`). Repeat the live eval with working search (check the key and credits) before the
-declarative path counts as live-verified. Search errors now report the HTTP status code.
+Web search defaults to DuckDuckGo (operator's call, 2026-11-02) after Tavily returned `HTTPStatusError` on
+every call in the declarative re-run. The live eval re-run with DuckDuckGo is recorded in
+`docs/phase0-results.md`.
 
 **Phase 0b** (persistence, telemetry, tenant context, per-tenant stamps) is planned in
 `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md` and not started.

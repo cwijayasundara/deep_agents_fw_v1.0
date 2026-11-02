@@ -146,19 +146,13 @@ def test_exit_on_spec_errors_prints_only_errors(capsys):
     assert "bad" in err and "meh" not in err
 
 
-def test_ddg_agent_and_subagent_load_without_tavily_key(tmp_path):
-    agent = tmp_path / "agent.yaml"
-    agent.write_text(
-        "apiVersion: agentkit/v1\nkind: Agent\nname: ddg_agent\nmodel: fireworks-glm\n"
-        "prompt: research/orchestrator\n"
-        "tools: [{web_search: {backend: duckduckgo}}, fetch_url]\n"
-        "subagents: [researcher_ddg]\n"
-    )
-    library = lib(CodePools.from_entry_points())
+def test_shipped_agent_loads_without_tavily_key(monkeypatch):
+    # Search defaults to DuckDuckGo, so the shipped agent and its researcher need no Tavily key.
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     loaded = load_agent(
-        agent,
+        DEFAULT_AGENT,
         settings=Settings(_env_file=None),
-        library=library,
+        library=lib(CodePools.from_entry_points()),
         overrides={"selection": "off"},
         model=scripted(AIMessage(content="x")),
     )

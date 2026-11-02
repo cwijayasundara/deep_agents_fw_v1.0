@@ -1,7 +1,7 @@
 """Opt-in end-to-end run against real providers: `uv run pytest -m live`.
 
 Set RESEARCH_LIVE_MODELS (comma-separated registry entries, default 'fireworks-glm') and the
-matching provider key plus TAVILY_API_KEY.
+matching provider key (search uses DuckDuckGo, no key).
 """
 
 import os
@@ -20,8 +20,6 @@ PRESENT = set(Settings().keys_present())  # reads .env like the CLIs do
 @pytest.mark.live
 @pytest.mark.parametrize("name", NAMES)
 async def test_full_research_run(name):
-    if "TAVILY_API_KEY" not in PRESENT:
-        pytest.skip("TAVILY_API_KEY not set")
     if "OPENAI_API_KEY" not in PRESENT:
         pytest.skip("OPENAI_API_KEY not set (needed for Decisions selection)")
     loaded = load_agent(DEFAULT_AGENT, settings=Settings(), overrides={"model": name})

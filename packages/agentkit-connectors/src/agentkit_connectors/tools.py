@@ -60,8 +60,13 @@ def _kind_problem(name: str, spec: PgVectorSpec | PostgresSpec, tool: str, want:
     return f"connector {name!r} is a {spec.kind} connector; {tool} needs {_KINDS[want]}"
 
 
-def _connector[S: (PgVectorSpec, PostgresSpec)](name: str, tool: str, want: type[S]) -> S:
-    spec = load_connector(name, library_roots())
+def _connector[S: (PgVectorSpec, PostgresSpec)](
+    ctx: BuildContext, name: str, tool: str, want: type[S]
+) -> S:
+    """Resolve through the roots the agent was validated against (`ctx.library_roots`, set by
+    resolve); fall back to cwd / AGENTKIT_LIBRARY_PATH discovery for bare factory calls."""
+    roots = ctx.library_roots if ctx.library_roots is not None else library_roots()
+    spec = load_connector(name, roots)
     if not isinstance(spec, want):
         raise ConfigError(_kind_problem(name, spec, tool, want))
     return spec
@@ -202,7 +207,7 @@ def make_kb_search_tool(kb: KnowledgeBase, *, default_k: int) -> BaseTool:
 @platform_tool(owner="platform", version="1.0.0", side_effects="read", classification="internal")
 def kb_search(ctx: BuildContext, *, connector: str, k: int = 5) -> BaseTool:
     """Semantic search over a pgvector connector's table in schema `kb`."""
-    spec = _connector(connector, "kb_search", PgVectorSpec)
+    spec = _connector(ctx, connector, "kb_search", PgVectorSpec)
     engine = get_engine(EnvSecrets().resolve(spec.dsn))
     kb = PgKb(engine, get_embeddings(spec.embeddings, ctx.settings), spec.collection)
     return make_kb_search_tool(kb, default_k=k)
@@ -232,17 +237,50 @@ class SqlRefused(Exception):
     """A statement refused by the tool or rejected by the database; safe to show the agent."""
 
 
+NOT_READ_ONLY = "sql_query connector must log in as a read-only role (e.g. kb_reader)"
+
+# Any row means the login could escape a READ ONLY transaction (COPY TO PROGRAM,
+# pg_read_file, ...) or write DDL into a configured schema.
+_PRIVILEGE_CHECK = """
+select 1 from pg_roles r where r.rolname = current_user and (r.rolsuper or r.rolbypassrls)
+union all
+select 1 from unnest(array['pg_execute_server_program', 'pg_read_server_files',
+                           'pg_write_server_files', 'pg_read_all_data']) as g(name)
+  where to_regrole(g.name) is not null and pg_has_role(current_user, g.name, 'member')
+union all
+select 1 from unnest(cast(:schemas as text[])) as s(name)
+  where exists (select 1 from pg_namespace n where n.nspname = s.name)
+    and has_schema_privilege(current_user, s.name, 'CREATE')
+limit 1
+"""
+
+
 class PgSql:
-    """Runs one statement per call in a rolled-back READ ONLY transaction."""
+    """Runs one statement per call in a rolled-back READ ONLY transaction.
+
+    Before the first statement it checks (once per runner, i.e. per connector engine) that the
+    login is a low-privilege role, and refuses to run anything otherwise."""
 
     def __init__(
         self, engine: PGEngine, *, schemas: Sequence[str], timeout_ms: int, fetch: int
     ) -> None:
         self._engine, self._fetch = engine, fetch
         self._timeout_ms = int(timeout_ms)
+        self._schemas = list(schemas)
         self._path = ", ".join(_quote_ident(s) for s in schemas)
+        self._role_ok = False
+
+    async def _check_role(self, pool: AsyncEngine) -> None:
+        async with pool.connect() as conn:
+            row = (await conn.execute(text(_PRIVILEGE_CHECK), {"schemas": self._schemas})).first()
+            await conn.rollback()
+        if row is not None:
+            raise SqlRefused(NOT_READ_ONLY)
 
     async def _work(self, pool: AsyncEngine, sql: str) -> QueryResult:
+        if not self._role_ok:
+            await self._check_role(pool)
+            self._role_ok = True
         async with pool.connect() as conn:
             try:
                 # The first execute autobegins the transaction; READ ONLY before any query.
@@ -264,6 +302,9 @@ class PgSql:
                     raise SqlRefused("transaction control statements are not allowed")
                 return result
             finally:
+                await conn.rollback()
+                # Session-level advisory locks survive ROLLBACK; never return one to the pool.
+                await conn.exec_driver_sql("select pg_advisory_unlock_all()")
                 await conn.rollback()
 
     async def run(self, sql: str) -> QueryResult:
@@ -294,8 +335,14 @@ def _one_statement(sql: str) -> str:
     return s
 
 
+MAX_CELL_CHARS = 2_000
+MAX_OUTPUT_CHARS = 50_000
+
+
 def _cell(v: Any) -> str:
     s = "" if v is None else str(v)
+    if len(s) > MAX_CELL_CHARS:
+        s = s[:MAX_CELL_CHARS] + "...[cell truncated]"
     return s.replace("|", "\\|").replace("\r\n", " ").replace("\n", " ")
 
 
@@ -307,7 +354,16 @@ def _markdown(result: QueryResult, max_rows: int) -> str:
         "| " + " | ".join("---" for _ in result.columns) + " |",
     ]
     rows = list(result.rows)
-    lines += ["| " + " | ".join(_cell(v) for v in row) + " |" for row in rows[:max_rows]]
+    size = sum(len(line) + 1 for line in lines)
+    shown = 0
+    for row in rows[:max_rows]:
+        line = "| " + " | ".join(_cell(v) for v in row) + " |"
+        if size + len(line) + 1 > MAX_OUTPUT_CHARS:
+            lines.append(f"[output truncated at {MAX_OUTPUT_CHARS} characters after {shown} rows]")
+            return "\n".join(lines)
+        lines.append(line)
+        size += len(line) + 1
+        shown += 1
     if not rows:
         lines.append("(0 rows)")
     elif len(rows) > max_rows:
@@ -345,7 +401,7 @@ def make_sql_query_tool(runner: SqlRunner, *, max_rows: int) -> BaseTool:
 )
 def sql_query(ctx: BuildContext, *, connector: str) -> BaseTool:
     """Read-only SQL over a postgres connector (connect it as `kb_reader`)."""
-    spec = _connector(connector, "sql_query", PostgresSpec)
+    spec = _connector(ctx, connector, "sql_query", PostgresSpec)
     engine = get_engine(EnvSecrets().resolve(spec.dsn))
     runner = PgSql(
         engine, schemas=spec.schemas, timeout_ms=spec.statement_timeout_ms, fetch=spec.max_rows + 1

@@ -303,3 +303,23 @@ def test_kb_cli_setup_twice_never_prints_the_password(tmp_path, monkeypatch, cap
     out = capsys.readouterr()
     assert pw not in out.out + out.err
     assert "kb_reader" in out.out
+
+
+async def test_sql_query_refuses_a_privileged_login(tmp_path, monkeypatch, admin_url, reader):
+    """Review fix: an admin DSN could COPY ... TO PROGRAM / pg_read_file inside READ ONLY."""
+    _lib(tmp_path, monkeypatch, KBTEST_SQL_URL=admin_url)
+    t = tools.sql_query(_ctx(), connector="kbsql")
+    for sql in ("select 1 as x", "select pg_read_file('/etc/hostname')"):
+        assert await t.ainvoke({"sql": sql}) == f"ERROR: {tools.NOT_READ_ONLY}"
+
+
+async def test_advisory_locks_never_survive_a_call(tmp_path, monkeypatch, admin_url, reader):
+    _lib(tmp_path, monkeypatch, KBTEST_SQL_URL=reader)
+    t = tools.sql_query(_ctx(), connector="kbsql")
+    assert (await t.ainvoke({"sql": "select pg_advisory_lock(424242)"})).startswith("| ")
+    other = await asyncpg.connect(admin_url)
+    try:  # try_lock, so a leaked lock fails the test instead of hanging it
+        assert await other.fetchval("select pg_try_advisory_lock(424242)") is True
+        await other.fetchval("select pg_advisory_unlock(424242)")
+    finally:
+        await other.close()

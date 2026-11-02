@@ -67,14 +67,21 @@ stamps running.
 Agents reach Postgres only through the curated tools `kb_search` (a `pgvector` connector) and
 `sql_query` (a `postgres` connector); connector specs live in `libraries/connectors/<name>.yaml`
 and their `dsn` is an `env://VAR` ref, resolved when the agent is built. KB tables live in schema
-`kb`. Set it up once per tenant database, with a connector whose DSN is the admin login:
+`kb`. Requires Postgres >= 15 (no CREATE on `public` for PUBLIC); the stamp runs PG16. Do not
+install `dblink` or `postgres_fdw` in a KB database. Set it up once per tenant database, with a
+connector whose DSN is the admin login (`kb-docs`, `KB_DATABASE_URL`). Run `setup` and `ingest`
+as the **same** admin login: kb_reader's SELECT on new tables comes from default privileges, which
+apply only to tables created by the role that ran `setup`.
 
 ```bash
 export KB_READER_PASSWORD=...        # read from this env var; never printed or logged
+# admin login: setup and ingest (kb_search's connector kb-docs uses it too)
 scripts/tenant_env.sh tenant-a sh -c 'KB_DATABASE_URL="$DATABASE_URL" uv run agentkit-kb setup \
   --connector kb-docs --reader-password-env KB_READER_PASSWORD'
 scripts/tenant_env.sh tenant-a sh -c 'KB_DATABASE_URL="$DATABASE_URL" uv run agentkit-kb ingest \
   --connector kb-docs README.md docs/*.md --source-base https://github.com/<owner>/<repo>/blob/main'
+# sql_query's connector kb-sql must log in as kb_reader, never as the admin:
+export KB_READER_DATABASE_URL="postgresql://kb_reader:$KB_READER_PASSWORD@127.0.0.1:<pg port>/agentkit"
 ```
 
 `setup` is idempotent (a re-run resets the password and re-applies the grants). It creates schema
@@ -85,11 +92,15 @@ so it never appears in server logs. `ingest` splits Markdown on headings and the
 character chunks, and upserts them with `{title, source_url}`; re-ingesting a file replaces its
 chunks.
 
-Point the `sql_query` connector at `kb_reader` (e.g. `KB_READER_DATABASE_URL`). Its safety is
-layered and the role is the real wall: every call runs one statement (anything after `;` is
-refused) in a rolled-back `READ ONLY` transaction with `SET LOCAL statement_timeout` and
-`search_path` = the connector's `schemas`, and reads at most `max_rows` rows. Never give
-`sql_query` an admin DSN.
+Point the `sql_query` connector at `kb_reader` (`KB_READER_DATABASE_URL`). Its safety is layered
+and the role is the real wall. On first use `sql_query` checks the login and refuses to run
+(`ERROR: sql_query connector must log in as a read-only role (e.g. kb_reader)`) if it is a
+superuser or bypasses RLS, is a member of `pg_execute_server_program` / `pg_read_server_files` /
+`pg_write_server_files` / `pg_read_all_data`, or can CREATE in a configured schema. Every call
+then runs one statement (anything after `;` is refused) in a rolled-back `READ ONLY` transaction
+with `SET LOCAL statement_timeout` and `search_path` = the connector's `schemas`, releases any
+advisory locks, and reads at most `max_rows` rows (cells capped at 2,000 characters, output at
+50,000).
 
 The connector pg tests (`packages/agentkit-connectors/tests/test_pg_tools.py`) create schema `kb`
 and reset `kb_reader`'s password; run them on a throwaway stamp only:

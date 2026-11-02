@@ -80,7 +80,7 @@ def _subagent(
 ) -> dict[str, Any]:
     # An unset model or tier is inherited from the parent.
     spec = models.resolve(sub.model or parent.model, sub.tier or parent.tier)
-    ctx = BuildContext(settings, spec, sub.name)
+    ctx = BuildContext(settings, spec, sub.name, library_roots=lib.roots)
     prompt = lib.prompts.get_ref(sub.prompt, file=_FILE, path=sub.prompt)
     out: dict[str, Any] = {
         "name": sub.name,
@@ -116,7 +116,7 @@ def resolve_agent(
     With `persistence`, skills routes are folded into the memory backend (one composite)."""
     today = datetime.date.today().isoformat()
     model_spec = models.resolve(spec.model, spec.tier)
-    ctx = BuildContext(settings, model_spec, spec.name)
+    ctx = BuildContext(settings, model_spec, spec.name, library_roots=lib.roots)
     prompt = lib.prompts.get_ref(spec.prompt, file=_FILE, path=spec.prompt)
     system_prompt = render(_composed(prompt, lib), agent_name=spec.name, date=today)
 

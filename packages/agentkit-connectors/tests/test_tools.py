@@ -214,3 +214,77 @@ def test_kb_cli_setup_needs_the_password_env(monkeypatch, capsys, tmp_path):
     err = capsys.readouterr().err
     assert rc == 2 and "KB_READER_PW_UNSET" in err and "topsecret" not in err
     assert tools.KB_SCHEMA == "kb"
+
+
+def test_sql_output_is_capped_per_cell_and_in_total():
+    from agentkit_connectors.tools import MAX_CELL_CHARS, MAX_OUTPUT_CHARS, _markdown
+
+    out = _markdown(QueryResult(["c"], [("x" * 5000,)]), max_rows=10)
+    assert "x" * MAX_CELL_CHARS + "...[cell truncated]" in out and "x" * 2001 not in out
+    many = QueryResult(["c"], [("y" * 1900,) for _ in range(100)])
+    out = _markdown(many, max_rows=100)
+    assert len(out) <= MAX_OUTPUT_CHARS + 100
+    assert out.endswith(f"[output truncated at {MAX_OUTPUT_CHARS} characters after 26 rows]")
+
+
+def _agent_with_connector(tmp_path: Path, monkeypatch: Any) -> Path:
+    """An agent whose connector sits next to it, loaded from an unrelated cwd."""
+    agent_dir = tmp_path / "agentdir"
+    (agent_dir / "connectors").mkdir(parents=True)
+    (agent_dir / "connectors" / "x.yaml").write_text(
+        "kind: postgres\ndsn: env://NEAR_URL\nschemas: [kb]\n"
+    )
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    monkeypatch.delenv("AGENTKIT_LIBRARY_PATH", raising=False)
+    monkeypatch.setenv("NEAR_URL", "postgresql://u:pw@127.0.0.1:1/near")
+    monkeypatch.setenv("FAR_URL", "postgresql://u:pw@127.0.0.1:1/far")
+    return _agent(agent_dir, "[{sql_query: {connector: x}}]")
+
+
+def _build_agent(path: Path, monkeypatch: Any) -> tuple[list[Any], list[str]]:
+    """(validate errors, DSNs the built sql_query bound) through load_agent's real resolve."""
+    import agentkit_config.load as load_mod
+    from agentkit_config import load_agent
+    from agentkit_deep.testing import scripted
+
+    dsns: list[str] = []
+    monkeypatch.setattr(tools, "get_engine", lambda dsn: dsns.append(dsn) or object())
+    monkeypatch.setattr(load_mod, "build_deep_agent", lambda **kw: kw)
+    pools = CodePools(
+        Registry("tool", {"kb_search": kb_search, "sql_query": sql_query}),
+        Registry("middleware", {}),
+        Registry("node", {}),
+        Registry("schema", {}),
+    )
+    lib = Library.for_file(path, pools)
+    errs = [
+        e
+        for e in validate_agent(parse_agent(path), lib, ModelRegistry.default(), file=str(path))
+        if e.severity == "error"
+    ]
+    settings = Settings(_env_file=None, anthropic_api_key="fake")  # type: ignore[arg-type]
+    load_agent(path, settings=settings, library=lib, model=scripted())
+    return errs, dsns
+
+
+def test_connector_next_to_the_agent_file_validates_and_builds(tmp_path, monkeypatch):
+    path = _agent_with_connector(tmp_path, monkeypatch)
+    errs, dsns = _build_agent(path, monkeypatch)
+    assert errs == []
+    assert dsns == ["postgresql://u:pw@127.0.0.1:1/near"]
+
+
+def test_validate_and_build_bind_the_same_spec_across_two_roots(tmp_path, monkeypatch):
+    path = _agent_with_connector(tmp_path, monkeypatch)
+    far = tmp_path / "far"
+    (far / "connectors").mkdir(parents=True)
+    # Same name in a later root, a different kind and DSN: binding it would fail both checks.
+    (far / "connectors" / "x.yaml").write_text(
+        "kind: pgvector\ndsn: env://FAR_URL\ncollection: c\nembeddings: fireworks-nomic\n"
+    )
+    monkeypatch.setenv("AGENTKIT_LIBRARY_PATH", str(far))
+    errs, dsns = _build_agent(path, monkeypatch)
+    assert errs == []
+    assert dsns == ["postgresql://u:pw@127.0.0.1:1/near"]

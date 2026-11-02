@@ -1,0 +1,42 @@
+name: canary
+# Weekly early warning: run the upstream contract suite against the newest
+# deepagents / langchain / langgraph releases, in a scratch copy of the repo.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: agentkit
+          POSTGRES_PASSWORD: agentkit
+          POSTGRES_DB: agentkit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agentkit -d agentkit"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      AGENTKIT_TEST_DATABASE_URL: postgresql://agentkit:agentkit@127.0.0.1:5432/agentkit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Copy the repo to a scratch directory
+        run: |
+          rsync -a --exclude .git --exclude .venv ./ "$RUNNER_TEMP/canary/"
+      - name: Unpin the watched packages and upgrade them
+        working-directory: ${{ runner.temp }}/canary
+        run: |
+          sed -i -E '/^(deepagents|langchain|langchain-core|langgraph)==/d' constraints.txt
+          UV_CONSTRAINT=constraints.txt uv lock --upgrade-package deepagents \
+            --upgrade-package langchain --upgrade-package langchain-core \
+            --upgrade-package langgraph
+          UV_CONSTRAINT=constraints.txt uv sync --python 3.12
+          uv pip list | grep -E '^(deepagents|langchain|langchain-core|langgraph) '
+      - name: Run the contract suite
+        working-directory: ${{ runner.temp }}/canary
+        run: uv run pytest contracts -m "contract or pg" -v

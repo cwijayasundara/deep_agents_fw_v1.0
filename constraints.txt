@@ -9,3 +9,12 @@ langchain-anthropic==1.7.7
 langchain-google-genai==4.4.2
 langchain-fireworks==1.7.1
 ddgs==9.16.1
+langgraph-checkpoint==4.3.1
+langgraph-checkpoint-postgres==3.2.0
+psycopg==3.3.6
+psycopg-binary==3.3.6
+psycopg-pool==3.3.3
+pycryptodome==4.2.0
+langfuse==5.1.0
+opentelemetry-sdk==1.45.2
+opentelemetry-exporter-otlp==1.45.2

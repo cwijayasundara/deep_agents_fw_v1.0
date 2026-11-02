@@ -9,9 +9,13 @@ dependencies = [
 
 [dependency-groups]
 dev = ["pytest", "pytest-asyncio", "respx", "ruff", "mypy", "types-pyyaml"]
+contracts = [
+  "langgraph-checkpoint-postgres", "psycopg[binary,pool]", "pycryptodome",
+]
 
 [tool.uv]
 package = false
+default-groups = ["dev", "contracts"]
 
 [tool.uv.workspace]
 members = ["packages/*", "apps/*"]
@@ -26,10 +30,14 @@ agentkit-evals = { workspace = true }
 research-agent = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["packages", "apps"]
+testpaths = ["packages", "apps", "contracts"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-markers = ["live: hits real provider APIs (opt-in: pytest -m live)"]
+markers = [
+  "live: hits real provider APIs (opt-in: pytest -m live)",
+  "contract: pins observed behaviour of upstream langchain/langgraph/deepagents APIs (offline)",
+  "pg: needs Postgres at AGENTKIT_TEST_DATABASE_URL (skips when unset)",
+]
 addopts = "-m 'not live' --import-mode=importlib"
 
 [tool.ruff]

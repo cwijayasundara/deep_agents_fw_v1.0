@@ -21,6 +21,7 @@ from agentkit_config.library import Library
 from agentkit_config.pools.prompts import render
 from agentkit_config.selection import decisions_middleware
 from agentkit_config.spec import AgentSpec, MiddlewareRef, SubAgentSpec, ToolRef
+from agentkit_config.stack import order_stack
 
 if TYPE_CHECKING:
     from agentkit_persistence import Persistence
@@ -41,9 +42,13 @@ def _tools(refs: list[ToolRef], lib: Library, ctx: BuildContext) -> list[BaseToo
 
 def _middleware(
     refs: list[MiddlewareRef], lib: Library, ctx: BuildContext
-) -> list[AgentMiddleware]:
+) -> list[tuple[str, AgentMiddleware]]:
     pool = _code(lib).middleware
-    return [pool.get(r.type, file=_FILE, path=r.type)(ctx, **r.params) for r in refs if r.enabled]
+    return [
+        (r.type, pool.get(r.type, file=_FILE, path=r.type)(ctx, **r.params))
+        for r in refs
+        if r.enabled
+    ]
 
 
 def _skill_dirs(names: list[str], lib: Library) -> list[Path]:
@@ -76,7 +81,7 @@ def _subagent(
         out["response_format"] = _code(lib).schemas.get(
             sub.response_schema, file=_FILE, path=sub.response_schema
         )
-    mw = _middleware(sub.middleware, lib, ctx)
+    mw = order_stack(_middleware(sub.middleware, lib, ctx))
     if mw:
         out["middleware"] = mw
     return out
@@ -104,18 +109,22 @@ def resolve_agent(
         lib.subagents.get(e, file=_FILE, path=e) if isinstance(e, str) else e
         for e in spec.subagents
     ]
-    middleware = _middleware(spec.middleware, lib, ctx)
+    items = _middleware(spec.middleware, lib, ctx)
     if spec.selection == "decisions":
-        middleware.append(
-            decisions_middleware(
-                ctx,
-                models,
-                spec.tier,
-                system_prompt,
-                with_models=model is None,
-                entry=spec.model,
+        items.append(
+            (
+                "selection",
+                decisions_middleware(
+                    ctx,
+                    models,
+                    spec.tier,
+                    system_prompt,
+                    with_models=model is None,
+                    entry=spec.model,
+                ),
             )
         )
+    middleware = order_stack(items)
     kwargs: dict[str, Any] = {
         "name": spec.name,
         "model": model or model_spec,

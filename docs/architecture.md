@@ -392,7 +392,7 @@ build_deep_agent(
 | A concrete model | `model` is a `BaseChatModel` or a `ModelSpec`; a `ModelSpec` needs `settings` and is built with `get_model`, which fails fast if the provider key is missing. |
 | `context_schema=PlatformContext` | Every run must pass `context=PlatformContext(...)` (a dict is validated against it). |
 | `TenantGuardMiddleware` first | The guard for the deployment tenant (`settings.deployment_tenant`, or `AGENTKIT_TENANT` read once per process when no settings are given) is prepended to the caller's middleware. Passing a `TenantGuardMiddleware` yourself raises `ValueError`. |
-| Caller middleware order preserved | The middleware list is `[guard, *middleware]`. From YAML, `middleware` is the pool entries in file order, then `SelectionMiddleware` last when `selection: decisions`. DeepAgents then wraps its own stack around this user-middleware slot. |
+| Caller middleware order preserved | The middleware list is `[guard, *middleware]`. From YAML, `middleware` is sorted into the canonical order (`agentkit_config/stack.py`, `STACK_ORDER`): `selection` (when `selection: decisions`), `model_fallback`, `model_retry`, `tool_retry`, `call_limit`, `tool_call_limit`, `pii`, then any other pool entries in file order. File order no longer matters. The first entry is the outermost wrapper: `SelectionMiddleware` overrides the request's model, so fallback sits inside it and can swap the model on failure, and retry sits inside fallback so each model is retried before the next is tried. Validation rejects a second enabled `selection`, `model_fallback`, `model_retry`, `tool_retry` or `call_limit`, and repeats of `pii` (same `type`) or `tool_call_limit` (same `tool_name`); an agent without an enabled `call_limit` gets a warning. DeepAgents then wraps its own stack around this user-middleware slot. |
 | Skills | `skills` are skill *sources* (`skills_source(owner)`), passed through with `backend` and `permissions` (section 7). |
 | Persistence | With `persistence`: its encrypted `saver` and `store` become the checkpointer and store (passing `checkpointer` or `store` too raises `ValueError`); the backend becomes `memory_backend()` unless the caller passed one built by `memory_backend(...)` (any other backend raises `ValueError`); `memory=["/org/AGENTS.md", "/memories/AGENTS.md"]`; and `ORG_WRITE_DENY` is prepended to the permissions. |
 | Prompt hash | The returned graph is `agent.with_config(metadata={"prompt_hash": prompt_hash(system_prompt)})`, so every run and trace inherits it. |
@@ -404,7 +404,9 @@ it back (`""` for a graph not built by the factory).
 **Gap.** The research report's factory sketch has a fixed, canonical platform middleware list (tenant
 guard, identity and tool policy, tool surface, model fallback and retry, tool error handling and
 retry, call limits, PII, todo list) and an org-to-tenant-to-role prompt composer. The code enforces
-only the guard's position; everything else is whatever the caller (or the YAML) adds. The factory
+the guard's position, and YAML agents get the resilience and limit middleware (fallback, retry, call
+limits, PII) in the canonical order; identity and tool policy, tool error handling, the todo list and
+the prompt composer are not there yet. The factory
 also does not disable DeepAgents' automatically added `general-purpose` subagent, which the report
 recommends turning off by default.
 
@@ -1311,7 +1313,7 @@ flow = load_flow(REVIEW_FLOW, settings=Settings(), checkpointer=InMemorySaver())
 | To add | Do this |
 |---|---|
 | **A tool** | Factory `(ctx: BuildContext, **params) -> BaseTool`, registered under `[project.entry-points."agentkit.tools"]`; name it in YAML (section 6). Read secrets from `ctx.settings`; return errors as text. |
-| **A middleware** | Factory `(ctx: BuildContext, **params) -> AgentMiddleware` under `agentkit.middleware` (see `agentkit_middleware.factories.call_limit`). Use it as `middleware: [{type: name, params: {...}}]`. The name `selection` is reserved. |
+| **A middleware** | Factory `(ctx: BuildContext, **params) -> AgentMiddleware` under `agentkit.middleware` (see `agentkit_middleware.factories.call_limit`). Use it as `middleware: [{type: name, params: {...}}]`. The name `selection` is reserved. Built in (`agentkit_middleware.factories`): `call_limit`, `tool_call_limit`, `model_fallback`, `model_retry`, `tool_retry`, `pii`; these are placed in the canonical order (section 4) wherever they appear in the YAML. |
 | **A skill** | A directory `libraries/skills/<name>/SKILL.md` whose front matter `name` equals `<name>`. List the tools it needs in `allowed-tools` (space-separated) or `metadata.include_tools`, so validation can check the owner has them. Add it to an agent's or subagent's `skills:`. |
 | **A prompt** | A Markdown file under `libraries/prompts/`, named by its relative path without `.md`. Optional front matter is stripped. Only `{{agent_name}}` and `{{date}}` are allowed. For Decisions agents, name the tools and when to use them. |
 | **A subagent** | `libraries/subagents/<name>.yaml` with `kind: SubAgent`, or inline in an agent's `subagents:`. Give it its own `tools` (they replace the parent's). Add a `response_schema` (a `agentkit.schemas` entry point) to clear the warning. |

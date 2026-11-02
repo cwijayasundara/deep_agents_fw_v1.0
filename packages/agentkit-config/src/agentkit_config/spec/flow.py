@@ -10,15 +10,18 @@ from pydantic import (
     Discriminator,
     Field,
     Tag,
+    TypeAdapter,
+    ValidationError,
     field_validator,
     model_validator,
 )
+from pydantic_core import InitErrorDetails, PydanticCustomError
 
 from agentkit_config.spec.common import parse_model, to_spec_errors
 
 _NODE_KEYS = ("agent", "fn", "interrupt")
 _NODE_TAGS = {"agent": "agent_node", "fn": "fn_node", "interrupt": "interrupt_node"}
-_TAGS = frozenset({*_NODE_TAGS.values(), "edge_item", "route_item", "str", "list[str]"})
+_TAGS = frozenset({*_NODE_TAGS.values(), "edge_item", "route_item", "str_input", "list_input"})
 _PLAIN_EDGE_MSG = "plain edges must use the string form 'A -> B'; mappings need `route`"
 
 
@@ -26,9 +29,20 @@ class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
+def _input_tag(value: Any) -> str:
+    return "list_input" if isinstance(value, list) else "str_input"
+
+
+Input = Annotated[
+    Annotated[str, Tag("str_input")]
+    | Annotated[Annotated[list[str], Field(min_length=1)], Tag("list_input")],
+    Discriminator(_input_tag),
+]
+
+
 class AgentNode(_Strict):
     agent: str
-    input: str | Annotated[list[str], Field(min_length=1)]
+    input: Input
     output: str
 
 
@@ -91,6 +105,9 @@ EdgeItem = Annotated[
 ]
 
 
+_EDGE_ITEM: TypeAdapter[Edge | Route] = TypeAdapter(EdgeItem)
+
+
 def _expand_chain(text: str) -> list[Edge]:
     names = [n.strip() for n in text.split("->")]
     if len(names) < 2 or not all(names):
@@ -110,14 +127,38 @@ class FlowSpec(_Strict):
     @field_validator("edges", mode="before")
     @classmethod
     def _expand_strings(cls, value: Any) -> Any:
+        """Validate item by item so errors carry the ORIGINAL YAML index; expand chains."""
         if not isinstance(value, list):
             return value
         out: list[Any] = []
-        for item in value:
-            if isinstance(item, str):
-                out.extend(_expand_chain(item))
-            else:
-                out.append(item)
+        problems: list[InitErrorDetails] = []
+        for i, item in enumerate(value):
+            try:
+                if isinstance(item, str):
+                    out.extend(_expand_chain(item))
+                else:
+                    out.append(_EDGE_ITEM.validate_python(item))
+            except ValueError as exc:
+                if isinstance(exc, ValidationError):
+                    problems.extend(
+                        InitErrorDetails(
+                            type=e["type"],
+                            loc=(i, *e["loc"]),
+                            input=e["input"],
+                            ctx=e.get("ctx", {}),
+                        )
+                        for e in exc.errors()
+                    )
+                else:
+                    problems.append(
+                        InitErrorDetails(
+                            type=PydanticCustomError("chain", "{m}", {"m": str(exc)}),
+                            loc=(i,),
+                            input=item,
+                        )
+                    )
+        if problems:
+            raise ValidationError.from_exception_data("edges", problems)
         return out
 
 

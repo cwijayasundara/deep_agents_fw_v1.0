@@ -71,7 +71,7 @@ def test_chain_expands(tmp_path: Path) -> None:
 
 def test_single_name_chain_error(tmp_path: Path) -> None:
     errs = errors_of(tmp_path, HEAD + "nodes: {}\nedges:\n  - A\n")
-    assert errs and errs[0][0] == "edges" and "at least two names" in errs[0][1]
+    assert errs and errs[0][0] == "edges[0]" and "at least two names" in errs[0][1]
 
 
 def test_node_with_two_kinds_error(tmp_path: Path) -> None:
@@ -92,3 +92,20 @@ def test_input_list_accepted(tmp_path: Path) -> None:
 def test_plain_mapping_edge_error(tmp_path: Path) -> None:
     errs = errors_of(tmp_path, HEAD + "nodes: {}\nedges:\n  - A -> B\n  - {from: A, to: {k: B}}\n")
     assert errs[0][0] == "edges[1]" and "string form" in errs[0][1]
+
+
+def test_errors_use_original_yaml_index(tmp_path: Path) -> None:
+    text = HEAD + "nodes: {}\nedges:\n  - A -> B -> C\n  - {from: A, to: {k: B}}\n"
+    assert errors_of(tmp_path, text)[0][0] == "edges[1]"
+
+
+def test_bad_chain_reports_item_index(tmp_path: Path) -> None:
+    text = HEAD + "nodes: {}\nedges:\n  - A -> B -> C\n  - A\n  - 'A -> '\n"
+    errs = errors_of(tmp_path, text)
+    assert [p for p, _ in errs] == ["edges[1]", "edges[2]"]
+    assert all("at least two names" in m for _, m in errs)
+
+
+def test_bad_input_single_error(tmp_path: Path) -> None:
+    text = HEAD + "nodes:\n  a: {agent: x, input: 5, output: o}\nedges: []\n"
+    assert [p for p, _ in errors_of(tmp_path, text)] == ["nodes.a.input"]

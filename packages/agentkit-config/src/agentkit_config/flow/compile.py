@@ -98,7 +98,12 @@ def load_flow(
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
     """Validate the whole flow (agents included) before building anything, then compile.
 
-    Invoke with `context=PlatformContext(...)`; agent nodes forward it to their agent's run."""
+    Invoke with `context=PlatformContext(...)`; agent nodes forward it to their agent's run.
+
+    With a persistent `checkpointer`, callers must check the run's tenant against the deployment
+    (e.g. `require_tenant`) before invoking the flow: the tenant guard runs inside the graph, after
+    LangGraph has already checkpointed the input, so a mismatched run would write another
+    tenant's text into the thread before it is refused (same limit as Ruling P4)."""
     path = Path(path)
     file = str(path)
     lib = library if library is not None else flow_library(path, CodePools.from_entry_points())

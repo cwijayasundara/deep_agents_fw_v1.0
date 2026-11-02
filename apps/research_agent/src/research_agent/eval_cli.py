@@ -11,9 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from agentkit_config import load_agent, read_output
-from agentkit_core import ModelRegistry, Settings, get_model
+from agentkit_core import ConfigError, ModelRegistry, Settings, get_model
 from agentkit_deep import agent_prompt_hash
 from agentkit_evals import LLMJudge, RunResult, aggregate, load_dataset, run_eval, to_markdown
+from agentkit_middleware import TenantMismatch
 from agentkit_telemetry import run_config, trace_id
 from langchain_core.messages import HumanMessage
 
@@ -38,12 +39,17 @@ async def evaluate(
     """Run every case on its own thread; with `persist`, each thread is checkpointed and locked.
 
     Without an explicit `user`, a persisted eval runs as a fresh `eval-<hex>` user per invocation,
-    so `/memories/` from interactive runs or earlier evals never reach its prompts (Ruling P9)."""
+    so `/memories/` from interactive runs or earlier evals never reach its prompts (Ruling P9).
+
+    Every case would run under `tenant`, so another deployment's tenant is a configuration error
+    (`ConfigError`, exit 2) raised before any case runs, persisted or not (Ruling P4)."""
+    settings = Settings()
+    try:
+        require_tenant(tenant, settings)
+    except TenantMismatch as e:
+        raise ConfigError(f"TenantMismatch: {e}") from None
     user = user or (f"eval-{uuid.uuid4().hex[:8]}" if persist else "local")
     print(f"eval user: {user}", flush=True)
-    settings = Settings()
-    if persist:
-        require_tenant(tenant, settings)
     first = load_agent(agent_path, settings=settings, overrides=overrides)  # fail fast on bad specs
     judge = LLMJudge(get_model(ModelRegistry.default().resolve(judge_entry, "strong"), settings))
     spec = first.model_spec

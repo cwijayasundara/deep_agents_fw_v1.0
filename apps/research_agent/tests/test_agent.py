@@ -593,3 +593,15 @@ def test_eval_json_holds_run_id_trace_id_and_usage_per_case(offline_cli, monkeyp
     assert case["case_id"] == "a" and set(case) >= {"run_id", "trace_id", "usage"}
     uuid.UUID(case["run_id"])
     assert case["trace_id"] is None  # tracing off: no OTEL_EXPORTER_OTLP_ENDPOINT
+
+
+def test_eval_checks_the_tenant_up_front_without_persist(
+    offline_cli, monkeypatch, tmp_path, capsys
+):
+    """A wrong tenant fails before any case runs, persisted or not."""
+    with pytest.raises(SystemExit) as exc:
+        _eval_main(monkeypatch, tmp_path, "--tenant", "other")
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "run tenant 'other' != deployment tenant 'default'" in err and "Traceback" not in err
+    assert offline_cli == [] and not (tmp_path / "eval_results.md").exists()

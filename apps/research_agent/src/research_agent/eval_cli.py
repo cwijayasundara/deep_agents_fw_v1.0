@@ -31,6 +31,7 @@ from agentkit_evals import (
 from agentkit_middleware import TenantMismatch
 from agentkit_telemetry import run_config, trace_id
 from langchain_core.messages import HumanMessage
+from pydantic import ValidationError
 
 from .agent import add_agent_args, exit_on_spec_errors, new_thread, overrides_from, platform_context
 from .persist import PERSIST_HELP, persistence_for, require_tenant, turn_lock
@@ -227,17 +228,21 @@ def _gate(a: argparse.Namespace, summary: dict[str, Any]) -> None:
             file=sys.stderr,
         )
         raise SystemExit(2)
-    baseline = Baseline.model_validate_json(spec.baseline.read_text())
+    try:
+        baseline = Baseline.model_validate_json(spec.baseline.read_text())
+    except ValidationError as e:
+        print(f"gate: unreadable baseline {spec.baseline}: {e}", file=sys.stderr)
+        raise SystemExit(2) from None
     try:
         failures = check_gates(spec, baseline, summary, Path(a.dataset))
     except BaselineMismatch as e:
-        print(f"gate: baseline mismatch: {e}")
+        print(f"gate: baseline mismatch: {e}", file=sys.stderr)
         raise SystemExit(2) from None
     if not failures:
         print("gate: PASS")
         return
     for f in failures:
-        print(f"gate: FAIL {f.metric}: {f.detail}")
+        print(f"gate: FAIL {f.metric}: {f.detail}", file=sys.stderr)
     raise SystemExit(1)
 
 

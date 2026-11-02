@@ -799,7 +799,8 @@ def test_eval_gate_regression_exits_1_and_names_metric(gate_env, capsys):
     baseline(aggregate={**agg, "score": 0.99})
     capsys.readouterr()
     assert run() == 1
-    assert "gate: FAIL score:" in capsys.readouterr().out
+    captured = capsys.readouterr()
+    assert "gate: FAIL score:" in captured.err and "gate: FAIL" not in captured.out
 
 
 def test_eval_gate_mismatch_exits_2(gate_env, capsys):
@@ -808,7 +809,16 @@ def test_eval_gate_mismatch_exits_2(gate_env, capsys):
     baseline(model_id="other-model")
     capsys.readouterr()
     assert run() == 2
-    assert "gate: baseline mismatch:" in capsys.readouterr().out + ""
+    captured = capsys.readouterr()
+    assert "gate: baseline mismatch:" in captured.err and "mismatch" not in captured.out
+
+
+def test_eval_gate_corrupt_baseline_exits_2(gate_env, capsys):
+    run, _, tmp = gate_env
+    (tmp / "base.json").write_text("{not json")
+    assert run() == 2
+    err = capsys.readouterr().err
+    assert f"gate: unreadable baseline {tmp / 'base.json'}" in err and "Traceback" not in err
 
 
 def test_eval_gate_missing_baseline_exits_2(gate_env, capsys):

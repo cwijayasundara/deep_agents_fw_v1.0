@@ -15,7 +15,7 @@ from typing import Any
 
 from agentkit_config import load_agent, read_output
 from agentkit_core import ConfigError, ModelRegistry, Settings, get_model
-from agentkit_deep import agent_prompt_hash
+from agentkit_deep import agent_prompt_hash, agent_prompt_id
 from agentkit_evals import (
     Baseline,
     BaselineMismatch,
@@ -93,7 +93,12 @@ async def evaluate(
             loaded = load_agent(agent_path, settings=settings, overrides=overrides, persistence=p)
             ctx = platform_context(loaded.spec, tenant=tenant, user=user, thread=new_thread())
             log.info("eval thread %s: %s", ctx.thread_id, question)
-            config = run_config(ctx, agent_prompt_hash(loaded.graph), ledger)
+            config = run_config(
+                ctx,
+                agent_prompt_hash(loaded.graph),
+                ledger,
+                prompt_id=agent_prompt_id(loaded.graph),
+            )
             seen: list[str] = []  # every tool result, orchestrator and subagents
             calls: list[str] = []
             started = time.monotonic()

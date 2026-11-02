@@ -944,3 +944,27 @@ def test_eval_concurrency_reaches_run_eval(subset_env, monkeypatch):
     run, _ = subset_env
     assert run() == 0 and seen["concurrency"] == 6
     assert run("--concurrency", "3") == 0 and seen["concurrency"] == 3
+
+
+def test_prompt_id_reaches_run_metadata_and_the_prompt_hash_is_unchanged():
+    import hashlib
+
+    from agentkit_deep import agent_prompt_hash, agent_prompt_id
+    from agentkit_telemetry import run_config
+
+    loaded = load_agent(
+        DEFAULT_AGENT,
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
+        library=lib(),
+        overrides={"selection": "off"},
+        model=scripted(AIMessage(content="x")),
+    )
+    assert agent_prompt_id(loaded.graph) == "research/orchestrator@1.0.0"
+    config = run_config(
+        ctx(),
+        agent_prompt_hash(loaded.graph),
+        CostLedger(),
+        prompt_id=agent_prompt_id(loaded.graph),
+    )
+    assert config["metadata"]["prompt_id"] == "research/orchestrator@1.0.0"
+    assert len(agent_prompt_hash(loaded.graph)) == len(hashlib.sha256(b"").hexdigest())

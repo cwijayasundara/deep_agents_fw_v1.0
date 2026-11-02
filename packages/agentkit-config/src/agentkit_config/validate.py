@@ -6,10 +6,10 @@ from typing import Any, Literal
 from agentkit_core import TIERS, ModelRegistry
 from agentkit_middleware.selection import BUILTIN_TOOLS
 
-from agentkit_config.errors import SpecError
+from agentkit_config.errors import SpecError, SpecErrors
 from agentkit_config.library import Library
 from agentkit_config.pools.code import check_params, factory_meta
-from agentkit_config.pools.prompts import ALLOWED_VARS, variables
+from agentkit_config.pools.prompts import ALLOWED_VARS, compose, variables
 from agentkit_config.registry import Registry
 from agentkit_config.spec import AgentSpec, MiddlewareRef, SubAgentSpec, ToolRef
 from agentkit_config.stack import SINGLETONS
@@ -51,18 +51,25 @@ def _model_errors(c: _Ctx, path: str, model: str | None, tier: str | None) -> li
     return out
 
 
-def _prompt_errors(c: _Ctx, path: str, name: str) -> list[SpecError]:
+def _prompt_errors(c: _Ctx, path: str, ref: str) -> list[SpecError]:
     p = _join(path, "prompt")
-    if name not in c.lib.prompts:
-        return [_unknown(c, p, "prompt", name, c.lib.prompts.names())]
-    text = c.lib.prompts.get(name, file=c.file, path=p).text
+    prompts = c.lib.prompts
+    name = ref.partition("@")[0]
+    broken = [c.err(p, m) for m in prompts.label_errors() if m.startswith(f"label {name}@")]
+    if broken:
+        return broken
+    try:
+        prompt = prompts.get_ref(ref, file=c.file, path=p)
+        text = compose(prompt, prompts, file=c.file, path=p)
+    except SpecErrors as exc:
+        return list(exc.errors)
     bad = sorted(variables(text) - ALLOWED_VARS)
     if not bad:
         return []
     return [
         c.err(
             p,
-            f"prompt {name!r} uses unsupported variable(s) {bad}; allowed: {sorted(ALLOWED_VARS)}",
+            f"prompt {ref!r} uses unsupported variable(s) {bad}; allowed: {sorted(ALLOWED_VARS)}",
         )
     ]
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .context import PlatformContext
 from .registry import ModelSpec
 from .settings import Settings
 
@@ -13,3 +14,4 @@ class BuildContext:
     settings: Settings
     model: ModelSpec
     agent_name: str
+    platform: PlatformContext | None = None  # build-time only; nothing requires it yet

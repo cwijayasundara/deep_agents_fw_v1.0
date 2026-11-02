@@ -1,8 +1,16 @@
 """build_deep_agent end to end: middleware order and what the model is actually offered."""
 
+import pytest
+from agentkit_core import Settings
 from agentkit_deep import build_deep_agent
-from agentkit_deep.testing import scripted, tool_call
-from agentkit_middleware import BUILTIN_TOOLS, Selection, SelectionMiddleware
+from agentkit_deep.testing import ctx, scripted, tool_call
+from agentkit_middleware import (
+    BUILTIN_TOOLS,
+    Selection,
+    SelectionMiddleware,
+    TenantGuardMiddleware,
+    TenantMismatch,
+)
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import tool
@@ -39,9 +47,7 @@ def recorder(name: str, log: list[str]) -> AgentMiddleware:
 
 
 async def _invoke(agent, thread="t"):
-    return await agent.ainvoke(
-        {"messages": [HumanMessage("go")]}, config={"configurable": {"thread_id": thread}}
-    )
+    return await agent.ainvoke({"messages": [HumanMessage("go")]}, context=ctx(thread_id=thread))
 
 
 async def test_model_is_offered_only_selected_tools_plus_builtins():
@@ -89,3 +95,51 @@ async def test_user_middleware_order_is_preserved():
     )
     await _invoke(agent)
     assert log == ["first", "second"]  # outermost first, as supplied
+
+
+def before_recorder(name: str, log: list[str]) -> AgentMiddleware:
+    def before_agent(self, state, runtime):
+        log.append(name)
+
+    return type(f"Before_{name}", (AgentMiddleware,), {"before_agent": before_agent})()
+
+
+def test_guard_is_inserted_ahead_of_every_caller_middleware():
+    log: list[str] = []
+    agent = build_deep_agent(
+        model=scripted(AIMessage(content="ok")),
+        system_prompt="p",
+        middleware=[before_recorder("user", log), recorder("wrap", log)],
+    )
+    nxt = {e.source: e.target for e in agent.get_graph().edges if not e.conditional}
+    chain, node = [], "__start__"
+    while node in nxt:
+        node = nxt[node]
+        chain.append(node)
+    guard = chain.index("TenantGuardMiddleware.before_agent")
+    # Only deepagents' PatchToolCalls (rewrites dangling tool calls in history) runs earlier.
+    assert chain[:guard] == ["PatchToolCallsMiddleware.before_agent"]
+    assert guard < chain.index("Before_user.before_agent") < chain.index("model")
+
+
+async def test_guard_runs_before_caller_middleware_and_model():
+    log: list[str] = []
+    model = scripted(AIMessage(content="ok"))
+    agent = build_deep_agent(
+        model=model,
+        system_prompt="p",
+        settings=Settings(_env_file=None, deployment_tenant="acme"),
+        middleware=[before_recorder("user", log), recorder("wrap", log)],
+    )
+    with pytest.raises(TenantMismatch):
+        await _invoke(agent)
+    assert log == [] and model.bound == []
+
+
+def test_callers_cannot_add_a_second_guard():
+    with pytest.raises(ValueError, match="TenantGuardMiddleware"):
+        build_deep_agent(
+            model=scripted(AIMessage(content="ok")),
+            system_prompt="p",
+            middleware=[TenantGuardMiddleware("other")],
+        )

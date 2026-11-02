@@ -1,20 +1,29 @@
 """Per-thread model-tier + tool-surface selection.
 
 The selector backend (OpenAI Decisions API, wired in T4) is behind the `Selector` protocol.
-Selection runs ONCE per thread and is cached, so the provider prompt cache stays warm.
+Selection runs ONCE per thread: the result is stored in agent state (`agentkit_selection`), so
+it is per thread, survives restarts with a checkpointer, and the provider prompt cache stays
+warm. The key is private: a subagent neither inherits nor overwrites its parent's selection.
 """
 
 from __future__ import annotations
 
 import logging
-from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Annotated, Any, NotRequired, Protocol
 
-from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
+from langchain.agents.middleware import (
+    AgentMiddleware,
+    AgentState,
+    ExtendedModelResponse,
+    ModelRequest,
+    ModelResponse,
+)
+from langchain.agents.middleware.types import PrivateStateAttr
 from langchain_core.language_models import BaseChatModel
-from langgraph.config import get_config
+from langchain_core.messages import AIMessage
+from langgraph.types import Command
 
 log = logging.getLogger(__name__)
 
@@ -69,33 +78,48 @@ def _task_text(request: ModelRequest) -> str:
     return ""
 
 
-def _thread_id() -> str:
-    try:
-        return str(get_config().get("configurable", {}).get("thread_id", "_default"))
-    except RuntimeError:  # outside a LangGraph run
-        return "_default"
+STATE_KEY = "agentkit_selection"
+
+
+class SelectionState(AgentState[Any]):
+    agentkit_selection: NotRequired[Annotated[dict[str, Any], PrivateStateAttr]]
+
+
+def _thread(request: ModelRequest) -> str | None:
+    """The run's thread id from its PlatformContext (the Decisions prompt-cache key)."""
+    return getattr(getattr(request.runtime, "context", None), "thread_id", None)
+
+
+def _stored(request: ModelRequest) -> Selection | None:
+    raw: dict[str, Any] | None = (request.state or {}).get(STATE_KEY)  # type: ignore[assignment]
+    return Selection(raw["tier"], frozenset(raw["tools"])) if raw else None
+
+
+def _with_update(response: Any, sel: Selection) -> ExtendedModelResponse[Any]:
+    if isinstance(response, AIMessage):
+        response = ModelResponse(result=[response])
+    record = {"tier": sel.tier, "tools": sorted(sel.tool_names)}
+    return ExtendedModelResponse(response, Command(update={STATE_KEY: record}))
 
 
 class SelectionMiddleware(AgentMiddleware):
+    state_schema = SelectionState
+
     def __init__(
         self,
         selector: Selector,
         models: Mapping[str, BaseChatModel] | None = None,
         default_tier: str = "default",
         builtins: frozenset[str] = BUILTIN_TOOLS,
-        max_threads: int = 1024,
     ) -> None:
+        super().__init__()
         self._selector = selector
         self._models = dict(models or {})
         self._default_tier = default_tier
         self._builtins = builtins
-        self._cache: OrderedDict[str, Selection] = OrderedDict()
-        self._max = max_threads
 
-    async def _selection(self, thread: str, request: ModelRequest) -> Selection:
-        if thread in self._cache:
-            self._cache.move_to_end(thread)
-            return self._cache[thread]
+    async def _select(self, request: ModelRequest) -> Selection:
+        thread = _thread(request)
         cards = [
             ToolCard(n, _desc(t))
             for t in request.tools
@@ -103,19 +127,15 @@ class SelectionMiddleware(AgentMiddleware):
         ]
         try:
             sel = await self._selector.select(_task_text(request), cards, thread_id=thread)
-        except Exception as e:  # degrade: all tools, default tier
+        except Exception as e:  # degrade: all tools, default tier (stored too: no hammering)
             log.warning("selection unavailable for thread %s (%s); using all tools", thread, e)
-            sel = Selection(self._default_tier, frozenset(c.name for c in cards))
-        else:
-            log.info(
-                "selection for thread %s: tier=%s tools=%s",
-                thread,
-                sel.tier,
-                ", ".join(sorted(sel.tool_names)) or "none",
-            )
-        self._cache[thread] = sel
-        if len(self._cache) > self._max:
-            self._cache.popitem(last=False)
+            return Selection(self._default_tier, frozenset(c.name for c in cards))
+        log.info(
+            "selection for thread %s: tier=%s tools=%s",
+            thread,
+            sel.tier,
+            ", ".join(sorted(sel.tool_names)) or "none",
+        )
         return sel
 
     async def awrap_model_call(
@@ -123,7 +143,8 @@ class SelectionMiddleware(AgentMiddleware):
         request: ModelRequest,
         handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> Any:
-        sel = await self._selection(_thread_id(), request)
+        stored = _stored(request)
+        sel = stored or await self._select(request)
         keep = sel.tool_names | self._builtins
         overrides: dict[str, Any] = {
             "tools": [t for t in request.tools if (n := _name(t)) is None or n in keep]
@@ -131,4 +152,5 @@ class SelectionMiddleware(AgentMiddleware):
         model = self._models.get(sel.tier)
         if model is not None:
             overrides["model"] = model
-        return await handler(request.override(**overrides))
+        response = await handler(request.override(**overrides))
+        return response if stored else _with_update(response, sel)

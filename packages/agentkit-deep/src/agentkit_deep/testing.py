@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from agentkit_core import PlatformContext
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 from pydantic import Field
@@ -20,6 +21,20 @@ class ScriptedChatModel(GenericFakeChatModel):
             [t["name"] if isinstance(t, dict) else getattr(t, "name", str(t)) for t in tools]
         )
         return self
+
+
+def ctx(**overrides: str) -> PlatformContext:
+    """A valid PlatformContext for the default deployment tenant; override any field."""
+    base = {
+        "tenant": "default",
+        "product": "agentkit",
+        "team": "platform",
+        "user_id": "local",
+        "thread_id": "t",
+        "agent_name": "test",
+        "agent_version": "0",
+    }
+    return PlatformContext(**{**base, **overrides})
 
 
 def scripted(*messages: AIMessage) -> ScriptedChatModel:

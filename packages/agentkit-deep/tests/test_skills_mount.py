@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from agentkit_deep import build_deep_agent
 from agentkit_deep.skills_mount import skills_mount, skills_source
-from agentkit_deep.testing import ScriptedChatModel, tool_call
+from agentkit_deep.testing import ScriptedChatModel, ctx, tool_call
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.outputs import ChatResult
 from pydantic import Field
@@ -59,7 +59,7 @@ async def test_agent_sees_only_declared_skills(skill_dirs: dict[str, Path]) -> N
         backend=backend,
         permissions=permissions,
     )
-    await agent.ainvoke({"messages": [HumanMessage("go")]})
+    await agent.ainvoke({"messages": [HumanMessage("go")]}, context=ctx())
     prompt = system_text(model.seen[0])
     assert listed("alpha", prompt)
     assert "/skills/main/alpha/SKILL.md" in prompt
@@ -91,7 +91,7 @@ async def test_subagent_skills_scoped(skill_dirs: dict[str, Path]) -> None:
         backend=backend,
         permissions=permissions,
     )
-    out = await agent.ainvoke({"messages": [HumanMessage("go")]})
+    out = await agent.ainvoke({"messages": [HumanMessage("go")]}, context=ctx())
     assert out["messages"][-1].content == "done"
     sub_prompts = [system_text(m) for m in model.seen if "SUBPROMPT" in system_text(m)]
     main_prompts = [system_text(m) for m in model.seen if "SUBPROMPT" not in system_text(m)]
@@ -117,7 +117,7 @@ async def test_skills_read_only(skill_dirs: dict[str, Path]) -> None:
         backend=backend,
         permissions=permissions,
     )
-    out = await agent.ainvoke({"messages": [HumanMessage("go")]})
+    out = await agent.ainvoke({"messages": [HumanMessage("go")]}, context=ctx())
     tool_msgs = [m for m in out["messages"] if isinstance(m, ToolMessage)]
     assert len(tool_msgs) == 1
     assert "permission" in str(tool_msgs[0].content).lower()
@@ -169,7 +169,7 @@ async def test_wrong_level_is_caught(skill_dirs: dict[str, Path]) -> None:
         backend=backend,
         permissions=permissions,
     )
-    await agent.ainvoke({"messages": [HumanMessage("go")]})
+    await agent.ainvoke({"messages": [HumanMessage("go")]}, context=ctx())
     prompt = system_text(model.seen[0])
     assert not listed("alpha", prompt)
     assert "No skills available" in prompt

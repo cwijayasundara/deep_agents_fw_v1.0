@@ -7,7 +7,7 @@ from collections.abc import Hashable
 from pathlib import Path
 from typing import Any
 
-from agentkit_core import ModelRegistry, Settings
+from agentkit_core import ModelRegistry, PlatformContext, Settings
 from langchain_core.language_models import BaseChatModel
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
@@ -73,7 +73,9 @@ def _action(
     return interrupt_node(name)
 
 
-def _add_edges(graph: StateGraph[Any], spec: FlowSpec, lib: Library, *, file: str) -> None:
+def _add_edges(
+    graph: StateGraph[Any, PlatformContext, Any, Any], spec: FlowSpec, lib: Library, *, file: str
+) -> None:
     assert lib.code is not None
     for k, e in enumerate(spec.edges):
         if isinstance(e, Edge):
@@ -94,7 +96,9 @@ def load_flow(
     model: BaseChatModel | None = None,
     checkpointer: BaseCheckpointSaver[Any] | None = None,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
-    """Validate the whole flow (agents included) before building anything, then compile."""
+    """Validate the whole flow (agents included) before building anything, then compile.
+
+    Invoke with `context=PlatformContext(...)`; agent nodes forward it to their agent's run."""
     path = Path(path)
     file = str(path)
     lib = library if library is not None else flow_library(path, CodePools.from_entry_points())
@@ -106,7 +110,9 @@ def load_flow(
     _require_checkpointer(spec, file, checkpointer)
     assert lib.code is not None
     state = lib.code.schemas.get(spec.state, file=file, path="state")
-    graph: StateGraph[Any] = StateGraph(state)
+    graph: StateGraph[Any, PlatformContext, Any, Any] = StateGraph(
+        state, context_schema=PlatformContext
+    )
     for name, node in spec.nodes.items():
         graph.add_node(name, _action(name, node, lib, file=file, settings=settings, model=model))
     _add_edges(graph, spec, lib, file=file)

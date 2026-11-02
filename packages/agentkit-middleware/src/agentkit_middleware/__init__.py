@@ -8,6 +8,7 @@ from .decisions import (
 )
 from .resilience import CircuitBreaker, Unavailable, backoff_delay, call_with_retry
 from .selection import BUILTIN_TOOLS, Selection, SelectionMiddleware, Selector, ToolCard
+from .tenant_guard import MissingPlatformContext, TenantGuardMiddleware, TenantMismatch
 
 __all__ = [
     "BUILTIN_TOOLS",
@@ -15,10 +16,13 @@ __all__ = [
     "DecisionsClient",
     "DecisionsError",
     "DecisionsSelector",
+    "MissingPlatformContext",
     "CircuitBreaker",
     "Selection",
     "SelectionMiddleware",
     "Selector",
+    "TenantGuardMiddleware",
+    "TenantMismatch",
     "ToolCard",
     "Unavailable",
     "backoff_delay",

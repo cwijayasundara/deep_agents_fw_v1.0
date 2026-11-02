@@ -3,12 +3,14 @@ from __future__ import annotations
 from enum import StrEnum
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
 )
+
+from .context import Label
 
 
 class ConfigError(ValueError):
@@ -64,6 +66,10 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     fireworks_api_key: SecretStr | None = None
     tavily_api_key: SecretStr | None = None
+    # The one tenant this deployment serves; every run's PlatformContext.tenant must match it.
+    deployment_tenant: Label = Field(
+        default="default", validation_alias=AliasChoices("AGENTKIT_TENANT", "deployment_tenant")
+    )
 
     def env_file_used(self) -> Path | None:
         env = self.model_config.get("env_file")

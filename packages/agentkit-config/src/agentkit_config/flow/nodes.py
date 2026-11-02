@@ -5,7 +5,9 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
+from agentkit_core import PlatformContext
 from langchain_core.messages import HumanMessage
+from langgraph.runtime import Runtime
 from langgraph.types import interrupt
 
 from agentkit_config.load import LoadedAgent
@@ -23,12 +25,15 @@ def agent_message(state: State, input: str | list[str]) -> str:
 
 def agent_node(
     loaded: LoadedAgent, input: str | list[str], output: str
-) -> Callable[[State], Awaitable[dict[str, str]]]:
-    """Run the agent on the input field(s); write its output (file or last message) to `output`."""
+) -> Callable[[State, Runtime[PlatformContext]], Awaitable[dict[str, str]]]:
+    """Run the agent on the input field(s) under the flow's PlatformContext; write its output
+    (file or last message) to `output`."""
 
-    async def run(state: State) -> dict[str, str]:
+    async def run(state: State, runtime: Runtime[PlatformContext]) -> dict[str, str]:
         message = agent_message(state, input)
-        result = await loaded.graph.ainvoke({"messages": [HumanMessage(message)]})
+        result = await loaded.graph.ainvoke(
+            {"messages": [HumanMessage(message)]}, context=runtime.context
+        )
         return {output: read_output(result, loaded.spec.output)}
 
     return run

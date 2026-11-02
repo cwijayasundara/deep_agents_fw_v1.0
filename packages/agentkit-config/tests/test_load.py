@@ -10,7 +10,7 @@ from agentkit_config.registry import Registry
 from agentkit_config.resolve import resolve_agent
 from agentkit_config.spec import parse_agent
 from agentkit_core import ConfigError, ModelRegistry, Settings
-from agentkit_deep.testing import scripted, tool_call
+from agentkit_deep.testing import ctx, scripted, tool_call
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import tool
@@ -91,7 +91,7 @@ async def test_end_to_end_yaml_agent_writes_output(tmp_path):
         AIMessage(content="done"),
     )
     loaded = load_agent(path, settings=SETTINGS, library=_lib(tmp_path), model=model)
-    out = await loaded.graph.ainvoke({"messages": [HumanMessage("what is x?")]})
+    out = await loaded.graph.ainvoke({"messages": [HumanMessage("what is x?")]}, context=ctx())
     assert "https://a.example/x" in read_output(out, "/report.md")
     assert read_output(out, None) == "done"
 

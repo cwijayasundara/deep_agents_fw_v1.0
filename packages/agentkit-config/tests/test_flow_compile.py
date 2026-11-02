@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, TypedDict
 
 import pytest
 from agentkit_config import CodePools, Library, SpecErrors
 from agentkit_config.flow.compile import load_flow
 from agentkit_config.flow.nodes import agent_node, interrupt_node
-from agentkit_core import Settings
+from agentkit_core import PlatformContext, Settings
+from agentkit_deep.testing import ctx
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
@@ -28,6 +30,10 @@ def step(state: S) -> dict[str, Any]:
     return {"x": "stepped", "n": state.get("n", 0) + 1}
 
 
+def who(state: S, runtime: Any) -> dict[str, Any]:
+    return {"x": f"{runtime.context.tenant}/{runtime.context.thread_id}"}
+
+
 def route(state: S) -> str:
     return "again" if state["n"] < 3 else "done"
 
@@ -36,7 +42,7 @@ def write(tmp_path: Path, body: str) -> tuple[Path, Library]:
     f = tmp_path / "flow.yaml"
     f.write_text(HEAD + body, encoding="utf-8")
     pools = CodePools.from_entry_points().override(
-        schemas={"t.S": S}, nodes={"t.step": step, "t.route": route}
+        schemas={"t.S": S}, nodes={"t.step": step, "t.route": route, "t.who": who}
     )
     return f, Library.from_roots([tmp_path], pools)
 
@@ -105,9 +111,15 @@ class _Graph:
     def __init__(self) -> None:
         self.seen: list[str] = []
 
-    async def ainvoke(self, inputs: dict[str, Any]) -> dict[str, Any]:
+        self.contexts: list[object] = []
+
+    async def ainvoke(self, inputs: dict[str, Any], *, context: object = None) -> dict[str, Any]:
         self.seen.append(inputs["messages"][0].content)
+        self.contexts.append(context)
         return {"files": {"/out.md": {"content": ["line1", "line2"]}}}
+
+
+RT: Any = SimpleNamespace(context=ctx())
 
 
 class _Spec:
@@ -123,13 +135,28 @@ class _Loaded:
 async def test_agent_node_single_field_message() -> None:
     loaded = _Loaded()
     node = agent_node(loaded, "q", "d")  # type: ignore[arg-type]
-    assert await node({"q": "what?"}) == {"d": "line1\nline2"}
+    assert await node({"q": "what?"}, RT) == {"d": "line1\nline2"}
     assert loaded.graph.seen == ["what?"]
 
 
 async def test_agent_node_sections_skip_missing_fields() -> None:
     loaded = _Loaded()
     node = agent_node(loaded, ["q", "c"], "d")  # type: ignore[arg-type]
-    await node({"q": "what?"})
-    await node({"q": "what?", "c": "add sources"})
+    await node({"q": "what?"}, RT)
+    await node({"q": "what?", "c": "add sources"}, RT)
     assert loaded.graph.seen == ["## q\nwhat?", "## q\nwhat?\n\n## c\nadd sources"]
+
+
+async def test_agent_node_forwards_the_flow_context() -> None:
+    loaded = _Loaded()
+    c = ctx(tenant="acme", thread_id="flow-1")
+    await agent_node(loaded, "q", "d")({"q": "what?"}, SimpleNamespace(context=c))  # type: ignore[arg-type]
+    assert loaded.graph.contexts == [c]
+
+
+async def test_flow_compiles_with_platform_context(tmp_path: Path) -> None:
+    f, lib = write(tmp_path, "nodes:\n  a: {fn: t.who}\nedges:\n  - START -> a -> END\n")
+    graph = load_flow(f, settings=settings(), library=lib)
+    assert graph.context_schema is PlatformContext
+    out = await graph.ainvoke({"n": 0}, context=ctx(tenant="acme", thread_id="th"))
+    assert out["x"] == "acme/th"

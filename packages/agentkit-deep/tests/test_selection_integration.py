@@ -204,3 +204,34 @@ async def test_tier_swaps_model():
 
     await mw.awrap_model_call(req, handler)  # type: ignore[arg-type]
     assert captured["model"] is other
+
+
+async def test_selection_usage_is_dispatched_once_as_a_custom_event():
+    from agentkit_middleware import DECISIONS_USAGE_EVENT, DecisionsUsage
+    from langchain_core.callbacks import AsyncCallbackHandler
+
+    class Events(AsyncCallbackHandler):
+        def __init__(self):
+            self.seen = []
+
+        async def on_custom_event(self, name, data, **kw):
+            self.seen.append((name, data))
+
+    usage = DecisionsUsage(input_tokens=686, output_tokens=2, cached_input_tokens=5)
+    sel = Selection("default", frozenset({"alpha"}), usage=usage)
+    events = Events()
+    agent = build_deep_agent(
+        model=_model(3),
+        system_prompt="p",
+        tools=[alpha, beta],
+        middleware=[SelectionMiddleware(FakeSelector(sel))],
+    )
+    await agent.ainvoke(
+        {"messages": [HumanMessage("do it")]}, {"callbacks": [events]}, context=ctx()
+    )
+    assert events.seen == [
+        (
+            DECISIONS_USAGE_EVENT,
+            {"input_tokens": 686, "output_tokens": 2, "cached_input_tokens": 5},
+        )
+    ]

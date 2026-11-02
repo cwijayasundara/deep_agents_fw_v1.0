@@ -2,7 +2,8 @@
 name = "research-agent"
 version = "0.0.1"
 requires-python = ">=3.12,<3.13"
-dependencies = ["agentkit-core", "agentkit-tools", "agentkit-middleware", "agentkit-deep", "agentkit-evals", "agentkit-config"]
+dependencies = ["agentkit-core", "agentkit-tools", "agentkit-middleware", "agentkit-deep", "agentkit-evals", "agentkit-config",
+  "agentkit-persistence", "agentkit-telemetry"]
 
 [build-system]
 requires = ["hatchling"]

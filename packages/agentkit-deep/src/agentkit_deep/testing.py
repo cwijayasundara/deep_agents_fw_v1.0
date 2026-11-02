@@ -9,6 +9,8 @@ from agentkit_core import PlatformContext
 from agentkit_persistence import Persistence
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
+from langchain_core.messages.ai import UsageMetadata
+from langchain_core.outputs import ChatResult
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
 from pydantic import Field
@@ -24,6 +26,26 @@ class ScriptedChatModel(GenericFakeChatModel):
             [t["name"] if isinstance(t, dict) else getattr(t, "name", str(t)) for t in tools]
         )
         return self
+
+
+class MeteredChatModel(ScriptedChatModel):
+    """A ScriptedChatModel whose replies report `usage` as `usage_metadata` (ledger/trace tests).
+
+    `model_name` becomes the `ls_model_name` callbacks see. A reply that already carries
+    `usage_metadata` keeps it."""
+
+    usage: dict[str, Any] = Field(
+        default_factory=lambda: {"input_tokens": 10, "output_tokens": 3, "total_tokens": 13}
+    )
+    model_name: str = "scripted"
+
+    def _generate(self, *args: Any, **kwargs: Any) -> ChatResult:
+        result = super()._generate(*args, **kwargs)
+        for gen in result.generations:
+            msg = gen.message
+            if isinstance(msg, AIMessage) and msg.usage_metadata is None:
+                msg.usage_metadata = cast(UsageMetadata, dict(self.usage))
+        return result
 
 
 def ctx(**overrides: str) -> PlatformContext:

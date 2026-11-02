@@ -50,13 +50,6 @@ def turn_lock(p: Persistence | None, thread: str) -> AbstractAsyncContextManager
     return thread_lock(p, thread) if p is not None else nullcontext()
 
 
-def run_config(thread: str, p: Persistence | None) -> dict[str, Any]:
-    config: dict[str, Any] = {"recursion_limit": 100}
-    if p is not None:
-        config["configurable"] = {"thread_id": thread}
-    return config
-
-
 async def resumed_step(graph: Any, thread: str) -> int | None:
     """The step of the thread's latest checkpoint, or None for a new thread."""
     state = await graph.aget_state({"configurable": {"thread_id": thread}})

@@ -9,3 +9,6 @@ __pycache__/
 evidence/**/*.log
 evidence/**/*.stdout
 evidence/**/status.txt
+
+# Local trace collector output (deploy/compose.dev.yaml, profile tracing)
+deploy/otel-out/

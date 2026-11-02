@@ -8,18 +8,14 @@ from pathlib import Path
 
 from agentkit_config import load_agent, read_output
 from agentkit_core import Settings
+from agentkit_deep import agent_prompt_hash
+from agentkit_telemetry import run_config, trace_id
 from langchain_core.messages import HumanMessage
 
 from .agent import add_agent_args, exit_on_spec_errors, new_thread, overrides_from, platform_context
-from .persist import (
-    PERSIST_HELP,
-    persistence_for,
-    require_tenant,
-    resumed_step,
-    run_config,
-    turn_lock,
-)
+from .persist import PERSIST_HELP, persistence_for, require_tenant, resumed_step, turn_lock
 from .progress import run_with_progress, setup_logging
+from .telemetry import ledger_for, tracing
 
 log = logging.getLogger("research_agent")
 
@@ -56,15 +52,20 @@ async def run(
         ctx = platform_context(loaded.spec, tenant=tenant, user=user, thread=thread)
         log.info("run: tenant=%s user=%s thread=%s", ctx.tenant, ctx.user_id, ctx.thread_id)
         log.info("question: %s", question)
+        ledger = await ledger_for(p)
+        config = run_config(ctx, agent_prompt_hash(loaded.graph), ledger)
         async with turn_lock(p, thread):
             if p is not None and (step := await resumed_step(loaded.graph, thread)) is not None:
                 print(f"resumed thread {thread} at step {step}", flush=True)
             result = await run_with_progress(
                 loaded.graph,
                 {"messages": [HumanMessage(question)]},
-                config=run_config(thread, p),
+                config=dict(config),
                 context=ctx,
             )
+    if (trace := trace_id(config)) is not None:
+        print(f"trace: {trace}")
+    print(ledger.summary())
     report = read_output(result, loaded.spec.output)
     if not report:
         raise SystemExit("agent finished without writing /report.md")
@@ -87,17 +88,18 @@ def _main() -> None:
     if a.thread and not a.persist:
         p.error("--thread resumes a persisted thread; add --persist (needs DATABASE_URL)")
     setup_logging(-1 if a.quiet else 1 if a.verbose else 0)
-    report = asyncio.run(
-        run(
-            a.question,
-            a.agent,
-            overrides_from(a),
-            tenant=a.tenant,
-            user=a.user,
-            thread=a.thread,
-            persist=a.persist,
+    with tracing(Settings()):
+        report = asyncio.run(
+            run(
+                a.question,
+                a.agent,
+                overrides_from(a),
+                tenant=a.tenant,
+                user=a.user,
+                thread=a.thread,
+                persist=a.persist,
+            )
         )
-    )
     a.out.write_text(report)
     log.info("wrote %s (%d chars)", a.out, len(report))
     print(f"wrote {a.out}")

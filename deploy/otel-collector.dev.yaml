@@ -1,0 +1,32 @@
+# Local trace collector (compose service `otel-collector`, profile `tracing`).
+# OTLP in on 4318 (http) / 4317 (grpc); every span appended as JSONL to /otel-out/spans.jsonl.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+    timeout: 1s
+
+exporters:
+  file:
+    path: /otel-out/spans.jsonl
+  # Langfuse forwarding: configured but off (no Langfuse keys yet). To turn it on, uncomment
+  # this exporter, add it to the traces pipeline below, and set LANGFUSE_OTLP_ENDPOINT
+  # (e.g. https://cloud.langfuse.com/api/public/otel) and LANGFUSE_OTLP_AUTH
+  # (base64 of "<public key>:<secret key>") in the collector's environment.
+  # otlphttp/langfuse:
+  #   endpoint: ${env:LANGFUSE_OTLP_ENDPOINT}
+  #   headers:
+  #     Authorization: "Basic ${env:LANGFUSE_OTLP_AUTH}"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [file]  # add otlphttp/langfuse here to forward

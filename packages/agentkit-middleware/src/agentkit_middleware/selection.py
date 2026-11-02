@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Annotated, Any, NotRequired, Protocol
 
 from langchain.agents.middleware import (
@@ -21,6 +21,7 @@ from langchain.agents.middleware import (
     ModelResponse,
 )
 from langchain.agents.middleware.types import PrivateStateAttr
+from langchain_core.callbacks import adispatch_custom_event
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage
 from langgraph.types import Command
@@ -51,9 +52,23 @@ class ToolCard:
 
 
 @dataclass(frozen=True)
+class DecisionsUsage:
+    """Tokens one selection request cost (cached tokens are part of `input_tokens`)."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cached_input_tokens: int = 0
+
+
+@dataclass(frozen=True)
 class Selection:
     tier: str
     tool_names: frozenset[str]
+    usage: DecisionsUsage | None = None  # what the selector's backend reported, if anything
+
+
+# Custom callback event carrying a selection's DecisionsUsage (read by the cost ledger).
+DECISIONS_USAGE_EVENT = "agentkit.decisions_usage"
 
 
 class Selector(Protocol):
@@ -102,6 +117,14 @@ def _with_update(response: Any, sel: Selection) -> ExtendedModelResponse[Any]:
     return ExtendedModelResponse(response, Command(update={STATE_KEY: record}))
 
 
+async def _report_usage(usage: DecisionsUsage) -> None:
+    """Hand the selection's token usage to the run's callbacks (e.g. the cost ledger)."""
+    try:
+        await adispatch_custom_event(DECISIONS_USAGE_EVENT, asdict(usage))
+    except RuntimeError:  # outside a run (no parent run id): nobody to report to
+        log.debug("decisions usage not reported: no active run")
+
+
 class SelectionMiddleware(AgentMiddleware):
     state_schema = SelectionState
 
@@ -136,6 +159,8 @@ class SelectionMiddleware(AgentMiddleware):
             sel.tier,
             ", ".join(sorted(sel.tool_names)) or "none",
         )
+        if sel.usage is not None:
+            await _report_usage(sel.usage)
         return sel
 
     async def awrap_model_call(

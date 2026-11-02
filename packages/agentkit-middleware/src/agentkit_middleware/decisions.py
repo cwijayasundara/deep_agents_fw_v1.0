@@ -15,7 +15,7 @@ from typing import Any
 import httpx
 
 from .resilience import CircuitBreaker, call_with_retry
-from .selection import Selection, ToolCard
+from .selection import DecisionsUsage, Selection, ToolCard
 
 log = logging.getLogger(__name__)
 
@@ -96,6 +96,24 @@ class DecisionsClient:
         )
 
 
+def _count(value: Any) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _usage(resp: Mapping[str, Any]) -> DecisionsUsage | None:
+    """`usage` from a response; None when absent or malformed (its shape is barely documented)."""
+    raw = resp.get("usage")
+    if not isinstance(raw, dict):
+        return None
+    details = raw.get("input_tokens_details")
+    i = _count(raw.get("input_tokens"))
+    o = _count(raw.get("output_tokens", 0))
+    c = _count(details.get("cached_tokens", 0) if isinstance(details, dict) else 0)
+    if i is None or o is None or c is None:
+        return None
+    return DecisionsUsage(input_tokens=i, output_tokens=o, cached_input_tokens=c)
+
+
 class DecisionsSelector:
     """Selector backed by one batched Decisions request per thread."""
 
@@ -174,4 +192,4 @@ class DecisionsSelector:
             conf = a.get("confidence")
             if isinstance(conf, int | float) and conf >= self._floor:
                 tier = a["choice"]
-        return Selection(tier, frozenset(keep))
+        return Selection(tier, frozenset(keep), usage=_usage(resp))

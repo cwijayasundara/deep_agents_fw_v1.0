@@ -8,6 +8,7 @@ from agentkit_middleware import (
     DecisionsClient,
     DecisionsError,
     DecisionsSelector,
+    DecisionsUsage,
     ToolCard,
     Unavailable,
 )
@@ -176,3 +177,20 @@ async def test_live_response_vague_prompt_drops_all_tools():
     sel = await DecisionsSelector(client(), default_tier="default").select("q", CARDS)
     assert sel.tool_names == set()
     assert sel.tier == "fast"
+
+
+@respx.mock
+async def test_live_response_usage_is_returned_with_the_selection():
+    respx.post(URL).mock(return_value=live("decisions_live_short_prompt.json"))
+    sel = await DecisionsSelector(client()).select("q", CARDS)
+    assert sel.usage == DecisionsUsage(input_tokens=686, output_tokens=0, cached_input_tokens=0)
+
+
+@respx.mock
+async def test_missing_or_malformed_usage_is_none():
+    respx.post(URL).mock(return_value=httpx.Response(200, json={"answers": []}))
+    assert (await DecisionsSelector(client()).select("q", CARDS)).usage is None
+    respx.post(URL).mock(
+        return_value=httpx.Response(200, json={"answers": [], "usage": {"input_tokens": "x"}})
+    )
+    assert (await DecisionsSelector(client()).select("q", CARDS)).usage is None

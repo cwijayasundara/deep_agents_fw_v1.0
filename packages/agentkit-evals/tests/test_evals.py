@@ -67,3 +67,28 @@ async def test_run_eval_scores_and_isolates_errors():
     agg = aggregate(results)
     assert agg["completed"] == pytest.approx(1 / 3) and agg["completeness"] == 0.5
     assert "| ok |" in to_markdown(results)
+
+
+async def test_case_results_carry_run_id_trace_id_and_usage():
+    cases = [EvalCase(id=i, question="q", must_cover=["x"]) for i in ("ok", "empty", "judge")]
+    usage = {"input_tokens": 20, "output_tokens": 6}
+    runs = {
+        "ok": RunResult("cited https://a.com", "https://a.com", "r1", "t1", usage),
+        "empty": RunResult("  ", "", "r2", None, usage),
+        "judge": RunResult("cited https://a.com", "https://a.com", "r3", "t3", None),
+    }
+    order = iter(["ok", "empty", "judge"])
+
+    async def agent(q):
+        return runs[next(order)]
+
+    async def judge(case, report, retrieved):
+        if case.id == "judge":
+            raise RuntimeError("judge down")
+        return {}
+
+    by = {r.case_id: r for r in await run_eval(cases, agent, judge, concurrency=1)}
+    assert (by["ok"].run_id, by["ok"].trace_id, by["ok"].usage) == ("r1", "t1", usage)
+    assert (by["empty"].run_id, by["empty"].error) == ("r2", "empty report")
+    assert (by["judge"].run_id, by["judge"].trace_id) == ("r3", "t3")
+    assert "judge down" in (by["judge"].error or "")

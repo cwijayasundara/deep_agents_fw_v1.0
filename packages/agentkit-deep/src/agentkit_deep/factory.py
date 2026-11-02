@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from functools import cache
 from typing import TYPE_CHECKING, Any
@@ -18,6 +19,8 @@ from .memory import MEMORY_SOURCES, ORG_WRITE_DENY, has_memory_routes, memory_ba
 
 if TYPE_CHECKING:
     from agentkit_persistence import Persistence
+
+PROMPT_HASH_KEY = "prompt_hash"
 
 
 @cache
@@ -60,7 +63,10 @@ def build_deep_agent(
     Guard limit: the guard runs inside the graph, after a checkpointer has saved the run's
     input. A caller invoking a persistent agent must compare `context.tenant` with the
     deployment tenant first (as `research_agent.persist.require_tenant` does), or another
-    tenant's input lands in the thread's history before the guard refuses the run."""
+    tenant's input lands in the thread's history before the guard refuses the run.
+
+    The returned agent's `config["metadata"]["prompt_hash"]` is the SHA-256 of `system_prompt`
+    (see `agent_prompt_hash`); every run and trace inherits it."""
     if isinstance(model, ModelSpec):
         if settings is None:
             raise ValueError("settings is required when model is a ModelSpec")
@@ -80,7 +86,7 @@ def build_deep_agent(
         checkpointer, store = persistence.saver, persistence.store
         memory = list(MEMORY_SOURCES)
         permissions = [ORG_WRITE_DENY, *(permissions or ())]
-    return create_deep_agent(
+    agent: Any = create_deep_agent(
         model=model,
         tools=list(tools),
         system_prompt=system_prompt,
@@ -95,3 +101,15 @@ def build_deep_agent(
         permissions=None if permissions is None else list(permissions),
         memory=memory,
     )
+    return agent.with_config(metadata={PROMPT_HASH_KEY: prompt_hash(system_prompt)})
+
+
+def prompt_hash(system_prompt: str) -> str:
+    """SHA-256 (hex) of a resolved system prompt: which prompt a trace or usage row ran."""
+    return hashlib.sha256(system_prompt.encode()).hexdigest()
+
+
+def agent_prompt_hash(agent: Any) -> str:
+    """The prompt hash `build_deep_agent` put on the agent's config; "" for any other graph."""
+    config = getattr(agent, "config", None) or {}
+    return str((config.get("metadata") or {}).get(PROMPT_HASH_KEY, ""))

@@ -2,6 +2,7 @@ import pytest
 from agentkit_config import CodePools, SpecErrors, load_agent, read_output
 from agentkit_core import ConfigError, ModelRegistry, Settings
 from agentkit_deep.testing import ctx, scripted, tool_call
+from agentkit_telemetry import CostLedger
 from agentkit_tools import Page, Source, make_fetch_tool, make_web_search_tool
 from langchain_core.messages import AIMessage, HumanMessage
 from research_agent import DEFAULT_AGENT
@@ -171,6 +172,7 @@ def offline_cli(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "o")
     monkeypatch.setenv("FIREWORKS_API_KEY", "f")
     monkeypatch.delenv("AGENTKIT_TENANT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
     monkeypatch.chdir(tmp_path)
     contexts: list = []
 
@@ -284,10 +286,9 @@ async def test_run_called_directly_prints_its_minted_thread(offline_cli, capsys)
     from research_agent import cli
 
     await cli.run("q", str(DEFAULT_AGENT), {})
-    out = capsys.readouterr().out
-    assert out.startswith("thread: ") and out.strip().removeprefix("thread: ") == (
-        offline_cli[0].thread_id
-    )
+    first, *rest = capsys.readouterr().out.splitlines()
+    assert first == f"thread: {offline_cli[0].thread_id}"
+    assert rest == ["usage: 0 runs, 0 model calls, input 0 (cached 0), output 0, decisions input 0"]
 
 
 @pytest.fixture
@@ -296,7 +297,7 @@ def fake_persistence(monkeypatch):
     from contextlib import asynccontextmanager
 
     from agentkit_deep.testing import memory_persistence
-    from research_agent import persist
+    from research_agent import persist, telemetry
 
     p = memory_persistence()
     locks: list[str] = []
@@ -311,9 +312,16 @@ def fake_persistence(monkeypatch):
         locks.append(thread_id)
         yield
 
+    async def fake_ledger(persistence):
+        assert persistence is p
+        ledgers.append(CostLedger())  # no Postgres: the agentkit_usage table is not created
+        return ledgers[-1]
+
+    ledgers: list = []
     monkeypatch.setattr(persist.PersistenceSettings, "from_env", classmethod(lambda cls: None))
     monkeypatch.setattr(persist, "open_persistence", fake_open)
     monkeypatch.setattr(persist, "thread_lock", fake_lock)
+    monkeypatch.setattr(telemetry, "persistent_ledger", fake_ledger)
     return p, locks
 
 
@@ -531,3 +539,57 @@ def test_eval_persist_honours_an_explicit_user(
 def test_eval_without_persist_keeps_the_local_default(offline_cli, monkeypatch, tmp_path):
     _eval_main(monkeypatch, tmp_path)
     assert [c.user_id for c in offline_cli] == ["local"]
+
+
+def test_cli_runs_with_the_telemetry_run_config_and_prints_usage(offline_cli, monkeypatch, capsys):
+    from research_agent import cli
+
+    configs: list = []
+
+    async def fake_run(agent, inputs, config, *, context, **kw):
+        configs.append(config)
+        offline_cli.append(context)
+        return {"files": {"/report.md": "# r"}}
+
+    monkeypatch.setattr(cli, "run_with_progress", fake_run)
+    monkeypatch.setattr("sys.argv", ["research", "q", "--user", "u1"])
+    cli.main()
+    (config,) = configs
+    thread = offline_cli[0].thread_id
+    md = config["metadata"]
+    assert (md["tenant"], md["user_id"], md["thread_id"]) == ("default", "u1", thread)
+    assert md["langfuse_session_id"] == thread and "prompt_hash" in md
+    assert config["configurable"] == {"thread_id": thread}
+    assert any(isinstance(cb, CostLedger) for cb in config["callbacks"])
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[-2].startswith("usage: ") and lines[-1] == "wrote report.md"
+
+
+def test_cli_persist_creates_the_usage_table_and_writes_through_persistence(
+    fake_persistence, offline_cli, monkeypatch
+):
+    from research_agent import cli, telemetry
+
+    created: list = []
+
+    async def ledger(p):
+        created.append(p)
+        return CostLedger(p)
+
+    monkeypatch.setattr(telemetry, "persistent_ledger", ledger)
+    monkeypatch.setattr(cli, "resumed_step", _no_step)
+    monkeypatch.setattr("sys.argv", ["research", "q", "--persist"])
+    cli.main()
+    assert created == [fake_persistence[0]]
+
+
+def test_eval_json_holds_run_id_trace_id_and_usage_per_case(offline_cli, monkeypatch, tmp_path):
+    import json
+    import uuid
+
+    _eval_main(monkeypatch, tmp_path)
+    summary = json.loads((tmp_path / "eval_results.json").read_text())
+    (case,) = summary["cases"]
+    assert case["case_id"] == "a" and set(case) >= {"run_id", "trace_id", "usage"}
+    uuid.UUID(case["run_id"])
+    assert case["trace_id"] is None  # tracing off: no OTEL_EXPORTER_OTLP_ENDPOINT

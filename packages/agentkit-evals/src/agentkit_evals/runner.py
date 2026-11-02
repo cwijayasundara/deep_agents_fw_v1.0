@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from statistics import mean
+from typing import Any
 
 from .dataset import EvalCase
 from .judge import Judge
@@ -14,6 +15,9 @@ from .metrics import citation_scores
 class RunResult:
     report: str
     retrieved: str  # concatenated tool output the agent actually saw
+    run_id: str | None = None  # the agent run's root run id (the cost ledger's key)
+    trace_id: str | None = None  # its trace id when tracing is on
+    usage: dict[str, Any] | None = None  # the run's ledger row (token counts), if recorded
 
 
 @dataclass
@@ -21,6 +25,9 @@ class CaseResult:
     case_id: str
     scores: dict[str, float] = field(default_factory=dict)
     error: str | None = None
+    run_id: str | None = None
+    trace_id: str | None = None
+    usage: dict[str, Any] | None = None
 
 
 AgentRunner = Callable[[str], Awaitable[RunResult]]
@@ -29,13 +36,18 @@ AgentRunner = Callable[[str], Awaitable[RunResult]]
 async def _one(case: EvalCase, run_agent: AgentRunner, judge: Judge) -> CaseResult:
     try:
         r = await run_agent(case.question)
-        if not r.report.strip():
-            return CaseResult(case.id, error="empty report")
-        scores = citation_scores(r.report, r.retrieved)
-        scores.update(await judge(case, r.report, r.retrieved))
-        return CaseResult(case.id, scores)
     except Exception as e:  # one bad case must not sink the run
         return CaseResult(case.id, error=f"{type(e).__name__}: {e}")
+    result = CaseResult(case.id, run_id=r.run_id, trace_id=r.trace_id, usage=r.usage)
+    try:
+        if not r.report.strip():
+            result.error = "empty report"
+            return result
+        result.scores = citation_scores(r.report, r.retrieved)
+        result.scores.update(await judge(case, r.report, r.retrieved))
+    except Exception as e:
+        result.scores, result.error = {}, f"{type(e).__name__}: {e}"
+    return result
 
 
 async def run_eval(

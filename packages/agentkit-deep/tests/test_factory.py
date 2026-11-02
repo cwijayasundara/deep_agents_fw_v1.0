@@ -41,3 +41,23 @@ async def test_dict_context_is_validated_against_platform_context():
     bad = ctx().model_dump() | {"tenant": "acme.corp"}
     with pytest.raises(Exception, match="tenant"):
         await agent.ainvoke({"messages": [HumanMessage("go")]}, context=bad)
+
+
+def test_prompt_hash_is_exposed_on_the_agent_config():
+    import hashlib
+
+    from agentkit_deep import agent_prompt_hash
+
+    agent = build_deep_agent(model=scripted(AIMessage(content="x")), system_prompt="be brief")
+    want = hashlib.sha256(b"be brief").hexdigest()
+    assert agent.config["metadata"]["prompt_hash"] == want
+    assert agent_prompt_hash(agent) == want
+
+
+async def test_metered_model_reports_usage_and_model_name():
+    from agentkit_deep.testing import MeteredChatModel
+
+    model = MeteredChatModel(messages=iter([AIMessage(content="a")]), model_name="m1")
+    out = await model.ainvoke("hi")
+    assert out.usage_metadata == {"input_tokens": 10, "output_tokens": 3, "total_tokens": 13}
+    assert model._get_ls_params()["ls_model_name"] == "m1"

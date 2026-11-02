@@ -23,6 +23,7 @@ dependencies = [
     { name = "agentkit-core" },
     { name = "agentkit-deep" },
     { name = "agentkit-middleware" },
+    { name = "agentkit-persistence" },
     { name = "langchain" },
     { name = "langchain-core" },
     { name = "pydantic" },
@@ -39,6 +40,7 @@ requires-dist = [
     { name = "agentkit-core", editable = "packages/agentkit-core" },
     { name = "agentkit-deep", editable = "packages/agentkit-deep" },
     { name = "agentkit-middleware", editable = "packages/agentkit-middleware" },
+    { name = "agentkit-persistence", editable = "packages/agentkit-persistence" },
     { name = "langchain" },
     { name = "langchain-core" },
     { name = "pydantic" },
@@ -82,6 +84,7 @@ source = { editable = "packages/agentkit-deep" }
 dependencies = [
     { name = "agentkit-core" },
     { name = "agentkit-middleware" },
+    { name = "agentkit-persistence" },
     { name = "deepagents" },
     { name = "langchain-core" },
     { name = "langgraph" },
@@ -91,6 +94,7 @@ dependencies = [
 requires-dist = [
     { name = "agentkit-core", editable = "packages/agentkit-core" },
     { name = "agentkit-middleware", editable = "packages/agentkit-middleware" },
+    { name = "agentkit-persistence", editable = "packages/agentkit-persistence" },
     { name = "deepagents" },
     { name = "langchain-core" },
     { name = "langgraph" },

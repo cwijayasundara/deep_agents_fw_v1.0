@@ -215,10 +215,13 @@ def test_cli_mints_and_prints_thread_and_runs_under_context(offline_cli, monkeyp
     assert (c.agent_name, c.agent_version) == (spec.name, spec.version)
 
 
-def test_cli_thread_flag_is_used(offline_cli, monkeypatch, capsys):
+def test_cli_thread_flag_is_used(offline_cli, fake_persistence, monkeypatch, capsys):
     from research_agent import cli
 
-    monkeypatch.setattr("sys.argv", ["research", "q", "--tenant", "acme", "--thread", "th-1"])
+    monkeypatch.setenv("AGENTKIT_TENANT", "acme")
+    monkeypatch.setattr(cli, "resumed_step", _no_step)
+    argv = ["research", "q", "--tenant", "acme", "--thread", "th-1", "--persist"]
+    monkeypatch.setattr("sys.argv", argv)
     cli.main()
     assert capsys.readouterr().out.startswith("thread: th-1\n")
     assert offline_cli[0].tenant == "acme" and offline_cli[0].thread_id == "th-1"
@@ -285,3 +288,187 @@ async def test_run_called_directly_prints_its_minted_thread(offline_cli, capsys)
     assert out.startswith("thread: ") and out.strip().removeprefix("thread: ") == (
         offline_cli[0].thread_id
     )
+
+
+@pytest.fixture
+def fake_persistence(monkeypatch):
+    """--persist on an in-memory saver/store: records every thread_lock acquisition."""
+    from contextlib import asynccontextmanager
+
+    from agentkit_deep.testing import memory_persistence
+    from research_agent import persist
+
+    p = memory_persistence()
+    locks: list[str] = []
+
+    @asynccontextmanager
+    async def fake_open(settings):
+        yield p
+
+    @asynccontextmanager
+    async def fake_lock(persistence, thread_id):
+        assert persistence is p
+        locks.append(thread_id)
+        yield
+
+    monkeypatch.setattr(persist.PersistenceSettings, "from_env", classmethod(lambda cls: None))
+    monkeypatch.setattr(persist, "open_persistence", fake_open)
+    monkeypatch.setattr(persist, "thread_lock", fake_lock)
+    return p, locks
+
+
+def _scripted_cli(monkeypatch, model):
+    """research's load_agent on the fake tool pools and a scripted model (persistence kept)."""
+    from research_agent import cli
+
+    loaded: list = []
+
+    def load(path, *, settings, overrides, persistence=None):
+        loaded.append(
+            load_agent(
+                path,
+                settings=Settings(_env_file=None),
+                library=lib(),
+                overrides={"model": "anthropic", "selection": "off"},
+                model=model,
+                persistence=persistence,
+            )
+        )
+        return loaded[-1]
+
+    monkeypatch.setattr(cli, "load_agent", load)
+    return loaded
+
+
+async def test_persist_resumes_a_thread_and_sees_turn_one(
+    fake_persistence, monkeypatch, capsys, tmp_path
+):
+    from research_agent import cli
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENTKIT_TENANT", raising=False)
+    p, locks = fake_persistence
+    report = "# R\nX [1]\n\n## Sources\n[1] https://a.example/x"
+    loaded = _scripted_cli(
+        monkeypatch,
+        scripted(
+            tool_call("write_file", {"file_path": "/report.md", "content": report}, "1"),
+            AIMessage(content="done"),
+            AIMessage(content="follow-up answered"),
+        ),
+    )
+    assert await cli.run("turn one", str(DEFAULT_AGENT), {}, thread="th-r", persist=True) == report
+    first = capsys.readouterr().out
+    assert "resumed thread" not in first
+    assert await cli.run("turn two", str(DEFAULT_AGENT), {}, thread="th-r", persist=True) == report
+    out = capsys.readouterr().out
+    assert "resumed thread th-r at step " in out
+    n = int(out.split("resumed thread th-r at step ")[1].split()[0])
+    assert n > 0
+    state = await loaded[-1].graph.aget_state({"configurable": {"thread_id": "th-r"}})
+    humans = [m.content for m in state.values["messages"] if m.type == "human"]
+    assert humans == ["turn one", "turn two"]
+    assert locks == ["th-r", "th-r"]
+
+
+def test_thread_without_persist_is_rejected(offline_cli, monkeypatch, capsys):
+    from research_agent import cli
+
+    monkeypatch.setattr("sys.argv", ["research", "q", "--thread", "th-1"])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "--thread" in err and "--persist" in err and offline_cli == []
+
+
+def test_persist_without_database_url_exits_2_naming_it(offline_cli, monkeypatch, capsys):
+    from research_agent import cli
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setenv("LANGGRAPH_AES_KEY", "k" * 16)
+    monkeypatch.setattr("sys.argv", ["research", "q", "--persist"])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "DATABASE_URL" in err and "Traceback" not in err and offline_cli == []
+
+
+def test_persist_checks_the_tenant_before_any_run(
+    fake_persistence, offline_cli, monkeypatch, capsys
+):
+    """Ruling P4: a mismatched run would write its input to the checkpoint before the guard."""
+    from research_agent import cli
+
+    _, locks = fake_persistence
+    monkeypatch.setattr("sys.argv", ["research", "q", "--persist", "--tenant", "other"])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 1
+    assert "run tenant 'other' != deployment tenant 'default'" in capsys.readouterr().err
+    assert offline_cli == [] and locks == []
+
+
+def test_persist_runs_the_turn_in_the_thread_lock_with_the_thread_config(
+    fake_persistence, offline_cli, monkeypatch, capsys
+):
+    from research_agent import cli
+
+    _, locks = fake_persistence
+    configs: list = []
+
+    async def fake_run(agent, inputs, config, *, context, **kw):
+        configs.append(config)
+        offline_cli.append(context)
+        return {"files": {"/report.md": "# r"}}
+
+    monkeypatch.setattr(cli, "run_with_progress", fake_run)
+    monkeypatch.setattr(cli, "resumed_step", _no_step)
+    monkeypatch.setattr("sys.argv", ["research", "q", "--persist", "--thread", "th-9"])
+    cli.main()
+    assert locks == ["th-9"]
+    assert configs[0]["configurable"] == {"thread_id": "th-9"}
+    assert offline_cli[0].thread_id == "th-9"
+
+
+async def _no_step(graph, thread):
+    return None
+
+
+def test_help_describes_thread_resume_and_persist(monkeypatch, capsys):
+    from research_agent import cli
+
+    monkeypatch.setattr("sys.argv", ["research", "--help"])
+    with pytest.raises(SystemExit):
+        cli.main()
+    out = " ".join(capsys.readouterr().out.split())
+    assert "--persist" in out and "DATABASE_URL" in out
+    assert "--thread THREAD" in out and "resume" in out
+
+
+def test_eval_persist_locks_one_thread_per_case(
+    fake_persistence, offline_cli, monkeypatch, tmp_path
+):
+    from research_agent import eval_cli
+
+    _, locks = fake_persistence
+    monkeypatch.setattr(eval_cli, "resumed_step", _no_step, raising=False)
+    data = tmp_path / "d.jsonl"
+    data.write_text(
+        "".join(f'{{"id": "{q}", "question": "{q}", "must_cover": ["x"]}}\n' for q in "ab")
+    )
+
+    class Judge:
+        def __init__(self, model):
+            pass
+
+        async def __call__(self, case, report, retrieved):
+            return {"score": 1.0}
+
+    monkeypatch.setattr(eval_cli, "LLMJudge", Judge)
+    monkeypatch.setattr(eval_cli, "get_model", lambda spec, settings: None)
+    monkeypatch.setattr("sys.argv", ["research-eval", "--dataset", str(data), "--persist"])
+    eval_cli.main()
+    threads = [c.thread_id for c in offline_cli]
+    assert len(set(threads)) == 2 and sorted(locks) == sorted(threads)

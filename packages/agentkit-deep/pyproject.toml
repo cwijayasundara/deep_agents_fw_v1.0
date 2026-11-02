@@ -2,7 +2,8 @@
 name = "agentkit-deep"
 version = "0.0.1"
 requires-python = ">=3.12,<3.13"
-dependencies = ["agentkit-core", "agentkit-middleware", "deepagents", "langgraph", "langchain-core"]
+dependencies = ["agentkit-core", "agentkit-middleware", "agentkit-persistence",
+  "deepagents", "langgraph", "langchain-core"]
 
 [build-system]
 requires = ["hatchling"]

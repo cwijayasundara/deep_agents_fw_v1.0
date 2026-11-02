@@ -4,7 +4,7 @@ import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agentkit_core import ModelRegistry, ModelSpec, Settings
 from agentkit_deep import build_deep_agent
@@ -17,6 +17,9 @@ from agentkit_config.pools.code import CodePools
 from agentkit_config.resolve import resolve_agent
 from agentkit_config.spec import AgentSpec, parse_agent
 from agentkit_config.validate import validate_agent
+
+if TYPE_CHECKING:
+    from agentkit_persistence import Persistence
 
 log = logging.getLogger(__name__)
 _OVERRIDE_KEYS = ("model", "tier", "selection")
@@ -55,8 +58,11 @@ def load_agent(
     library: Library | None = None,
     overrides: Mapping[str, str] | None = None,
     model: BaseChatModel | None = None,
+    persistence: Persistence | None = None,
 ) -> LoadedAgent:
-    """parse -> overrides -> validate -> resolve -> build. Validation precedes any key check."""
+    """parse -> overrides -> validate -> resolve -> build. Validation precedes any key check.
+
+    `persistence` makes the agent durable (checkpoints, memory tiers); see `build_deep_agent`."""
     path = Path(path)
     lib = library if library is not None else Library.for_file(path, CodePools.from_entry_points())
     models = ModelRegistry.default()
@@ -67,6 +73,6 @@ def load_agent(
     for w in (p for p in problems if p.severity == "warning"):
         log.warning("%s", w)
     SpecErrors(problems).raise_if_errors()
-    kwargs = resolve_agent(spec, lib, models, settings, model=model)
+    kwargs = resolve_agent(spec, lib, models, settings, model=model, persistence=persistence)
     graph = build_deep_agent(**kwargs)
     return LoadedAgent(graph, spec, models.resolve(spec.model, spec.tier))

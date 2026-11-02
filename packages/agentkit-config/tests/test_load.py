@@ -189,3 +189,68 @@ def test_bad_override_value_is_spec_errors(tmp_path):
         apply_overrides(spec, {"selection": "foo"})
     with pytest.raises(SpecErrors, match="tier"):
         apply_overrides(spec, {"tier": 3})  # type: ignore[dict-item]
+
+
+def _with_skill(tmp_path: Path) -> Path:
+    p = _write(tmp_path, "skills: [alpha]\n")
+    d = tmp_path / "skills" / "alpha"
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text("---\nname: alpha\ndescription: Alpha skill\n---\n\n# Alpha\n")
+    return p
+
+
+def test_persistence_absorbs_skills_into_the_memory_backend(tmp_path):
+    from agentkit_deep.testing import memory_persistence
+
+    p = memory_persistence()
+    spec = parse_agent(_with_skill(tmp_path))
+    kw = resolve_agent(
+        spec, _lib(tmp_path), ModelRegistry.default(), SETTINGS, model=scripted(), persistence=p
+    )
+    assert kw["persistence"] is p
+    assert set(kw["backend"].routes) == {"/skills/demo/", "/org/", "/memories/"}
+    assert [r.paths for r in kw["permissions"]] == [["/skills/**"]]
+    assert kw["skills"] == ["/skills/demo/"]
+
+
+def test_persistence_without_skills_leaves_the_backend_to_the_factory(tmp_path):
+    from agentkit_deep.testing import memory_persistence
+
+    spec = parse_agent(_write(tmp_path))
+    p = memory_persistence()
+    kw = resolve_agent(
+        spec, _lib(tmp_path), ModelRegistry.default(), SETTINGS, model=scripted(), persistence=p
+    )
+    assert kw["persistence"] is p and "backend" not in kw
+
+
+def test_no_persistence_keeps_the_plain_skills_mount(tmp_path):
+    spec = parse_agent(_with_skill(tmp_path))
+    kw = resolve_agent(spec, _lib(tmp_path), ModelRegistry.default(), SETTINGS, model=scripted())
+    assert "persistence" not in kw
+    assert set(kw["backend"].routes) == {"/skills/demo/"}
+
+
+async def test_load_agent_with_persistence_keeps_skills_and_memory(tmp_path):
+    from agentkit_deep.testing import memory_persistence
+
+    p = memory_persistence()
+    model = scripted(
+        tool_call("write_file", {"file_path": "/memories/AGENTS.md", "content": "n"}, "1"),
+        AIMessage(content="done"),
+    )
+    loaded = load_agent(
+        _with_skill(tmp_path),
+        settings=SETTINGS,
+        library=_lib(tmp_path),
+        model=model,
+        persistence=p,
+    )
+    assert loaded.graph.checkpointer is p.saver
+    await loaded.graph.ainvoke(
+        {"messages": [HumanMessage("x")]},
+        context=ctx(),
+        config={"configurable": {"thread_id": "t"}},
+    )
+    ns = ("default", "agentkit", "platform", "local", "memories")
+    assert (await p.store.aget(ns, "/AGENTS.md")) is not None

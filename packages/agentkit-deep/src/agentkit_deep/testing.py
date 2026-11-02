@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 from agentkit_core import PlatformContext
+from agentkit_persistence import Persistence
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.store.memory import InMemoryStore
 from pydantic import Field
 
 
@@ -35,6 +38,17 @@ def ctx(**overrides: str) -> PlatformContext:
         "agent_version": "0",
     }
     return PlatformContext(**{**base, **overrides})
+
+
+def memory_persistence() -> Persistence:
+    """A `Persistence` on InMemorySaver/InMemoryStore (no Postgres, no pools, no encryption)."""
+    none = cast(Any, None)
+    return Persistence(
+        pool=none,
+        lock_pool=none,
+        saver=cast(Any, InMemorySaver()),
+        store=cast(Any, InMemoryStore()),
+    )
 
 
 def scripted(*messages: AIMessage) -> ScriptedChatModel:

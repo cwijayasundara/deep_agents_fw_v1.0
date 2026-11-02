@@ -45,16 +45,27 @@ def skills_source(owner: str) -> str:
     return f"{SKILLS_ROOT}{owner}/"
 
 
+def skills_routes(owners: Mapping[str, Sequence[Path]]) -> dict[str, BackendProtocol]:
+    """One read-only route per owner, keyed by `skills_source(owner)`.
+
+    A persistent agent folds these into `memory_backend(...)` instead of `skills_mount`."""
+    return {
+        skills_source(_segment(owner, "owner")): _owner_view(owner, dirs)
+        for owner, dirs in owners.items()
+    }
+
+
+def skills_permissions() -> list[FilesystemPermission]:
+    """The tool-level write deny over every skills route."""
+    return [FilesystemPermission(operations=["write"], paths=[f"{SKILLS_ROOT}**"], mode="deny")]
+
+
 def skills_mount(
     owners: Mapping[str, Sequence[Path]],
 ) -> tuple[BackendProtocol, list[FilesystemPermission]]:
     """Mount each owner's skill directories read-only under `skills_source(owner)`."""
-    routes: dict[str, BackendProtocol] = {
-        skills_source(_segment(owner, "owner")): _owner_view(owner, dirs)
-        for owner, dirs in owners.items()
-    }
-    deny = FilesystemPermission(operations=["write"], paths=[f"{SKILLS_ROOT}**"], mode="deny")
-    return CompositeBackend(default=StateBackend(), routes=routes), [deny]
+    routes = skills_routes(owners)
+    return CompositeBackend(default=StateBackend(), routes=routes), skills_permissions()
 
 
 def _owner_view(owner: str, dirs: Sequence[Path]) -> BackendProtocol:

@@ -143,3 +143,18 @@ def test_callers_cannot_add_a_second_guard():
             system_prompt="p",
             middleware=[TenantGuardMiddleware("other")],
         )
+
+
+def test_persistence_wires_its_saver_and_store_into_the_graph():
+    from agentkit_deep.testing import memory_persistence
+
+    p = memory_persistence()
+    agent = build_deep_agent(
+        model=scripted(AIMessage(content="ok")), system_prompt="p", persistence=p
+    )
+    assert agent.checkpointer is p.saver and agent.store is p.store
+
+
+def test_without_persistence_nothing_is_persisted():
+    agent = build_deep_agent(model=scripted(AIMessage(content="ok")), system_prompt="p")
+    assert agent.checkpointer is None and agent.store is None

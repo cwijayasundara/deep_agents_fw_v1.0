@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from agentkit_core import BuildContext, ModelRegistry, Settings, get_model
-from agentkit_deep.skills_mount import skills_mount, skills_source
+from agentkit_deep.memory import memory_backend
+from agentkit_deep.skills_mount import (
+    skills_mount,
+    skills_permissions,
+    skills_routes,
+    skills_source,
+)
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
@@ -15,6 +21,9 @@ from agentkit_config.library import Library
 from agentkit_config.pools.prompts import render
 from agentkit_config.selection import decisions_middleware
 from agentkit_config.spec import AgentSpec, MiddlewareRef, SubAgentSpec, ToolRef
+
+if TYPE_CHECKING:
+    from agentkit_persistence import Persistence
 
 _FILE = "<resolve>"
 
@@ -80,8 +89,11 @@ def resolve_agent(
     settings: Settings,
     *,
     model: BaseChatModel | None,
+    persistence: Persistence | None = None,
 ) -> dict[str, Any]:
-    """Turn a validated AgentSpec into kwargs for `build_deep_agent`."""
+    """Turn a validated AgentSpec into kwargs for `build_deep_agent`.
+
+    With `persistence`, skills routes are folded into the memory backend (one composite)."""
     today = datetime.date.today().isoformat()
     model_spec = models.resolve(spec.model, spec.tier)
     ctx = BuildContext(settings, model_spec, spec.name)
@@ -116,10 +128,14 @@ def resolve_agent(
     owners = {spec.name: _skill_dirs(spec.skills, lib)}
     owners.update({s.name: _skill_dirs(s.skills, lib) for s in subs})
     owners = {o: dirs for o, dirs in owners.items() if dirs}
+    if persistence is not None:
+        kwargs["persistence"] = persistence
     if owners:
-        backend, permissions = skills_mount(owners)
-        kwargs["backend"] = backend
-        kwargs["permissions"] = permissions
+        if persistence is not None:
+            kwargs["backend"] = memory_backend(skills_routes(owners))
+            kwargs["permissions"] = skills_permissions()
+        else:
+            kwargs["backend"], kwargs["permissions"] = skills_mount(owners)
         if spec.skills:
             kwargs["skills"] = [skills_source(spec.name)]
     return kwargs

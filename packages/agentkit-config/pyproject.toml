@@ -2,8 +2,8 @@
 name = "agentkit-config"
 version = "0.0.1"
 requires-python = ">=3.12,<3.13"
-dependencies = ["agentkit-core", "agentkit-deep", "agentkit-middleware", "langchain",
-  "langchain-core", "pydantic", "pyyaml"]
+dependencies = ["agentkit-core", "agentkit-deep", "agentkit-middleware",
+  "agentkit-persistence", "langchain", "langchain-core", "pydantic", "pyyaml"]
 
 [dependency-groups]
 dev = ["agentkit-tools"]

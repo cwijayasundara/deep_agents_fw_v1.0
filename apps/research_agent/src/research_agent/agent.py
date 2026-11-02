@@ -8,7 +8,7 @@ from pathlib import Path
 
 from agentkit_config import SpecErrors, read_output
 from agentkit_config.spec import AgentSpec
-from agentkit_core import PlatformContext, check_label
+from agentkit_core import ConfigError, PlatformContext, check_label
 from agentkit_middleware import TenantMismatch
 
 DEFAULT_AGENT = Path(__file__).parents[2] / "agent.yaml"
@@ -65,6 +65,7 @@ def overrides_from(a: argparse.Namespace) -> Mapping[str, str]:
 
 def exit_on_spec_errors(main: Callable[[], None]) -> None:
     """Run a CLI main; print load-time spec errors one per line to stderr and exit 2.
+    A configuration error (e.g. `--persist` without DATABASE_URL) prints one line and exits 2.
     A run refused by the tenant guard prints one line and exits 1."""
     try:
         main()
@@ -72,6 +73,9 @@ def exit_on_spec_errors(main: Callable[[], None]) -> None:
         for err in e.errors:
             if err.severity == "error":  # warnings were already logged by load_agent
                 print(err, file=sys.stderr)
+        raise SystemExit(2) from None
+    except ConfigError as e:
+        print(f"ConfigError: {e}", file=sys.stderr)
         raise SystemExit(2) from None
     except TenantMismatch as e:
         print(f"TenantMismatch: {e}", file=sys.stderr)

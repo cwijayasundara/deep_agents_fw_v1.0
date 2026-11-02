@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -30,3 +31,18 @@ def test_for_file_env_path_and_missing_skipped(
     f.parent.mkdir()
     lib = Library.for_file(f)
     assert list(lib.roots) == [f.parent.resolve(), extra]
+
+
+def test_roots_resolved_and_deduplicated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo_libs = Path(__file__).resolve().parents[3] / "libraries"
+    monkeypatch.setenv("AGENTKIT_LIBRARY_PATH", f"{repo_libs}{os.pathsep}{repo_libs}/../libraries")
+    lib = Library.for_file(repo_libs.parent / "apps" / "research_agent" / "agent.yaml")
+    assert len(set(lib.roots)) == len(lib.roots)
+    assert lib.prompts.names()
+
+
+def test_from_roots_dedupes(tmp_path: Path) -> None:
+    (tmp_path / "prompts").mkdir()
+    (tmp_path / "prompts" / "p.md").write_text("x")
+    lib = Library.from_roots([tmp_path, tmp_path / "." / "prompts" / ".."])
+    assert lib.roots == (tmp_path.resolve(),)

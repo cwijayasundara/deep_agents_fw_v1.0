@@ -28,7 +28,8 @@ def exit_on_spec_errors(main: Callable[[], None]) -> None:
         main()
     except SpecErrors as e:
         for err in e.errors:
-            print(err, file=sys.stderr)
+            if err.severity == "error":  # warnings were already logged by load_agent
+                print(err, file=sys.stderr)
         raise SystemExit(2) from None
 
 

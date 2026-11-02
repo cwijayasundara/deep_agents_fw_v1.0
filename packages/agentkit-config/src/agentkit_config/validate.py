@@ -157,6 +157,8 @@ def _subagent_errors(c: _Ctx, spec: AgentSpec) -> list[SpecError]:
                 out.append(_unknown(c, p, "subagent", entry, c.lib.subagents.names()))
                 continue
             entry = c.lib.subagents.get(entry, file=c.file, path=p)
+        if entry.name == spec.name:
+            out.append(c.err(p, f"subagent name {entry.name!r} must differ from the agent name"))
         if entry.name in seen:
             out.append(c.err(p, f"duplicate subagent {entry.name!r}"))
         seen.add(entry.name)

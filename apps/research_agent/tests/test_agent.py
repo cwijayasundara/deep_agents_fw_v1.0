@@ -128,3 +128,38 @@ def test_cli_bad_model_exits_2_with_error_text(monkeypatch, capsys):
     assert exc.value.code == 2
     err = capsys.readouterr().err
     assert "nope" in err and "anthropic" in err and "Traceback" not in err
+
+
+def test_exit_on_spec_errors_prints_only_errors(capsys):
+    from agentkit_config.errors import SpecError
+    from research_agent.agent import exit_on_spec_errors
+
+    def boom():
+        raise SpecErrors(
+            [SpecError("f", "a", "bad"), SpecError("f", "b", "meh", severity="warning")]
+        )
+
+    with pytest.raises(SystemExit) as ei:
+        exit_on_spec_errors(boom)
+    assert ei.value.code == 2
+    err = capsys.readouterr().err
+    assert "bad" in err and "meh" not in err
+
+
+def test_ddg_agent_and_subagent_load_without_tavily_key(tmp_path):
+    agent = tmp_path / "agent.yaml"
+    agent.write_text(
+        "apiVersion: agentkit/v1\nkind: Agent\nname: ddg_agent\nmodel: fireworks-glm\n"
+        "prompt: research/orchestrator\n"
+        "tools: [{web_search: {backend: duckduckgo}}, fetch_url]\n"
+        "subagents: [researcher_ddg]\n"
+    )
+    library = lib(CodePools.from_entry_points())
+    loaded = load_agent(
+        agent,
+        settings=Settings(_env_file=None),
+        library=library,
+        overrides={"selection": "off"},
+        model=scripted(AIMessage(content="x")),
+    )
+    assert loaded.graph is not None

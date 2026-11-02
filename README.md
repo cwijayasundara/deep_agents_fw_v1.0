@@ -31,13 +31,13 @@ token counts, or `-q` for warnings only.
 
 ## Test it manually
 
-Run every command from the repo root. The CLIs read `.env` and the default agent path relative to the
-current directory. Each step below costs real tokens except step 1.
+Run every command from the repo root. The CLIs read `.env` from the
+current directory, and `--dataset` paths are relative to it too. The default agent path is package-relative. Each step below costs real tokens except step 1.
 
 ### 1. Check the offline build
 
 ```bash
-make test        # expect: 145 passed, 7 deselected
+make test        # expect: 192 passed, 7 deselected
 make lint        # expect: no ruff or mypy errors
 ```
 
@@ -58,7 +58,10 @@ Each run needs these keys.
 
 To try a provider without an OpenAI key, pass `--no-selection`. The agent then sees every tool and stays on
 the configured tier. To search without a Tavily key, set `backend: duckduckgo` on the `web_search` tool
-(`tools: [{web_search: {backend: duckduckgo}}, fetch_url]`).
+(`tools: [{web_search: {backend: duckduckgo}}, fetch_url]`). A subagent's `tools` replace the parent's, so the
+subagent needs the same backend: use the shipped `researcher_ddg` subagent (`subagents: [researcher_ddg]`)
+together with the parent change. With only the parent changed, the default `researcher` still asks for Tavily
+and the build fails with `TAVILY_API_KEY is required`.
 
 ### 3. Check that each model answers
 
@@ -121,12 +124,14 @@ A model whose keys are missing is skipped. Record each result in `docs/phase0-re
 
 - **Add a provider/model:** add an entry to `packages/agentkit-core/src/agentkit_core/models.yaml` (select it with `--model`).
 - **Add an agent:** write an `agent.yaml` (`apiVersion: agentkit/v1`, `kind: Agent`) that picks `tools`, `skills`, `prompt` and `subagents` by name from the libraries (`libraries/prompts/*.md`, `libraries/subagents/*.yaml`, skills). Run it with `research --agent path/to/agent.yaml`. Bad names fail at load time, listing the known ones.
-- **Add a tool:** implement the `SearchTool`/`FetchTool` protocol or write a LangChain tool; pass it to `build_deep_agent(tools=...)`.
+- **Add a tool:** write a factory `(ctx: BuildContext, **params) -> BaseTool` and register it under the `agentkit.tools` entry-point group in your package's `pyproject.toml`. Then name it in YAML (`tools: [my_tool]` or `tools: [{my_tool: {param: 1}}]`); params are checked against the factory signature. Middleware works the same way (`agentkit.middleware`), and flows add `agentkit.nodes` and `agentkit.schemas`.
+- **Add a flow:** write a `flow.yaml` (`kind: Flow`) of nodes and edges and build it with `load_flow`. `apps/research_agent/flows/` has the `research_with_review` example.
+- **Check your YAML:** `agentkit validate <files>` checks names, params, skills and edges without building anything. `make lint` runs it over every shipped agent, subagent and flow.
 - **Live tests:** mark with `@pytest.mark.live`; run with `uv run pytest -m live`.
 
 ## Status
 
-Done: T1-T9. There are 145 offline tests. T9 passed live on 2026-11-02. All six model ids answer a live call,
+Done: T1-T9. There are 192 offline tests. T9 passed live on 2026-11-02. All six model ids answer a live call,
 two real Decisions responses are now test fixtures, and the research agent runs end to end with Decisions
 and Tavily. Results and eval scores are in `docs/phase0-results.md`.
 
@@ -136,10 +141,14 @@ Its eval baseline is completed 1.00, citation validity 0.96, completeness 0.97 a
 OpenAI, Google and Anthropic use one cheap fast model on every tier: `gpt-6-luna`, `gemini-3.8-flash`,
 and `claude-haiku-5-5`.
 
-**Next: declarative agents and flows.** Build agents and LangGraph flows from YAML that picks tools,
+Declarative agents and flows are delivered: agents and LangGraph flows are built from YAML that picks tools,
 skills, prompts, subagents and middleware from shared pools.
 Spec: `docs/superpowers/specs/2026-11-01-agentkit-declarative-agents-design.md`.
 Plan: `docs/superpowers/plans/2026-11-02-agentkit-declarative-agents-plan.md`.
+
+**Open item:** Tavily returned `HTTPStatusError` on every call in the 2026-11-02 declarative re-run (see
+`docs/phase0-results.md`). Repeat the live eval with working search (check the key and credits) before the
+declarative path counts as live-verified. Search errors now report the HTTP status code.
 
 **Phase 0b** (persistence, telemetry, tenant context, per-tenant stamps) is planned in
 `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md` and not started.

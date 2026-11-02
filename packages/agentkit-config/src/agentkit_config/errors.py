@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 
@@ -29,3 +30,14 @@ class SpecErrors(Exception):
     def raise_if_errors(self) -> None:
         if any(e.severity == "error" for e in self.errors):
             raise self
+
+
+def read_utf8(path: Path) -> str:
+    """Read a text file; undecodable or unreadable files become SpecErrors naming it."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        msg = f"file is not valid UTF-8: {exc.reason}"
+        raise SpecErrors([SpecError(str(path), "", msg)]) from exc
+    except OSError as exc:
+        raise SpecErrors([SpecError(str(path), "", f"cannot read file: {exc}")]) from exc

@@ -22,6 +22,8 @@ class TavilySearch:
                 json={"query": query, "max_results": k},
             )
             resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise ToolError(f"search failed: HTTP {e.response.status_code}") from e
         except httpx.HTTPError as e:
             raise ToolError(f"search failed: {type(e).__name__}") from e
         return [

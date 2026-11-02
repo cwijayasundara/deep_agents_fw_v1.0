@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from agentkit_config.errors import read_utf8
 from agentkit_config.pools.frontmatter import split_front_matter
 from agentkit_config.registry import Registry
 
@@ -36,7 +37,7 @@ class PromptRegistry:
             base = root / "prompts"
             for path in sorted(base.glob("**/*.md")):
                 name = path.relative_to(base).with_suffix("").as_posix()
-                _, body = split_front_matter(path.read_text(encoding="utf-8"), file=str(path))
+                _, body = split_front_matter(read_utf8(path), file=str(path))
                 prompt = Prompt(name, body.rstrip("\n"), str(path))
                 reg.register(name, prompt, source=str(path))
         return reg

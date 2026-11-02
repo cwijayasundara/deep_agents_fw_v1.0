@@ -274,7 +274,7 @@ Each live lane runs in its own git worktree at the PR head on the operator's mac
 - [ ] Add `memory_backend()` in `memory.py`. It returns a `CompositeBackend` whose default is `StateBackend()` for ephemeral files, with `/memories/` routed to `StoreBackend` on the user namespace and `/org/` routed to `StoreBackend` on the global namespace. Both namespaces come from `store_namespace(rt.context, ...)`. The declarative loader (`agentkit_deep.skills_mount`) already mounts agent skills at `/skills/<owner>/`; that mount becomes one more route inside `memory_backend()` (not a second `CompositeBackend`), so a persistent agent keeps its skills.
 - [ ] Make `build_deep_agent` take `persistence: Persistence | None`. When it is set, pass `checkpointer`, `store`, `backend=memory_backend()`, `memory=["/org/AGENTS.md", "/memories/AGENTS.md"]`, and `permissions=[FilesystemPermission(operations=["write"], paths=["/org/**"], mode="deny")]`.
 - [ ] Run every `research` turn inside `thread_lock`. `--thread <id>` resumes a thread. `research-eval` uses persistence only with `--persist`.
-- [ ] Keep `/report.md` on the default `StateBackend` route so `extract_report` keeps working.
+- [ ] Keep `/report.md` on the default `StateBackend` route so `read_output` keeps working.
 
 **You see.**
 

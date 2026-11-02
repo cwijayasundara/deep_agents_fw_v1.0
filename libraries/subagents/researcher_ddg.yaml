@@ -1,0 +1,6 @@
+apiVersion: agentkit/v1
+kind: SubAgent
+name: researcher_ddg
+description: Read-only researcher for one sub-question; returns sourced findings. Searches with DuckDuckGo (no API key).
+prompt: research/researcher
+tools: [{web_search: {backend: duckduckgo}}, fetch_url]

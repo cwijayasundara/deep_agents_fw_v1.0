@@ -208,3 +208,9 @@ def test_output_must_be_an_absolute_file_path(tmp_path: Path) -> None:
     assert "output" not in _msgs(_run(tmp_path, _agent(output="/report.md")))
     m = _msgs(_run(tmp_path, _agent(output="report")))
     assert m["output"] == "output must be an absolute file path like /report.md"
+
+
+def test_subagent_name_must_differ_from_agent(tmp_path: Path) -> None:
+    errs = _run(tmp_path, _agent(subagents=[_sub(name="a")]))
+    assert [e.path for e in errs] == ["subagents[0]"]
+    assert "differ" in errs[0].message

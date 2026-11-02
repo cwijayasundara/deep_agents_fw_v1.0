@@ -29,7 +29,7 @@ class Library:
 
     @classmethod
     def from_roots(cls, roots: Sequence[Path], code: CodePools | None = None) -> Library:
-        rs = tuple(roots)
+        rs = tuple(dict.fromkeys(Path(r).resolve() for r in roots))
         return cls(
             rs,
             PromptRegistry.from_roots(rs),
@@ -49,6 +49,6 @@ class Library:
                 candidates.append(ancestor / "libraries")
                 break
         env = os.environ.get("AGENTKIT_LIBRARY_PATH", "")
-        candidates.extend(Path(p) for p in env.split(os.pathsep) if p)
+        candidates.extend(Path(p).resolve() for p in env.split(os.pathsep) if p)
         roots = [p for p in candidates if p.is_dir()]
         return cls.from_roots(roots, code)

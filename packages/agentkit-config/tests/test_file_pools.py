@@ -93,3 +93,21 @@ def test_agent_pool_missing_name(tmp_path: Path) -> None:
     with pytest.raises(SpecErrors) as ei:
         AgentFileRegistry.from_roots([tmp_path])
     assert ei.value.errors[0].path == "name"
+
+
+def test_non_utf8_prompt_is_spec_error(tmp_path: Path) -> None:
+    p = tmp_path / "r/prompts/a.md"
+    p.parent.mkdir(parents=True)
+    p.write_bytes(b"\xff\xfe bad")
+    with pytest.raises(SpecErrors) as ei:
+        PromptRegistry.from_roots([tmp_path / "r"])
+    assert str(p) in str(ei.value) and "UTF-8" in str(ei.value)
+
+
+def test_non_utf8_skill_is_spec_error(tmp_path: Path) -> None:
+    p = tmp_path / "r/skills/s/SKILL.md"
+    p.parent.mkdir(parents=True)
+    p.write_bytes(b"\xff\xfe bad")
+    with pytest.raises(SpecErrors) as ei:
+        SkillRegistry.from_roots([tmp_path / "r"])
+    assert str(p) in str(ei.value) and "UTF-8" in str(ei.value)

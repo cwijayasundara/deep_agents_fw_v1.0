@@ -12,6 +12,8 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
 - Phase 0b (report's Phase 0 foundations: contracts, PlatformContext, encrypted Postgres persistence, memory
   tiers, telemetry + cost ledger, per-tenant stamps): `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md`.
   Planned, not started (after declarative agents). Phase 0 is complete when that plan closes.
+- Open item: re-run the fireworks-glm eval once Tavily works (check key/credits) before the declarative path
+  counts as live-verified.
 - Providers to support: OpenAI, Gemini, Anthropic, Fireworks (deepseek-v4p1-flash-1017,
   glm-5p3-flash, minimax-m3p1-flash). Model/tool selection via OpenAI Decisions API (`gpt-6-luna`).
 - Prior work to learn from (not vendored): github.com/cwijayasundara/deep_agents_utils_v1.0,

@@ -83,3 +83,15 @@ def test_flow_validated_and_usage(tmp_path: Path, capsys: pytest.CaptureFixture[
     assert f"{f}:state: unknown state schema 'nope.S'" in capsys.readouterr().out
     assert main([]) == 2
     assert main(["frob"]) == 2
+
+
+def test_non_utf8_file_is_one_error_and_good_file_still_checked(
+    lib: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bad = lib / "bad.yaml"
+    bad.write_bytes(b"\xff\xfe")
+    good = _write(lib, "agent.yaml", _agent())
+    assert main(["validate", str(bad), good]) == 1
+    out = capsys.readouterr().out
+    assert str(bad) in out and "UTF-8" in out
+    assert "checked 2 file(s): 1 error(s)" in out

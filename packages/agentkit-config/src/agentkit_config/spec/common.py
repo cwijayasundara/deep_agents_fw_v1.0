@@ -7,7 +7,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
-from agentkit_config.errors import SpecError, SpecErrors
+from agentkit_config.errors import SpecError, SpecErrors, read_utf8
 
 Ref = str
 
@@ -16,11 +16,9 @@ def load_yaml(path: Path) -> dict[str, Any]:
     """Read a YAML mapping; every failure becomes a SpecErrors naming the file."""
     file = str(path)
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data = yaml.safe_load(read_utf8(path))
     except yaml.YAMLError as exc:
         raise SpecErrors([SpecError(file, "", f"YAML syntax error: {exc}")]) from exc
-    except OSError as exc:
-        raise SpecErrors([SpecError(file, "", f"cannot read file: {exc}")]) from exc
     if data is None:
         raise SpecErrors([SpecError(file, "", "file is empty")])
     if not isinstance(data, dict):

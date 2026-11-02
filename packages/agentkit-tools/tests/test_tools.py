@@ -21,8 +21,9 @@ async def test_tavily_search_parses_and_authenticates():
 @respx.mock
 async def test_tavily_http_error_becomes_tool_error():
     respx.post("https://api.tavily.com/search").mock(return_value=httpx.Response(500))
-    with pytest.raises(ToolError):
-        await TavilySearch("k").search("q")
+    with pytest.raises(ToolError, match="HTTP 500") as ei:
+        await TavilySearch("secret-key").search("q")
+    assert "secret-key" not in str(ei.value) and "api.tavily.com" not in str(ei.value)
 
 
 @respx.mock

@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from agentkit_config.errors import SpecError, SpecErrors
+from agentkit_config.errors import SpecError, SpecErrors, read_utf8
 from agentkit_config.pools.frontmatter import split_front_matter
 from agentkit_config.registry import Registry
 
@@ -18,7 +18,7 @@ class Skill:
 
 def _read_skill(skill_md: Path) -> Skill:
     file = str(skill_md)
-    meta, _ = split_front_matter(skill_md.read_text(encoding="utf-8"), file=file)
+    meta, _ = split_front_matter(read_utf8(skill_md), file=file)
     dirname = skill_md.parent.name
     if meta.get("name") != dirname:
         msg = f"front matter name {meta.get('name')!r} does not match directory {dirname!r}"

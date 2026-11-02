@@ -2,9 +2,10 @@
 
 Off unless `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Spans go only to that collector (which may
 forward to Langfuse); the client never calls the Langfuse API itself, so it runs without
-Langfuse keys. Prompt and completion text is dropped at export unless
-`AGENTKIT_TRACE_PAYLOADS=1`. `LANGSMITH_TRACING` is never set: LangSmith's OTel path stamps
-every `LANGSMITH_*` variable into spans and has no masking hook.
+Langfuse keys. Prompt and completion text, and error text (status messages, exception events;
+the exception type name is kept), are dropped unless `AGENTKIT_TRACE_PAYLOADS=1`.
+`LANGSMITH_TRACING` is never set: LangSmith's OTel path stamps every `LANGSMITH_*` variable
+into spans and has no masking hook.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ import math
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from agentkit_core import Label
@@ -63,11 +64,25 @@ class TelemetrySettings(BaseSettings):
         return cls(_env_file=path, **overrides)  # type: ignore[call-arg]
 
 
+class MaskingCallbackHandler(CallbackHandler):
+    """Langfuse handler that records an error as its exception type name only.
+
+    Langfuse sets `status_message` (and the span status) to `str(error)`, which can carry user
+    text (a tool's ValidationError echoes its input). Overrides Langfuse's one error hook."""
+
+    def _get_error_level_and_status_message(
+        self, error: BaseException
+    ) -> tuple[Literal["DEFAULT", "ERROR"], str]:
+        level, _ = super()._get_error_level_and_status_message(error)
+        return level, type(error).__name__
+
+
 @dataclass(frozen=True)
 class _Tracing:
     client: Langfuse
     provider: TracerProvider
     public_key: str
+    masked: bool
 
 
 _active: _Tracing | None = None
@@ -97,13 +112,13 @@ def configure_tracing(
         secret_key="agentkit-local",
         base_url=_NO_LANGFUSE_API,
         tracer_provider=provider,
-        span_exporter=QuietExporter(exporter, where),
+        span_exporter=QuietExporter(exporter, where, redact=not settings.trace_payloads),
         mask_otel_spans=None if settings.trace_payloads else mask_payloads,
         timeout=math.ceil(settings.export_timeout_seconds),
     )
     for name, level in _QUIET_LOGGERS.items():
         logging.getLogger(name).setLevel(level)
-    _active = _Tracing(client, provider, public_key)
+    _active = _Tracing(client, provider, public_key, masked=not settings.trace_payloads)
     return client
 
 
@@ -111,9 +126,8 @@ def langchain_handler(run_id: UUID) -> CallbackHandler | None:
     """A Langfuse callback handler whose trace id derives from `run_id`; None if tracing is off."""
     if _active is None:
         return None
-    return CallbackHandler(
-        public_key=_active.public_key, trace_context={"trace_id": trace_id_for(run_id)}
-    )
+    handler = MaskingCallbackHandler if _active.masked else CallbackHandler
+    return handler(public_key=_active.public_key, trace_context={"trace_id": trace_id_for(run_id)})
 
 
 def trace_id_for(run_id: UUID) -> str:

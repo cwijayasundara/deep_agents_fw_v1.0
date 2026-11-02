@@ -62,8 +62,12 @@ _INSERT = (
 
 
 async def setup(persistence: Persistence) -> None:
-    """Create `agentkit_usage` if it is missing (idempotent; Ruling P1)."""
-    async with persistence.pool.connection() as conn:
+    """Create `agentkit_usage` if it is missing (idempotent; Ruling P1).
+
+    Runs in one transaction under an advisory lock: concurrent first-time `create table if not
+    exists` calls can otherwise fail on Postgres's catalog unique index."""
+    async with persistence.pool.connection() as conn, conn.transaction():
+        await conn.execute("select pg_advisory_xact_lock(hashtext('agentkit_usage'))")
         for statement in _DDL:
             await conn.execute(statement)
 
@@ -96,8 +100,10 @@ class CostLedger(AsyncCallbackHandler):
 
     def summary(self) -> str:
         n = len(self.rows)
-        total = [sum(col) for col in zip(*(astuple(r)[4:] for r in self.rows), strict=True)]
-        i, o, c, di, _ = total or [0] * 5
+        i = sum(r.input_tokens for r in self.rows)
+        o = sum(r.output_tokens for r in self.rows)
+        c = sum(r.cached_input_tokens for r in self.rows)
+        di = sum(r.decisions_input_tokens for r in self.rows)
         return (
             f"usage: {n} run{'s' if n != 1 else ''}, {self.model_calls} model calls,"
             f" input {i} (cached {c}), output {o}, decisions input {di}"

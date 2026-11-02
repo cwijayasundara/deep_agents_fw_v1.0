@@ -66,7 +66,8 @@ def build_deep_agent(
     tenant's input lands in the thread's history before the guard refuses the run.
 
     The returned agent's `config["metadata"]["prompt_hash"]` is the SHA-256 of `system_prompt`
-    (see `agent_prompt_hash`); every run and trace inherits it."""
+    as configured, before memory or harness text is added (see `prompt_hash`); every run and
+    trace inherits it."""
     if isinstance(model, ModelSpec):
         if settings is None:
             raise ValueError("settings is required when model is a ModelSpec")
@@ -105,7 +106,10 @@ def build_deep_agent(
 
 
 def prompt_hash(system_prompt: str) -> str:
-    """SHA-256 (hex) of a resolved system prompt: which prompt a trace or usage row ran."""
+    """SHA-256 (hex) of the configured system prompt: which prompt a trace or usage row ran.
+
+    It hashes the text passed to `build_deep_agent`, not what the model finally sees (deepagents'
+    base prompt and `AGENTS.md` memory are added at run time and are not part of the hash)."""
     return hashlib.sha256(system_prompt.encode()).hexdigest()
 
 

@@ -182,14 +182,6 @@ def context(a: argparse.Namespace, thread: str) -> PlatformContext:
 
 
 async def main(a: argparse.Namespace) -> int:
-    tracing(a)
-    try:
-        return await _main(a)
-    finally:
-        shutdown_tracing()
-
-
-async def _main(a: argparse.Namespace) -> int:
     threads = [a.thread or str(uuid.uuid4())] + [str(uuid.uuid4()) for _ in range(a.threads - 1)]
     try:
         contexts = [context(a, t) for t in threads]
@@ -254,4 +246,10 @@ if __name__ == "__main__":
         type=Path,
         help="select with DecisionsSelector replaying this recorded response (reports usage)",
     )
-    sys.exit(asyncio.run(main(p.parse_args())))
+    args = p.parse_args()
+    tracing(args)
+    try:
+        code = asyncio.run(main(args))
+    finally:
+        shutdown_tracing()  # blocking flush: outside the event loop, as in the research CLIs
+    sys.exit(code)

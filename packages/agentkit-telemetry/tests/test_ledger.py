@@ -133,3 +133,13 @@ async def test_rows_are_written_to_postgres(persistence):
     assert [(r["input_tokens"], r["output_tokens"], r["cached_input_tokens"]) for r in rows] == [
         (20, 6, 8)
     ] * 3
+
+
+@pytest.mark.pg
+async def test_concurrent_first_setup_is_safe(persistence):
+    async with persistence.pool.connection() as conn:
+        await conn.execute("drop table if exists agentkit_usage")
+    await asyncio.gather(*(setup(persistence) for _ in range(6)))
+    async with persistence.pool.connection() as conn:
+        cur = await conn.execute("select to_regclass('agentkit_usage') is not null as ok")
+        assert (await cur.fetchone())["ok"]

@@ -140,3 +140,94 @@ async def test_dead_collector_costs_one_warning_and_no_stall(caplog):
     assert ran < 1.0 and total < 3.0
     export = [r for r in caplog.records if "export" in r.getMessage().lower()]
     assert len(export) == 1, [r.getMessage() for r in export]
+
+
+def _error_dump(spans) -> str:
+    """Every place error text can reach an exported span: attributes, status, events."""
+    return json.dumps(
+        [
+            {
+                "attrs": dict(s.attributes),
+                "status": s.status.description,
+                "events": [(e.name, dict(e.attributes)) for e in s.events],
+            }
+            for s in spans
+        ],
+        default=str,
+    )
+
+
+async def _run_erroring_tools():
+    from agentkit_deep.testing import tool_call
+    from langchain.tools import tool
+
+    @tool
+    def boom(text: str) -> str:
+        """Raise with the user's text in the message."""
+        raise ValueError(f"cannot handle {text}")
+
+    @tool
+    def typed(n: int) -> str:
+        """Takes an int."""
+        return str(n)
+
+    model = MeteredChatModel(
+        messages=iter(
+            [
+                tool_call("typed", {"n": "SECRET-USER-TEXT-1"}, "a"),
+                tool_call("boom", {"text": "SECRET-USER-TEXT-2"}, "b"),
+                AIMessage(content="done"),
+            ]
+        )
+    )
+    agent = build_deep_agent(
+        model=model, system_prompt="p", tools=[boom, typed], settings=Settings(_env_file=None)
+    )
+    config = run_config(_ctx(), agent_prompt_hash(agent), CostLedger())
+    try:
+        await agent.ainvoke({"messages": [HumanMessage("go")]}, config, context=_ctx())
+    except ValueError:
+        pass
+
+
+async def test_error_text_is_masked_by_default_keeping_the_exception_type(traced):
+    await _run_erroring_tools()
+    spans = traced()
+    dumped = _error_dump(spans)
+    assert "SECRET-USER-TEXT" not in dumped
+    statuses = {s.attributes.get("langfuse.observation.status_message") for s in spans} - {None}
+    assert {"ValidationError", "ValueError"} <= statuses
+    assert {s.status.description for s in spans} - {None} <= statuses
+
+
+async def test_error_text_appears_only_when_payloads_are_opted_in(traced_payloads):
+    await _run_erroring_tools()
+    dumped = _error_dump(traced_payloads())
+    assert "SECRET-USER-TEXT-1" in dumped and "cannot handle SECRET-USER-TEXT-2" in dumped
+
+
+def test_exporter_strips_exception_text_from_status_and_events():
+    from agentkit_telemetry.export import redact_errors
+    from opentelemetry.sdk.trace import Event, ReadableSpan
+    from opentelemetry.trace import Status, StatusCode
+
+    span = ReadableSpan(
+        name="tool",
+        attributes={"langfuse.observation.status_message": "ValueError"},
+        status=Status(StatusCode.ERROR, "cannot handle SECRET"),
+        events=[
+            Event(
+                "exception",
+                {
+                    "exception.type": "ValueError",
+                    "exception.message": "cannot handle SECRET",
+                    "exception.stacktrace": "Traceback ... SECRET",
+                },
+            )
+        ],
+    )
+    (clean,) = redact_errors([span])
+    assert clean.status.status_code is StatusCode.ERROR
+    assert clean.status.description == "ValueError"
+    assert dict(clean.events[0].attributes) == {"exception.type": "ValueError"}
+    assert "SECRET" not in _error_dump([clean])

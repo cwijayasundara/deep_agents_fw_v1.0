@@ -282,6 +282,13 @@ async def test_ingest_then_kb_search_and_dimension_mismatch(
     )
     assert (await missing.ainvoke({"query": "x"})).startswith("ERROR: knowledge base table")
 
+    # kb_search works read-only: the same search through the kb_reader DSN.
+    as_reader = tools.make_kb_search_tool(
+        tools.PgKb(tools.get_engine(reader), FakeEmbeddings(768), collection), default_k=3
+    )
+    out = await as_reader.ainvoke({"query": "red apples orchard"})
+    assert out.startswith(f"[1] Apples\n{base}/apples.md\n"), out
+
     # kb_reader got SELECT on the new table through setup's default privileges.
     r = await asyncpg.connect(reader)
     try:
@@ -323,3 +330,58 @@ async def test_advisory_locks_never_survive_a_call(tmp_path, monkeypatch, admin_
         await other.fetchval("select pg_advisory_unlock(424242)")
     finally:
         await other.close()
+
+
+ESCALATE = (
+    "select set_config('role', 'agentkit', true),"
+    " query_to_xml('select pg_read_file(''/etc/passwd'')', true, true, '')"
+)
+
+
+@pytest.fixture
+async def member_logins(admin_url):
+    """Logins that are not superuser/BYPASSRLS themselves but are members of such roles."""
+    pw = secrets.token_urlsafe(16)
+    conn = await asyncpg.connect(admin_url)
+    names = ("kbtest_su_member", "kbtest_bypass_member", "kbtest_bypass")
+    try:
+        for n in names:
+            await conn.execute(f"drop role if exists {n}")
+        await conn.execute("create role kbtest_bypass nologin bypassrls")
+        su_role = await conn.fetchval("select current_user")  # the stamp's superuser
+        for n, parent in (("kbtest_su_member", su_role), ("kbtest_bypass_member", "kbtest_bypass")):
+            await conn.execute(f"create role {n} login password {_lit(pw)}")
+            await conn.execute(f'grant "{parent}" to {n}')
+            await conn.execute(f"grant usage on schema kb to {n}")
+        yield {
+            n: make_url(admin_url)
+            .set(username=n, password=pw)
+            .render_as_string(hide_password=False)
+            for n in ("kbtest_su_member", "kbtest_bypass_member")
+        }
+    finally:
+        await conn.execute("revoke usage on schema kb from kbtest_su_member, kbtest_bypass_member")
+        for n in names:
+            await conn.execute(f"drop role if exists {n}")
+        await conn.close()
+
+
+def _lit(v: str) -> str:
+    return "'" + v.replace("'", "''") + "'"
+
+
+async def test_members_of_privileged_roles_are_refused(
+    tmp_path, monkeypatch, reader, member_logins
+):
+    for login, url in member_logins.items():
+        _lib(tmp_path, monkeypatch, KBTEST_SQL_URL=url)
+        t = tools.sql_query(_ctx(), connector="kbsql")
+        for sql in ("select 1 as x", ESCALATE):
+            assert await t.ainvoke({"sql": sql}) == f"ERROR: {tools.NOT_READ_ONLY}", login
+
+
+async def test_kb_reader_cannot_escalate_through_set_config(tmp_path, monkeypatch, reader):
+    _lib(tmp_path, monkeypatch, KBTEST_SQL_URL=reader)
+    t = tools.sql_query(_ctx(), connector="kbsql")
+    out = await t.ainvoke({"sql": ESCALATE})
+    assert out.startswith("ERROR: ") and "root:" not in out, out

@@ -240,12 +240,15 @@ class SqlRefused(Exception):
 NOT_READ_ONLY = "sql_query connector must log in as a read-only role (e.g. kb_reader)"
 
 # Any row means the login could escape a READ ONLY transaction (COPY TO PROGRAM,
-# pg_read_file, ...) or write DDL into a configured schema.
+# pg_read_file, ...) or write DDL into a configured schema. Membership, not just identity:
+# a member of a superuser role can `set_config('role', ...)` inside one statement.
 _PRIVILEGE_CHECK = """
-select 1 from pg_roles r where r.rolname = current_user and (r.rolsuper or r.rolbypassrls)
+select 1 from pg_roles r
+  where (r.rolsuper or r.rolbypassrls) and pg_has_role(current_user, r.oid, 'member')
 union all
 select 1 from unnest(array['pg_execute_server_program', 'pg_read_server_files',
-                           'pg_write_server_files', 'pg_read_all_data']) as g(name)
+                           'pg_write_server_files', 'pg_read_all_data', 'pg_signal_backend',
+                           'pg_read_all_settings', 'pg_read_all_stats']) as g(name)
   where to_regrole(g.name) is not null and pg_has_role(current_user, g.name, 'member')
 union all
 select 1 from unnest(cast(:schemas as text[])) as s(name)
@@ -336,6 +339,7 @@ def _one_statement(sql: str) -> str:
 
 
 MAX_CELL_CHARS = 2_000
+MAX_COLUMN_CHARS = 200
 MAX_OUTPUT_CHARS = 50_000
 
 
@@ -349,12 +353,18 @@ def _cell(v: Any) -> str:
 def _markdown(result: QueryResult, max_rows: int) -> str:
     if result.columns is None:
         return "OK (no rows)"
-    lines = [
-        "| " + " | ".join(_cell(c) for c in result.columns) + " |",
-        "| " + " | ".join("---" for _ in result.columns) + " |",
+    names = [
+        c if len(c) <= MAX_COLUMN_CHARS else c[:MAX_COLUMN_CHARS] + "..." for c in result.columns
     ]
-    rows = list(result.rows)
+    lines = [
+        "| " + " | ".join(_cell(c) for c in names) + " |",
+        "| " + " | ".join("---" for _ in names) + " |",
+    ]
     size = sum(len(line) + 1 for line in lines)
+    if size > MAX_OUTPUT_CHARS:  # the header alone is too wide: show what fits of it
+        marker = f"[output truncated at {MAX_OUTPUT_CHARS} characters: too many columns]"
+        return lines[0][: MAX_OUTPUT_CHARS - len(marker) - 5] + " ...\n" + marker
+    rows = list(result.rows)
     shown = 0
     for row in rows[:max_rows]:
         line = "| " + " | ".join(_cell(v) for v in row) + " |"

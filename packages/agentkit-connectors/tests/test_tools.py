@@ -288,3 +288,17 @@ def test_validate_and_build_bind_the_same_spec_across_two_roots(tmp_path, monkey
     errs, dsns = _build_agent(path, monkeypatch)
     assert errs == []
     assert dsns == ["postgresql://u:pw@127.0.0.1:1/near"]
+
+
+def test_sql_output_caps_the_header_too():
+    from agentkit_connectors.tools import MAX_COLUMN_CHARS, MAX_OUTPUT_CHARS, _markdown
+
+    wide = QueryResult([f"c{i}_" + "n" * 300 for i in range(400)], [tuple(range(400))])
+    out = _markdown(wide, max_rows=10)
+    assert len(out) <= MAX_OUTPUT_CHARS
+    assert out.endswith(f"[output truncated at {MAX_OUTPUT_CHARS} characters: too many columns]")
+    assert "n" * (MAX_COLUMN_CHARS + 1) not in out
+    # A header that fits still counts toward the total: fewer rows fit beside it.
+    some = QueryResult([f"c{i}_" + "n" * 300 for i in range(100)], [("v" * 1900,)] * 50)
+    out = _markdown(some, max_rows=50)
+    assert len(out) <= MAX_OUTPUT_CHARS and "characters after 15 rows]" in out

@@ -135,3 +135,39 @@ fireworks-glm eval was re-run once through `apps/research_agent/agent.yaml` (jud
 under the eval's two concurrent questions. `fetch_url` succeeded 121 of 137 times. This closes the open item from
 the declarative re-run: the YAML-built agent is live-verified with working search. Evidence:
 `evidence/ddg-default/eval.md` and `eval.json` (logs are local-only).
+
+## Phase 0b close-out, 2026-11-02
+
+One real persisted, traced, two-turn conversation on `fireworks-glm` against a stamped tenant. Web search was
+DuckDuckGo (4 of 4 `web_search` calls ok). No other provider, no eval, no retries.
+
+Commands (each through `scripts/tenant_env.sh tenant-a`):
+
+```
+make stamp TENANT=tenant-a
+uv run research "What is the Model Context Protocol?" --model fireworks-glm --tenant tenant-a --persist --out evidence/phase0b/turn1.md
+uv run research "How does it compare to plain function calling?" --model fireworks-glm --tenant tenant-a --persist --thread <id> --out evidence/phase0b/turn2.md
+```
+
+Thread `173d8cc8-963a-443f-be1b-6552b487d796`.
+
+| Criterion | Result |
+|---|---|
+| Turn 1 writes a cited report | PASS: `evidence/phase0b/turn1.md`, 6256 chars, [n] citations plus Sources |
+| Turn 2 writes a cited report | PASS: `evidence/phase0b/turn2.md`, [n] citations plus Sources |
+| Turn 2 prints `resumed thread <id> at step <n>` | PASS: `resumed thread 173d8cc8-... at step 15` |
+| Collector file holds the run's spans for tenant-a | PASS: 9 batches, 56 spans, resource `agentkit.tenant` = `tenant-a` only (10 `model` spans = 6 + 4 model calls) |
+| No prompt text in spans (masked default) | PASS: neither question text nor "Model Context Protocol" appears in the file |
+| `agentkit_usage` has a row per turn, nonzero tokens | PASS: 2 rows, tenant `tenant-a`, same thread id |
+
+| Turn | Duration | Model calls | Input (cached) | Output | Decisions input |
+|---|---|---|---|---|---|
+| 1 | 35s wall (agent 32.8s) | 6 | 88609 (63040) | 3696 | 684 |
+| 2 | 29s wall | 4 | 133287 (119424) | 3743 | 0 |
+
+Turn 2 made no Decisions call, since the thread resumed with the earlier selection. Evidence: reports in
+`evidence/phase0b/` (logs are local-only). The stamp was torn down afterwards (`make unstamp`, tenant env
+file deleted).
+
+Open items carried forward: P10 thread-to-user binding, P3 primitive state stored in plaintext, and AES key
+rotation and backup.

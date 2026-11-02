@@ -166,10 +166,11 @@ Web search defaults to DuckDuckGo (operator's call, 2026-11-02) after Tavily ret
 every call in the declarative re-run. The live eval re-run with DuckDuckGo is recorded in
 `docs/phase0-results.md`.
 
-**Phase 0b** (plan: `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md`) is delivered except
-its last live run. Done: the upstream contract suite (`pytest -m contract`, `-m pg`), a validated
-`PlatformContext` with `TenantGuard` on every run, encrypted Postgres persistence and memory tiers behind
-`--persist`, tenant-tagged tracing and a per-run cost ledger, and per-tenant stamps.
-`make phase0-exit` passes offline (scripted models): two stamped tenants, each with its own database and
-collector, and neither tenant's spans or rows appear in the other's. Still open: the live research run
-against a stamped tenant (Phase 0b Task 7).
+**Phase 0b** (plan: `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md`) is delivered and
+live-verified, which completes Phase 0. Done: the upstream contract suite (`pytest -m contract`, `-m pg`),
+a validated `PlatformContext` with `TenantGuard` on every run, encrypted Postgres persistence and memory
+tiers behind `--persist`, tenant-tagged tracing and a per-run cost ledger, and per-tenant stamps.
+`make phase0-exit` passes offline, and a two-turn persisted `fireworks-glm` run against a stamped tenant
+resumed its thread, traced it and metered both turns (`docs/phase0-results.md`, "Phase 0b close-out").
+Open items: P10 thread-to-user binding, P3 primitive state stored in plaintext, AES key rotation and backup.
+Next: the project verification skill, then Phase 1.

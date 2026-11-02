@@ -14,3 +14,10 @@ packages = ["src/research_agent"]
 [project.scripts]
 research = "research_agent.cli:main"
 research-eval = "research_agent.eval_cli:main"
+
+[project.entry-points."agentkit.schemas"]
+"research.ReviewState" = "research_agent.flow_nodes:ReviewState"
+
+[project.entry-points."agentkit.nodes"]
+"research.critique" = "research_agent.flow_nodes:critique"
+"research.needs_rework" = "research_agent.flow_nodes:needs_rework"

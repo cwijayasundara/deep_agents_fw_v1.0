@@ -1,0 +1,15 @@
+apiVersion: agentkit/v1
+kind: Flow
+name: research_with_review
+description: Research a question, critique the draft (up to two reworks), then pause for human review.
+state: research.ReviewState            # state-schema pool
+nodes:
+  research: {agent: research_agent, input: [question, critique], output: draft}   # agent node
+  critique: {fn: research.critique}                                                # function node
+  review:   {interrupt: true}                                                      # human-in-the-loop pause
+edges:
+  - START -> research -> critique
+  - from: critique
+    route: research.needs_rework       # router pool fn: state -> key
+    to: {rework: research, ok: review}
+  - review -> END

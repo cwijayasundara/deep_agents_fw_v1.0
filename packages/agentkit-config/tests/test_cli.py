@@ -73,9 +73,13 @@ def test_bad_kind_and_syntax_no_traceback(
     assert "2 error(s)" in capsys.readouterr().out
 
 
-def test_flow_not_supported_and_usage(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    f = _write(tmp_path, "f.yaml", "kind: Flow\n")
+def test_flow_validated_and_usage(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    f = _write(
+        tmp_path,
+        "f.yaml",
+        "apiVersion: agentkit/v1\nkind: Flow\nname: f\nstate: nope.S\nnodes: {}\nedges: []\n",
+    )
     assert main(["validate", f]) == 1
-    assert "flows not supported yet" in capsys.readouterr().out
+    assert f"{f}:state: unknown state schema 'nope.S'" in capsys.readouterr().out
     assert main([]) == 2
     assert main(["frob"]) == 2

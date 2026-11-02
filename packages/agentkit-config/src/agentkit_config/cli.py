@@ -9,9 +9,10 @@ from pathlib import Path
 from agentkit_core import ModelRegistry
 
 from agentkit_config.errors import SpecError, SpecErrors
+from agentkit_config.flow import flow_library, validate_flow
 from agentkit_config.library import Library
 from agentkit_config.pools.code import CodePools
-from agentkit_config.spec import load_yaml, parse_agent, parse_subagent
+from agentkit_config.spec import load_yaml, parse_agent, parse_flow, parse_subagent
 from agentkit_config.validate import validate_agent, validate_subagent
 
 USAGE = "usage: agentkit validate <path>..."
@@ -21,7 +22,7 @@ def _check_file(path: Path, code: CodePools, models: ModelRegistry) -> list[Spec
     file = str(path)
     kind = load_yaml(path).get("kind")
     if kind == "Flow":
-        return [SpecError(file, "kind", "flows not supported yet")]
+        return validate_flow(parse_flow(path), flow_library(path, code), models, file=file)
     if kind not in ("Agent", "SubAgent"):
         msg = f"unknown or missing kind {kind!r}; expected Agent, SubAgent or Flow"
         return [SpecError(file, "kind", msg)]

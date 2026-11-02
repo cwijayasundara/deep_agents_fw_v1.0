@@ -5,6 +5,7 @@
     "ModelRetryMiddleware",
     "ModelCallLimitMiddleware",
     "ToolCallLimitMiddleware",
+    "ToolCallLimitMiddleware",
     "PIIMiddleware",
     "PIIMiddleware"
   ],

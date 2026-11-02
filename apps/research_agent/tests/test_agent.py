@@ -95,6 +95,36 @@ async def test_default_run_config_lets_the_call_limits_bound_a_long_run():
     assert "https://a.example/x" in read_output(out, loaded.spec.output)
 
 
+async def test_tool_budget_never_blocks_writing_the_report():
+    """A run that spends its whole search/fetch budget must still be able to save /report.md."""
+    from agentkit_deep import agent_prompt_hash
+    from agentkit_telemetry import run_config
+
+    report = "# R\nX [1]\n\n## Sources\n[1] https://a.example/x"
+    calls = [tool_call("web_search", {"query": f"x{i}"}, f"s{i}") for i in range(24)]
+    calls += [tool_call("fetch_url", {"url": "https://a.example/x"}, f"f{i}") for i in range(28)]
+    model = scripted(
+        *calls,
+        tool_call("write_file", {"file_path": "/report.md", "content": report}, "w"),
+        AIMessage(content="done"),
+    )
+    loaded = load_agent(
+        DEFAULT_AGENT,
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
+        library=lib(),
+        overrides={"selection": "off"},
+        model=model,
+    )
+    c = ctx()
+    config = run_config(c, agent_prompt_hash(loaded.graph), CostLedger())
+    out = await loaded.graph.ainvoke(
+        {"messages": [HumanMessage("what is x?")]}, config=dict(config), context=c
+    )
+    assert read_output(out, loaded.spec.output) == report
+    blocked = [m for m in out["messages"] if m.type == "tool" and m.status == "error"]
+    assert blocked  # the budget did bite on search/fetch
+
+
 def test_decisions_selection_requires_openai_key():
     with pytest.raises(ConfigError, match="OPENAI_API_KEY"):
         load_agent(
@@ -654,11 +684,12 @@ def test_shipped_agent_has_standard_stack():
         model=scripted(AIMessage(content="x")),
     )
     names = [type(m).__name__ for m in kw["middleware"]]
-    assert names[-7:] == [
+    assert names[-8:] == [
         "SelectionMiddleware",
         "ModelFallbackMiddleware",
         "ModelRetryMiddleware",
         "ModelCallLimitMiddleware",
+        "ToolCallLimitMiddleware",
         "ToolCallLimitMiddleware",
         "PIIMiddleware",
         "PIIMiddleware",

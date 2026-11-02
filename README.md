@@ -65,7 +65,7 @@ paths are relative to it. Every step except 1 costs real tokens.
 ### 1. Check the offline build
 
 ```bash
-make test        # expect: 362 passed, 24 skipped (pg, no database), 7 deselected (live)
+make test        # expect: 473 passed, 24 skipped (pg, no database), 7 deselected (live)
 make lint        # expect: no ruff or mypy errors; agentkit validate: 0 error(s)
 ```
 
@@ -79,10 +79,10 @@ grep -oE '^[A-Z_]+=.' .env | cut -d= -f1    # lists the keys that are set, never
 | What you run | Keys it needs |
 |---|---|
 | The shipped `apps/research_agent/agent.yaml` | `OPENAI_API_KEY` (it sets `selection: decisions`), the provider's own key, and `FIREWORKS_API_KEY` for any `--model` (its fallback model, `fireworks-glm:strong`, is built at load) |
-| Any run with `--no-selection` | The provider's own key |
+| Any run with `--no-selection` | The provider's own key and `FIREWORKS_API_KEY` (the fallback model) |
 | `research-eval` | The above, plus the key of the `--judge` entry (default `anthropic`) |
 
-To try a provider without an OpenAI key, pass `--no-selection`: the agent sees every tool and stays on the
+To try a provider without an OpenAI key, pass `--no-selection` (a Fireworks key is still needed): the agent sees every tool and stays on the
 configured tier. For Tavily instead of DuckDuckGo, set `tools: [{web_search: {backend: tavily}}, fetch_url]`
 and `TAVILY_API_KEY`; a subagent's `tools` replace the parent's, so set the backend on each subagent too.
 

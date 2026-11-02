@@ -20,3 +20,6 @@ deploy/tenants/*.env
 # Default research / research-eval CLI outputs at the repo root
 /report.md
 /eval_results.*
+
+# verify-agentkit skill runs: reports, transcripts, trace and ledger copies stay local
+evidence/verify/

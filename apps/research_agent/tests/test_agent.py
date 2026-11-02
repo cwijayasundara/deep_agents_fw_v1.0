@@ -67,6 +67,34 @@ async def test_end_to_end_report_with_citation():
     assert any("https://a.example/x" in str(c) for c in tool_msgs)  # citation was retrieved
 
 
+async def test_default_run_config_lets_the_call_limits_bound_a_long_run():
+    """Each middleware hook is a graph step, so the stack multiplies steps per model call. The
+    default recursion limit must not end a run the stack's own call limits would still allow."""
+    from agentkit_deep import agent_prompt_hash
+    from agentkit_telemetry import run_config
+
+    report = "# R\nX [1]\n\n## Sources\n[1] https://a.example/x"
+    searches = [tool_call("web_search", {"query": f"x{i}"}, str(i)) for i in range(30)]
+    model = scripted(
+        *searches,
+        tool_call("write_file", {"file_path": "/report.md", "content": report}, "w"),
+        AIMessage(content="done"),
+    )
+    loaded = load_agent(
+        DEFAULT_AGENT,
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
+        library=lib(),
+        overrides={"selection": "off"},
+        model=model,
+    )
+    c = ctx()
+    config = run_config(c, agent_prompt_hash(loaded.graph), CostLedger())
+    out = await loaded.graph.ainvoke(
+        {"messages": [HumanMessage("what is x?")]}, config=dict(config), context=c
+    )
+    assert "https://a.example/x" in read_output(out, loaded.spec.output)
+
+
 def test_decisions_selection_requires_openai_key():
     with pytest.raises(ConfigError, match="OPENAI_API_KEY"):
         load_agent(

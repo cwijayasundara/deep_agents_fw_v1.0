@@ -18,9 +18,18 @@ from langfuse.langchain import CallbackHandler
 from .ledger import CostLedger
 from .tracing import langchain_handler, trace_id_for
 
+# A backstop, not the run budget: every middleware before/after_model hook is its own graph step,
+# so the standard stack costs about 9 steps per model call. The `call_limit` middleware
+# (e.g. 60 model calls) is what should end a long run, so this leaves it room.
+DEFAULT_RECURSION_LIMIT = 1_000
+
 
 def run_config(
-    ctx: PlatformContext, prompt_hash: str, ledger: CostLedger, *, recursion_limit: int = 100
+    ctx: PlatformContext,
+    prompt_hash: str,
+    ledger: CostLedger,
+    *,
+    recursion_limit: int = DEFAULT_RECURSION_LIMIT,
 ) -> RunnableConfig:
     """Config for one run of `ctx`: a fresh root `run_id`, the ledger, and a tracing handler
     when tracing is on. Callers pass `context=ctx` to the run as well."""

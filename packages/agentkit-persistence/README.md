@@ -11,7 +11,14 @@ Encrypted Postgres persistence for agent threads and memory.
   `ConfigError: LANGGRAPH_AES_KEY must be 16, 24, or 32 characters`.
 - `thread_lock(persistence, thread_id)` holds `pg_advisory_lock(hashtext(thread_id))` on a
   connection from the separate lock pool, so concurrent runs on one thread form one linear
-  checkpoint chain instead of losing an update.
+  checkpoint chain instead of losing an update. The lock pool resets returned connections with
+  `pg_advisory_unlock_all()`, so a cancelled unlock never leaks a lock.
+- `Persistence.store` is an `EncryptedStore` (Ruling P7) wrapping the Postgres store: values are
+  encrypted with the saver's serializer and key; namespaces, keys and TTLs stay plaintext, so
+  prefix search, `list_namespaces` and the TTL sweeper work. Value `filter=` and vector indexes
+  raise `StoreEncryptionError`.
+- An unreachable database fails fast with `ConfigError: cannot connect to DATABASE_URL (...)`
+  after `PG_CONNECT_TIMEOUT_SECONDS` (default 10).
 - `prune(persistence, older_than)` / `agentkit-prune --older-than 30d` deletes threads whose newest
   checkpoint `ts` is older than the cutoff and prints `pruned N threads`.
 
@@ -23,8 +30,10 @@ Encrypted Postgres persistence for agent threads and memory.
 | container state channels (`messages`, `files`, lists, dicts) | yes (stored as blobs) |
 | primitive top-level state channels (str, int, float, bool) | **no**: inline JSONB in `checkpoints.checkpoint` |
 | `checkpoints.metadata` | **no**: plaintext JSONB |
-| store items (`store` table) | **no**: plaintext JSONB |
+| store item values (`store.value`, `{"__enc", "ct"}` envelope) | yes (Ruling P7) |
+| store namespaces (`prefix`), keys, timestamps, TTLs | **no**: plaintext |
 
 Keep user content and secrets out of checkpoint metadata and out of primitive top-level state
-channels. The research agent's state uses containers, so it is unaffected. Store values are not
-encrypted by this package; protect them with database-level controls.
+channels, and out of store namespaces and keys. The research agent's state uses containers, so it
+is unaffected. Rotating `LANGGRAPH_AES_KEY` needs every checkpoint blob and store value
+re-encrypted; with the wrong key, reads fail with `ValueError: MAC check failed`.

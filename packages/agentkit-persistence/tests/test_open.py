@@ -105,3 +105,15 @@ async def test_store_write_under_store_namespace(persistence: Persistence, threa
     await persistence.store.aput(ns, "note", {"text": "hello"})
     found = await persistence.store.asearch((tenant,), limit=100)
     assert [(i.namespace, i.key, i.value) for i in found] == [(ns, "note", {"text": "hello"})]
+
+
+async def test_unreachable_database_raises_one_line_config_error() -> None:
+    settings = PersistenceSettings(
+        database_url=SecretStr("postgresql://agentkit:pw@127.0.0.1:1/agentkit"),
+        langgraph_aes_key=SecretStr("k" * 32),
+        connect_timeout_seconds=0.5,
+    )
+    with pytest.raises(ConfigError, match="cannot connect to DATABASE_URL") as info:
+        async with open_persistence(settings):
+            pass
+    assert "\n" not in str(info.value) and "pw" not in str(info.value)

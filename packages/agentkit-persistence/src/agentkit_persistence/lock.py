@@ -3,7 +3,9 @@
 Two concurrent runs on one thread fork the checkpoint chain and lose an update; holding
 `pg_advisory_lock(hashtext(thread_id))` across each run serializes them into one chain. The lock
 pins a connection for the whole run, so it comes from `Persistence.lock_pool`, never the saver's
-pool: a run waiting on the lock cannot starve the saver of connections. `hashtext` is 32-bit, so
+pool: a run waiting on the lock cannot starve the saver of connections. The lock pool's
+`reset` runs `pg_advisory_unlock_all()` on every returned connection, so a cancelled unlock
+never leaks a session lock to the next borrower. `hashtext` is 32-bit, so
 two different threads can rarely share a lock; that only serializes them, it never merges state.
 """
 

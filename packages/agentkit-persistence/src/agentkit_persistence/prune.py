@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import re
 import sys
 from collections.abc import Sequence
@@ -56,6 +57,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--older-than", required=True, help="age cutoff: 30d, 12h or 45m")
     args = parser.parse_args(argv)
+    logging.getLogger("psycopg.pool").setLevel(logging.ERROR)  # keep failures to one line
     try:
         older_than = parse_age(args.older_than)
         count = asyncio.run(_run(older_than))

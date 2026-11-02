@@ -85,3 +85,15 @@ async def test_prune_deletes_old_keeps_fresh_and_is_idempotent(
     assert not await _exists(persistence, old)
     assert await _exists(persistence, fresh)
     assert await prune(persistence, timedelta(days=30)) == 0
+
+
+def test_cli_unreachable_database_exits_2_with_one_line(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql://agentkit:pw@127.0.0.1:1/agentkit")
+    monkeypatch.setenv("LANGGRAPH_AES_KEY", "k" * 32)
+    monkeypatch.setenv("PG_CONNECT_TIMEOUT_SECONDS", "0.5")
+    monkeypatch.setattr("agentkit_persistence.open.find_env_file", lambda: None)
+    assert main(["--older-than", "30d"]) == 2
+    err = capsys.readouterr().err
+    assert err.startswith("ConfigError: cannot connect to DATABASE_URL") and err.count("\n") == 1

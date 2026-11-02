@@ -72,3 +72,16 @@ async def test_lock_releases_when_the_body_raises(persistence: Persistence, thre
             raise RuntimeError("boom")
     async with thread_lock(persistence, thread_id):
         pass
+
+
+async def test_lock_pool_reset_releases_a_leaked_session_lock(
+    persistence: Persistence, thread_id: str
+) -> None:
+    # Simulate a cancelled unlock: take the lock and return the connection still holding it.
+    async with persistence.lock_pool.connection() as conn:
+        await conn.execute("select pg_advisory_lock(hashtext(%s))", (thread_id,))
+    await asyncio.sleep(0.2)  # the pool runs `reset` in a background worker
+    async with persistence.pool.connection() as conn:
+        cur = await conn.execute("select pg_try_advisory_lock(hashtext(%s)) as got", (thread_id,))
+        assert (await cur.fetchone())["got"], "lock leaked past the lock pool's reset"
+        await conn.execute("select pg_advisory_unlock(hashtext(%s))", (thread_id,))

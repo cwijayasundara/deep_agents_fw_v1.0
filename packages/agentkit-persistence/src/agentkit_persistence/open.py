@@ -21,13 +21,17 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from langgraph.checkpoint.serde.encrypted import EncryptedSerializer
 from langgraph.store.base import TTLConfig
 from langgraph.store.postgres.aio import AsyncPostgresStore
+from psycopg import AsyncConnection, OperationalError
 from psycopg.rows import dict_row
-from psycopg_pool import AsyncConnectionPool
-from pydantic import Field, SecretStr, ValidationError
+from psycopg_pool import AsyncConnectionPool, PoolTimeout
+from pydantic import AliasChoices, Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from .encrypted_store import EncryptedStore
 
 AES_KEY_ERROR = "LANGGRAPH_AES_KEY must be 16, 24, or 32 characters"
 DATABASE_URL_ERROR = "DATABASE_URL must be set to a Postgres connection URL"
+CONNECT_ERROR = "cannot connect to DATABASE_URL"
 _AES_KEY_LENGTHS = (16, 24, 32)
 _SWEEP_INTERVAL_MINUTES = 5
 
@@ -42,6 +46,11 @@ class PersistenceSettings(BaseSettings):
     pool_max_size: int = Field(default=10, ge=1)
     lock_pool_max_size: int = Field(default=20, ge=1)
     store_default_ttl_minutes: int | None = Field(default=None, ge=1)
+    connect_timeout_seconds: float = Field(
+        default=10.0,
+        gt=0,
+        validation_alias=AliasChoices("connect_timeout_seconds", "pg_connect_timeout_seconds"),
+    )
 
     @classmethod
     def from_env(cls, env_file: Path | None | str = "auto") -> PersistenceSettings:
@@ -70,24 +79,52 @@ def check_aes_key(key: SecretStr) -> bytes:
 
 @dataclass(frozen=True)
 class Persistence:
-    """One deployment's Postgres handles. `lock_pool` only serves `thread_lock`."""
+    """One deployment's Postgres handles. `lock_pool` only serves `thread_lock`.
+
+    `store` encrypts item values (Ruling P7); the raw Postgres store stays private.
+    """
 
     pool: AsyncConnectionPool[Any]
     lock_pool: AsyncConnectionPool[Any]
     saver: AsyncPostgresSaver
-    store: AsyncPostgresStore
+    store: EncryptedStore
 
 
-def _pool(url: str, max_size: int, name: str) -> AsyncConnectionPool[Any]:
+async def _unlock_all(conn: AsyncConnection[Any]) -> None:
+    """Pool `reset`: drop any session lock a cancelled `thread_lock` exit left behind."""
+    await conn.execute("select pg_advisory_unlock_all()")
+
+
+def _pool(
+    url: str, max_size: int, name: str, *, unlock_on_return: bool = False
+) -> AsyncConnectionPool[Any]:
     kwargs = {"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row}
     return AsyncConnectionPool(
-        url, min_size=1, max_size=max_size, kwargs=kwargs, name=name, open=False
+        url,
+        min_size=1,
+        max_size=max_size,
+        kwargs=kwargs,
+        name=name,
+        open=False,
+        reset=_unlock_all if unlock_on_return else None,
     )
+
+
+async def _open(pool: AsyncConnectionPool[Any], wait_seconds: float) -> None:
+    try:
+        await pool.open(wait=True, timeout=wait_seconds)
+    except (PoolTimeout, OperationalError) as exc:
+        await pool.close()
+        reason = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
+        raise ConfigError(f"{CONNECT_ERROR} ({reason})") from None
 
 
 @asynccontextmanager
 async def open_persistence(settings: PersistenceSettings) -> AsyncIterator[Persistence]:
-    """Open pools, set up the encrypted saver and the TTL store, and close all on exit."""
+    """Open pools, set up the encrypted saver and store, and close all on exit.
+
+    Raises `ConfigError` for a bad AES key or an unreachable database.
+    """
     key = check_aes_key(settings.langgraph_aes_key)
     url = settings.database_url.get_secret_value()
     serde = EncryptedSerializer.from_pycryptodome_aes(key=key)
@@ -95,16 +132,22 @@ async def open_persistence(settings: PersistenceSettings) -> AsyncIterator[Persi
         default_ttl=settings.store_default_ttl_minutes,
         sweep_interval_minutes=_SWEEP_INTERVAL_MINUTES,
     )
-    async with (
-        _pool(url, settings.pool_max_size, "agentkit-saver") as pool,
-        _pool(url, settings.lock_pool_max_size, "agentkit-lock") as lock_pool,
-    ):
+    pool = _pool(url, settings.pool_max_size, "agentkit-saver")
+    lock_pool = _pool(url, settings.lock_pool_max_size, "agentkit-lock", unlock_on_return=True)
+    await _open(pool, settings.connect_timeout_seconds)
+    try:
+        await _open(lock_pool, settings.connect_timeout_seconds)
+    except BaseException:
+        await pool.close()
+        raise
+    async with pool, lock_pool:
         saver = AsyncPostgresSaver(pool, serde=serde)
-        store = AsyncPostgresStore(pool, ttl=ttl)
+        raw_store = AsyncPostgresStore(pool, ttl=ttl)
         await saver.setup()
-        await store.setup()
-        await store.start_ttl_sweeper()
+        await raw_store.setup()
+        await raw_store.start_ttl_sweeper()
         try:
+            store = EncryptedStore(raw_store, serde)
             yield Persistence(pool=pool, lock_pool=lock_pool, saver=saver, store=store)
         finally:
-            await store.stop_ttl_sweeper(timeout=5)
+            await raw_store.stop_ttl_sweeper(timeout=5)

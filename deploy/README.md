@@ -12,12 +12,14 @@
 
 ## Encryption at rest
 
-`agentkit-persistence` encrypts checkpoint blobs and writes with AES (`LANGGRAPH_AES_KEY`). It does
-**not** encrypt `checkpoints.metadata`, primitive (str/int/float/bool) top-level state channels
-(stored inline in `checkpoints.checkpoint`, Ruling P3), or store items. Anyone with database access
-can read those, including tenant ids in metadata. Keep user content and secrets out of them, and
-treat database access as tenant-data access. Losing or changing `LANGGRAPH_AES_KEY` makes existing
-threads unreadable (`ValueError: MAC check failed`); nothing is overwritten.
+`agentkit-persistence` encrypts checkpoint blobs and writes, and store item values (Ruling P7), with
+AES (`LANGGRAPH_AES_KEY`). It does **not** encrypt `checkpoints.metadata`, primitive
+(str/int/float/bool) top-level state channels (stored inline in `checkpoints.checkpoint`, Ruling
+P3), or store namespaces, keys and TTLs. Anyone with database access can read those, including
+tenant and user ids. Keep user content and secrets out of them, and treat database access as
+tenant-data access. Losing or changing `LANGGRAPH_AES_KEY` makes existing threads and store values
+unreadable (`ValueError: MAC check failed`); nothing is overwritten. Key rotation means
+re-encrypting every checkpoint blob and store value with the new key.
 
 Prune idle threads with `uv run agentkit-prune --older-than 30d` (needs `DATABASE_URL` and
 `LANGGRAPH_AES_KEY`).

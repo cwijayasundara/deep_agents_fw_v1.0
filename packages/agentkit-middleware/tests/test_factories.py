@@ -74,6 +74,8 @@ def test_model_fallback_rejects_malformed_items(item):
     [
         lambda c: call_limit(c, max_model_calls=3, exit_behavior="boom"),
         lambda c: call_limit(c, max_model_calls=0),
+        lambda c: call_limit(c, max_model_calls=None),
+        lambda c: tool_call_limit(c, run_limit=None),
         lambda c: call_limit(c, max_model_calls=3, thread_limit=-1),
         lambda c: tool_call_limit(c, run_limit=0),
         lambda c: tool_call_limit(c, run_limit=2, thread_limit=0),

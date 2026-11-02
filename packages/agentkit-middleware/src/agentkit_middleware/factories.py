@@ -30,6 +30,12 @@ def _positive(name: str, value: int | float | None) -> None:
         raise ConfigError(f"{name} must be positive, got {value!r}")
 
 
+def _required_positive(name: str, value: int | None) -> None:
+    if value is None:
+        raise ConfigError(f"{name} is required")
+    _positive(name, value)
+
+
 def _retry_args(max_retries: int, initial_delay: float, max_delay: float) -> None:
     if isinstance(max_retries, bool) or max_retries < 0:
         raise ConfigError(f"max_retries must be >= 0, got {max_retries!r}")
@@ -49,7 +55,7 @@ def call_limit(
     exit_behavior: Literal["end", "error"] = "end",
 ) -> AgentMiddleware:
     _choice("exit_behavior", exit_behavior, _EXIT_BEHAVIORS)
-    _positive("max_model_calls", max_model_calls)
+    _required_positive("max_model_calls", max_model_calls)
     _positive("thread_limit", thread_limit)
     mw: AgentMiddleware = ModelCallLimitMiddleware(  # type: ignore[assignment]
         run_limit=max_model_calls, thread_limit=thread_limit, exit_behavior=exit_behavior
@@ -64,7 +70,7 @@ def tool_call_limit(
     tool_name: str | None = None,
     thread_limit: int | None = None,
 ) -> AgentMiddleware:
-    _positive("run_limit", run_limit)
+    _required_positive("run_limit", run_limit)
     _positive("thread_limit", thread_limit)
     mw: AgentMiddleware = ToolCallLimitMiddleware(  # type: ignore[assignment]
         tool_name=tool_name,

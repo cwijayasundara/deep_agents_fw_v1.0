@@ -1,6 +1,6 @@
 """agentkit-evals: minimal eval runner on openevals."""
 
-from .dataset import EvalCase, load_dataset, select_cases
+from .dataset import EvalCase, ExpectCall, load_dataset, select_cases
 from .gates import (
     Baseline,
     BaselineMismatch,
@@ -17,9 +17,13 @@ from .metrics import (
     extract_urls,
     source_count_ok,
     sources_section,
+    step_failure,
+    step_pass,
+    tool_call_ratio,
     tool_recall,
 )
-from .runner import CaseResult, RunResult, aggregate, run_eval, to_markdown
+from .runner import CaseResult, RunResult, StepRunner, aggregate, run_eval, to_markdown
+from .single_step import StepResult, single_step, to_messages
 
 __all__ = [
     "Baseline",
@@ -32,6 +36,14 @@ __all__ = [
     "load_gates",
     "CaseResult",
     "EvalCase",
+    "ExpectCall",
+    "StepResult",
+    "StepRunner",
+    "single_step",
+    "step_failure",
+    "step_pass",
+    "to_messages",
+    "tool_call_ratio",
     "Judge",
     "LLMJudge",
     "RunResult",

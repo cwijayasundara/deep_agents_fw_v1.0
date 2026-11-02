@@ -1,0 +1,80 @@
+"""Single-step evals: stop the agent at its first top-level tool call and score that decision."""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+from contextlib import aclosing
+from dataclasses import dataclass, field
+from typing import Any
+
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
+
+from .dataset import EvalCase
+
+
+@dataclass
+class StepResult:
+    name: str | None  # the first top-level tool call's name; None for a text-only reply
+    args: dict[str, Any] = field(default_factory=dict)
+    text: str = ""
+
+
+def to_messages(turns: Iterable[dict[str, Any]]) -> list[BaseMessage]:
+    """`{role, content}` turns to LangChain messages (user, assistant [+tool_calls], tool)."""
+    out: list[BaseMessage] = []
+    for t in turns:
+        role, content = t.get("role"), t.get("content", "")
+        if role == "user":
+            out.append(HumanMessage(content))
+        elif role == "assistant":
+            calls = [
+                {"name": c["name"], "args": c.get("args", {}), "id": c["id"], "type": "tool_call"}
+                for c in t.get("tool_calls", [])
+            ]
+            out.append(AIMessage(content, tool_calls=calls))
+        elif role == "tool":
+            out.append(ToolMessage(content, tool_call_id=t["tool_call_id"], name=t.get("name")))
+        else:
+            raise ValueError(f"unknown message role {role!r}")
+    return out
+
+
+def case_messages(case: EvalCase) -> list[BaseMessage]:
+    return to_messages(case.messages or [{"role": "user", "content": case.question}])
+
+
+def _ai_messages(update: Any) -> list[AIMessage]:
+    if not isinstance(update, dict):
+        return []
+    msgs = update.get("messages") or []
+    msgs = getattr(msgs, "value", msgs)  # Overwrite wrapper
+    return [m for m in msgs if isinstance(m, AIMessage)] if isinstance(msgs, list) else []
+
+
+async def single_step(graph: Any, case: EvalCase, *, config: Any, context: Any) -> StepResult:
+    """The first top-level model update that carries tool calls, scored by nothing here.
+
+    No tool runs: leaving the stream at that update stops the graph before its tools node. Calls
+    inside subagents (non-empty namespace) are never considered. If the model answers in text and
+    stops, the result has `name=None` and that text."""
+    text = ""
+    stream = graph.astream(
+        {"messages": case_messages(case)},
+        config=config,
+        context=context,
+        stream_mode="updates",
+        subgraphs=True,
+    )
+    async with aclosing(stream):
+        async for namespace, data in stream:
+            if namespace or not isinstance(data, dict):
+                continue
+            for update in data.values():
+                for m in _ai_messages(update):
+                    if m.tool_calls:
+                        first = m.tool_calls[0]
+                        return StepResult(
+                            first["name"], dict(first.get("args") or {}), str(m.content)
+                        )
+                    text = str(m.content) or text
+    return StepResult(None, {}, text)

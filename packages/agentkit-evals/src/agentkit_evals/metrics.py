@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import re
 
+from .dataset import EvalCase
+from .single_step import StepResult
+
 _URL = re.compile(r"https?://[^\s)\]>\"']+")
 
 
@@ -35,3 +38,32 @@ def citation_scores(report: str, retrieved_text: str) -> dict[str, float]:
         "has_citation": 1.0 if cited else 0.0,
         "citation_validity": (len(cited & retrieved) / len(cited)) if cited else 0.0,
     }
+
+
+def step_failure(case: EvalCase, step: StepResult) -> str | None:
+    """Why a single-step decision misses the case's `expect_call`; None when it matches."""
+    want = case.expect_call
+    if want is None:
+        return "case has no expect_call"
+    if step.name is None:
+        return "no tool call"
+    if not re.search(want.name, step.name):
+        return f"called {step.name}, expected {want.name}"
+    for arg, pattern in want.args.items():
+        if arg not in step.args:
+            return f"{step.name} is missing arg {arg}"
+        if not re.search(pattern, str(step.args[arg])):
+            return f"arg {arg}={step.args[arg]!r} does not match {pattern!r}"
+    return None
+
+
+def step_pass(case: EvalCase, step: StepResult) -> float:
+    """1.0 only when the tool name matches and every expected arg regex matches."""
+    return 1.0 if step_failure(case, step) is None else 0.0
+
+
+def tool_call_ratio(case: EvalCase, calls: list[str]) -> float | None:
+    """Calls made over the ideal count (1.0 is ideal, above is wasteful); None without an ideal."""
+    if not case.ideal_tool_calls:
+        return None
+    return len(calls) / case.ideal_tool_calls

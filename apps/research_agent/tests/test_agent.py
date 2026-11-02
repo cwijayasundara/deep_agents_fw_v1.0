@@ -472,3 +472,62 @@ def test_eval_persist_locks_one_thread_per_case(
     eval_cli.main()
     threads = [c.thread_id for c in offline_cli]
     assert len(set(threads)) == 2 and sorted(locks) == sorted(threads)
+
+
+def test_cli_user_global_is_rejected_exit_2(offline_cli, monkeypatch, capsys):
+    from research_agent import cli
+
+    monkeypatch.setattr("sys.argv", ["research", "q", "--user", "global"])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    errors = [line for line in err.splitlines() if "error" in line]
+    assert len(errors) == 1 and "--user" in errors[0] and "reserved" in errors[0]
+    assert "Traceback" not in err and offline_cli == []
+
+
+def _eval_main(monkeypatch, tmp_path, *args):
+    from research_agent import eval_cli
+
+    data = tmp_path / "d.jsonl"
+    data.write_text('{"id": "a", "question": "a", "must_cover": ["x"]}\n')
+
+    class Judge:
+        def __init__(self, model):
+            pass
+
+        async def __call__(self, case, report, retrieved):
+            return {"score": 1.0}
+
+    monkeypatch.setattr(eval_cli, "LLMJudge", Judge)
+    monkeypatch.setattr(eval_cli, "get_model", lambda spec, settings: None)
+    monkeypatch.setattr("sys.argv", ["research-eval", "--dataset", str(data), *args])
+    eval_cli.main()
+
+
+def test_eval_persist_runs_each_invocation_as_a_fresh_user(
+    fake_persistence, offline_cli, monkeypatch, tmp_path, capsys
+):
+    """Ruling P9: earlier /memories/ must not leak into eval prompts."""
+    import re
+
+    _eval_main(monkeypatch, tmp_path, "--persist")
+    _eval_main(monkeypatch, tmp_path, "--persist")
+    first, second = (c.user_id for c in offline_cli)
+    assert first != second
+    assert all(re.fullmatch(r"eval-[0-9a-f]{8}", u) for u in (first, second))
+    out = capsys.readouterr().out
+    assert out.count(f"eval user: {first}") == 1 and out.count(f"eval user: {second}") == 1
+
+
+def test_eval_persist_honours_an_explicit_user(
+    fake_persistence, offline_cli, monkeypatch, tmp_path
+):
+    _eval_main(monkeypatch, tmp_path, "--persist", "--user", "e1")
+    assert [c.user_id for c in offline_cli] == ["e1"]
+
+
+def test_eval_without_persist_keeps_the_local_default(offline_cli, monkeypatch, tmp_path):
+    _eval_main(monkeypatch, tmp_path)
+    assert [c.user_id for c in offline_cli] == ["local"]

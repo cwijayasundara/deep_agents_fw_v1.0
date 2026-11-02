@@ -8,21 +8,25 @@ from pathlib import Path
 
 from agentkit_config import SpecErrors, read_output
 from agentkit_config.spec import AgentSpec
-from agentkit_core import ConfigError, PlatformContext, check_label
+from agentkit_core import ConfigError, PlatformContext, check_label, check_user_id
 from agentkit_middleware import TenantMismatch
 
 DEFAULT_AGENT = Path(__file__).parents[2] / "agent.yaml"
 PRODUCT, TEAM = "agentkit", "platform"
 
 
-def _label(what: str) -> Callable[[str], str]:
+def _arg(validate: Callable[[str], str]) -> Callable[[str], str]:
     def check(value: str) -> str:
         try:
-            return check_label(value, what)
+            return validate(value)
         except ValueError as e:
             raise argparse.ArgumentTypeError(str(e)) from None
 
     return check
+
+
+def _label(what: str) -> Callable[[str], str]:
+    return _arg(lambda value: check_label(value, what))
 
 
 def add_agent_args(p: argparse.ArgumentParser) -> None:
@@ -37,7 +41,7 @@ def add_agent_args(p: argparse.ArgumentParser) -> None:
         help="tenant the run belongs to; must match AGENTKIT_TENANT (default: %(default)s)",
     )
     p.add_argument(
-        "--user", type=_label("user"), default="local", help="user id (default: %(default)s)"
+        "--user", type=_arg(check_user_id), default="local", help="user id (default: %(default)s)"
     )
 
 

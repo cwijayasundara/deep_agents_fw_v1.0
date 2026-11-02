@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+import uuid
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -27,10 +28,15 @@ async def evaluate(
     judge_entry: str,
     *,
     tenant: str = "default",
-    user: str = "local",
+    user: str | None = None,
     persist: bool = False,
 ) -> tuple[str, dict[str, Any]]:
-    """Run every case on its own thread; with `persist`, each thread is checkpointed and locked."""
+    """Run every case on its own thread; with `persist`, each thread is checkpointed and locked.
+
+    Without an explicit `user`, a persisted eval runs as a fresh `eval-<hex>` user per invocation,
+    so `/memories/` from interactive runs or earlier evals never reach its prompts (Ruling P9)."""
+    user = user or (f"eval-{uuid.uuid4().hex[:8]}" if persist else "local")
+    print(f"eval user: {user}", flush=True)
     settings = Settings()
     if persist:
         require_tenant(tenant, settings)
@@ -82,6 +88,10 @@ def _main() -> None:
     p = argparse.ArgumentParser(prog="research-eval")
     add_agent_args(p)
     p.add_argument("--persist", action="store_true", help=PERSIST_HELP)
+    p.set_defaults(user=None)
+    for action in p._actions:
+        if action.dest == "user":
+            action.help = "user id (default: local; with --persist a fresh eval-<hex> per run)"
     p.add_argument("--dataset", default="apps/research_agent/evals/smoke.jsonl")
     p.add_argument("--judge", default="anthropic", help="registry entry used as the judge model")
     p.add_argument("--out", type=Path, default=Path("eval_results.md"))

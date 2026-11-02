@@ -111,17 +111,12 @@ async def test_two_users_do_not_see_each_others_memories() -> None:
     assert not any("u1 secret" in t for t in tool_texts(out))
 
 
-async def test_a_user_named_global_cannot_reach_org_memory() -> None:
-    p = memory_persistence()
-    await p.store.aput(ORG_NS, "/AGENTS.md", {**FILE, "content": "ORG NOTE"})
-    agent = build_deep_agent(
-        model=recording(write("/memories/AGENTS.md", "spoof"), AIMessage(content="ok")),
-        system_prompt="p",
-        persistence=p,
-    )
-    await run(agent, user="global")
-    org = await p.store.aget(ORG_NS, "/AGENTS.md")
-    assert org is not None and org.value["content"] == "ORG NOTE"
+def test_a_user_named_global_cannot_exist() -> None:
+    """Ruling P8: user_id `global` would alias the org owner slot, so the context refuses it."""
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="user_id"):
+        ctx(user_id="global")
 
 
 async def test_both_agents_md_sources_reach_agent_memory_org_first() -> None:

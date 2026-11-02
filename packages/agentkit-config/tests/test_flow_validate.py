@@ -70,15 +70,29 @@ def test_unknown_route_target_error(tmp_path: Path) -> None:
         "nodes:\n  a: {fn: t.step}\n"
         "edges:\n  - START -> a\n  - from: a\n    route: t.route\n    to: {ok: END, x: nope}\n"
     )
-    errs = check(tmp_path, body)
-    msgs = [e.message for e in errs if e.path == "edges"]
-    assert any("'nope'" in m and "known: END, a" in m for m in msgs), errs
+    errs = pairs(check(tmp_path, body))
+    assert ("edges[1].to.x", "unknown route target 'nope'; known: END, a") in errs
 
 
-def test_unknown_edge_endpoints(tmp_path: Path) -> None:
-    body = "nodes:\n  a: {fn: t.step}\nedges:\n  - START -> a -> END\n  - ghost -> a\n"
-    msgs = [e.message for e in check(tmp_path, body) if e.path == "edges"]
-    assert any("'ghost'" in m for m in msgs)
+def test_edge_errors_use_original_yaml_index(tmp_path: Path) -> None:
+    body = (
+        "nodes:\n  a: {fn: t.step}\n  b: {fn: t.step}\n"
+        "edges:\n  - START -> a -> b -> END\n  - ghost -> a\n"
+        "  - from: zed\n    route: t.nah\n    to: {ok: END}\n"
+    )
+    errs = pairs(check(tmp_path, body))
+    assert ("edges[1]", "unknown edge source 'ghost' in 'ghost -> a'; known: START, a, b") in errs
+    assert ("edges[2].from", "unknown route source 'zed'; known: a, b") in errs
+    assert any(p == "edges[2].route" and "'t.nah'" in m and "t.route" in m for p, m in errs)
+    assert not any(p.startswith("edges[0]") for p, _ in errs)
+
+
+def test_missing_start_edge_error(tmp_path: Path) -> None:
+    assert ("edges", "flow needs an edge from START, like 'START -> a'") in pairs(
+        check(tmp_path, "nodes: {}\nedges: []\n")
+    )
+    errs = pairs(check(tmp_path, "nodes:\n  a: {fn: t.step}\nedges:\n  - a -> END\n"))
+    assert any(p == "edges" and "START" in m for p, m in errs)
 
 
 def test_unknown_state_fn_router_and_agent(tmp_path: Path) -> None:
@@ -92,7 +106,7 @@ def test_unknown_state_fn_router_and_agent(tmp_path: Path) -> None:
     errs = pairs(validate_flow(parse_flow(f), lib, ModelRegistry.default(), file=str(f)))
     paths = [p for p, _ in errs]
     assert "state" in paths and "nodes.a.fn" in paths and "nodes.r.agent" in paths
-    assert any(p == "edges" and "t.nah" in m for p, m in errs)
+    assert "edges[1].route" in paths
     assert any(p == "nodes.a.fn" and "t.step" in m for p, m in errs)  # known names listed
 
 
@@ -108,10 +122,14 @@ def test_invalid_agent_errors_surface_with_agent_path(tmp_path: Path) -> None:
         "prompt: p\ntools: [nope]\n",
         encoding="utf-8",
     )
-    body = "nodes:\n  r: {agent: bad, input: q, output: d}\nedges:\n  - START -> r -> END\n"
+    body = (
+        "nodes:\n  r: {agent: bad, input: q, output: d}\n  s: {agent: bad, input: d, output: e}\n"
+        "edges:\n  - START -> r -> s -> END\n"
+    )
     errs = check(tmp_path, body)
-    hits = [e for e in errs if e.file == str(bad)]
-    assert hits and hits[0].path == "tools[0]" and "nope" in hits[0].message
+    hits = [e for e in errs if e.file == str(bad) and e.severity == "error"]
+    assert len(hits) == 1  # one agent file used by two nodes: its errors are reported once
+    assert hits[0].path == "tools[0]" and "nope" in hits[0].message
 
 
 def test_flow_roots_add_app_dir_and_dedupe(tmp_path: Path) -> None:

@@ -9,9 +9,11 @@ from pydantic import (
     ConfigDict,
     Discriminator,
     Field,
+    PrivateAttr,
     Tag,
     TypeAdapter,
     ValidationError,
+    ValidatorFunctionWrapHandler,
     field_validator,
     model_validator,
 )
@@ -123,6 +125,24 @@ class FlowSpec(_Strict):
     state: str
     nodes: dict[str, NodeSpec]
     edges: list[EdgeItem]
+    _edge_index: list[int] = PrivateAttr(default_factory=list)
+
+    def yaml_index(self, k: int) -> int:
+        """The original YAML `edges[i]` index of expanded edge `k` (chains share one index)."""
+        return self._edge_index[k] if k < len(self._edge_index) else k
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _record_edge_index(cls, data: Any, handler: ValidatorFunctionWrapHandler) -> Any:
+        spec = handler(data)
+        raw = data.get("edges") if isinstance(data, dict) else None
+        if isinstance(spec, FlowSpec) and isinstance(raw, list):
+            spec._edge_index = [
+                i
+                for i, item in enumerate(raw)
+                for _ in (_expand_chain(item) if isinstance(item, str) else [item])
+            ]
+        return spec
 
     @field_validator("edges", mode="before")
     @classmethod

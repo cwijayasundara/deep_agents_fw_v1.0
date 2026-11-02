@@ -75,11 +75,13 @@ def _action(
 
 def _add_edges(graph: StateGraph[Any], spec: FlowSpec, lib: Library, *, file: str) -> None:
     assert lib.code is not None
-    for e in spec.edges:
+    for k, e in enumerate(spec.edges):
         if isinstance(e, Edge):
             graph.add_edge(_endpoint(e.source), _endpoint(e.target))
         else:
-            router = lib.code.nodes.get(e.route, file=file, path="edges")
+            router = lib.code.nodes.get(
+                e.route, file=file, path=f"edges[{spec.yaml_index(k)}].route"
+            )
             path_map: dict[Hashable, str] = {key: _endpoint(target) for key, target in e.to.items()}
             graph.add_conditional_edges(e.source, router, path_map)
 

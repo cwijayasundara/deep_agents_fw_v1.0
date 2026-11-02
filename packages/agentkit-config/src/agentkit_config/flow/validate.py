@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from pathlib import Path
 from typing import Any
 
 from agentkit_core import ModelRegistry
@@ -32,61 +33,62 @@ def _pool_error(
 
 def _agent_errors(
     node: AgentNode, path: str, lib: Library, models: ModelRegistry, file: str
-) -> list[SpecError]:
+) -> tuple[Path | None, list[SpecError]]:
     if node.agent not in lib.agents:
         msg = f"unknown agent {node.agent!r}; known: {_known(lib.agents.names())}"
-        return [SpecError(file, f"{path}.agent", msg)]
+        return None, [SpecError(file, f"{path}.agent", msg)]
     agent_file = lib.agents.get(node.agent, file=file, path=f"{path}.agent")
     try:
-        return validate_agent(parse_agent(agent_file), lib, models, file=str(agent_file))
+        errs = validate_agent(parse_agent(agent_file), lib, models, file=str(agent_file))
     except SpecErrors as exc:
-        return exc.errors
+        errs = exc.errors
+    return agent_file, errs
 
 
 def _node_errors(spec: FlowSpec, lib: Library, models: ModelRegistry, file: str) -> list[SpecError]:
     schemas = lib.code.schemas if lib.code is not None else None
     fns = lib.code.nodes if lib.code is not None else None
     out = _pool_error(file, "state", "state schema", spec.state, schemas)
+    checked: set[Path] = set()  # report each agent file's own errors once
     for name, node in spec.nodes.items():
         path = f"nodes.{name}"
         if isinstance(node, FnNode):
             out += _pool_error(file, f"{path}.fn", "node fn", node.fn, fns)
         elif isinstance(node, AgentNode):
-            out += _agent_errors(node, path, lib, models, file)
+            agent_file, errs = _agent_errors(node, path, lib, models, file)
+            if agent_file not in checked:
+                out += errs
+            if agent_file is not None:
+                checked.add(agent_file)
     return out
 
 
-def _edge_errors(spec: FlowSpec, file: str) -> list[SpecError]:
+def _edge_errors(spec: FlowSpec, lib: Library, file: str) -> list[SpecError]:
     sources, targets = {*spec.nodes, START}, {*spec.nodes, END}
+    routers = lib.code.nodes if lib.code is not None else None
     out: list[SpecError] = []
 
-    def bad(label: str, role: str, name: str, known: set[str]) -> None:
-        msg = f"{label}: unknown {role} {name!r}; known: {_known(known)}"
-        out.append(SpecError(file, "edges", msg))
+    def bad(path: str, role: str, name: str, known: set[str], where: str = "") -> None:
+        msg = f"unknown {role} {name!r}{where}; known: {_known(known)}"
+        out.append(SpecError(file, path, msg))
 
-    for e in spec.edges:
+    for k, e in enumerate(spec.edges):
+        p = f"edges[{spec.yaml_index(k)}]"
         if isinstance(e, Edge):
-            label = f"edge '{e.source} -> {e.target}'"
+            where = f" in '{e.source} -> {e.target}'"
             if e.source not in sources:
-                bad(label, "source", e.source, sources)
+                bad(p, "edge source", e.source, sources, where)
             if e.target not in targets:
-                bad(label, "target", e.target, targets)
+                bad(p, "edge target", e.target, targets, where)
             continue
-        label = f"route from {e.source!r}"
         if e.source not in spec.nodes:
-            bad(label, "source", e.source, set(spec.nodes))
+            bad(f"{p}.from", "route source", e.source, set(spec.nodes))
+        out += _pool_error(file, f"{p}.route", "router", e.route, routers)
         for key, target in e.to.items():
             if target not in targets:
-                bad(f"{label} key {key!r}", "target", target, targets)
-    return out
-
-
-def _route_fn_errors(spec: FlowSpec, lib: Library, file: str) -> list[SpecError]:
-    nodes = lib.code.nodes if lib.code is not None else None
-    out: list[SpecError] = []
-    for e in spec.edges:
-        if not isinstance(e, Edge):
-            out += _pool_error(file, "edges", "router", e.route, nodes)
+                bad(f"{p}.to.{key}", "route target", target, targets)
+    if not any(e.source == START for e in spec.edges):
+        out.append(SpecError(file, "edges", "flow needs an edge from START, like 'START -> a'"))
     return out
 
 
@@ -130,7 +132,6 @@ def validate_flow(
     """Collect every problem in a flow, including each referenced agent's own errors."""
     return (
         _node_errors(spec, lib, models, file)
-        + _edge_errors(spec, file)
-        + _route_fn_errors(spec, lib, file)
+        + _edge_errors(spec, lib, file)
         + _shape_errors(spec, file)
     )

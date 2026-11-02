@@ -87,8 +87,18 @@ async def test_interrupt_resume_non_mapping_raises(tmp_path: Path) -> None:
         await graph.ainvoke(Command(resume="approve"), cfg)
 
 
-def test_interrupt_node_is_named() -> None:
-    assert callable(interrupt_node("review"))
+def test_interrupt_node_payload_names_node() -> None:
+    from unittest.mock import patch
+
+    with patch("agentkit_config.flow.nodes.interrupt", return_value={"ok": "y"}) as fake:
+        assert interrupt_node("review")({}) == {"ok": "y"}
+    fake.assert_called_once_with({"node": "review"})
+
+
+def test_missing_start_edge_is_spec_error(tmp_path: Path) -> None:
+    f, lib = write(tmp_path, "nodes: {}\nedges: []\n")
+    with pytest.raises(SpecErrors, match="edge from START"):
+        load_flow(f, settings=settings(), library=lib)
 
 
 class _Graph:

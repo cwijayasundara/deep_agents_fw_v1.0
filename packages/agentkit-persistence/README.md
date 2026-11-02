@@ -16,7 +16,8 @@ Encrypted Postgres persistence for agent threads and memory.
 - `Persistence.store` is an `EncryptedStore` (Ruling P7) wrapping the Postgres store: values are
   encrypted with the saver's serializer and key; namespaces, keys and TTLs stay plaintext, so
   prefix search, `list_namespaces` and the TTL sweeper work. Value `filter=` and vector indexes
-  raise `StoreEncryptionError`.
+  raise `StoreEncryptionError`, and so does reading a value that is not an `{"__enc": "<type>+aes",
+  "ct": ...}` envelope (a plaintext value is never returned).
 - An unreachable database fails fast with `ConfigError: cannot connect to DATABASE_URL (...)`
   after `PG_CONNECT_TIMEOUT_SECONDS` (default 10).
 - `prune(persistence, older_than)` / `agentkit-prune --older-than 30d` deletes threads whose newest

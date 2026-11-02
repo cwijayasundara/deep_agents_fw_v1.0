@@ -37,10 +37,23 @@ def test_sync_roundtrip() -> None:
     assert store.get(NS, "k").value == VALUE  # type: ignore[union-attr]
 
 
-async def test_legacy_plaintext_values_pass_through() -> None:
+async def test_plaintext_values_are_rejected_on_read() -> None:
     store, raw = _store()
-    await raw.aput(NS, "old", {"text": "legacy"})
-    assert (await store.aget(NS, "old")).value == {"text": "legacy"}  # type: ignore[union-attr]
+    await raw.aput(NS, "old", {"text": "plain"})
+    with pytest.raises(StoreEncryptionError, match="not encrypted"):
+        await store.aget(NS, "old")
+    with pytest.raises(StoreEncryptionError, match="not encrypted"):
+        await store.asearch(("acme",))
+
+
+async def test_unencrypted_envelopes_are_rejected_on_read() -> None:
+    store, raw = _store()
+    await raw.aput(NS, "json", {"__enc": "json", "ct": "e30="})  # serializer type without +aes
+    with pytest.raises(StoreEncryptionError, match="not encrypted"):
+        await store.aget(NS, "json")
+    await raw.aput(NS, "extra", {"__enc": "msgpack+aes", "ct": "", "x": 1})
+    with pytest.raises(StoreEncryptionError, match="not encrypted"):
+        store.get(NS, "extra")
 
 
 async def test_delete_and_missing() -> None:

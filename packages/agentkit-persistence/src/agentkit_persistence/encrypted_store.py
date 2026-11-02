@@ -2,9 +2,10 @@
 
 Each put value becomes `{"__enc": <type>, "ct": <base64>}`, made by the same
 `EncryptedSerializer` (and key) as the checkpoint saver. Namespace, key and TTL stay plaintext,
-so per-label prefix search, `list_namespaces` and the TTL sweeper keep working. Values written
-before encryption (no `__enc` envelope) are returned unchanged. Value filters and vector
-indexes would need plaintext values, so both are rejected. Rotating the key means re-encrypting
+so per-label prefix search, `list_namespaces` and the TTL sweeper keep working. Reading a value
+that is not such an envelope with an `+aes` type (a plaintext value) raises
+`StoreEncryptionError`: there is no legacy plaintext data. Value filters and vector indexes would
+need plaintext values, so both are rejected. Rotating the key means re-encrypting
 every item.
 """
 
@@ -30,7 +31,8 @@ _ENC, _CT = "__enc", "ct"
 
 
 class StoreEncryptionError(ValueError):
-    """An operation that cannot work on encrypted store values."""
+    """An operation that cannot work on encrypted store values, or a stored value that is not
+    encrypted."""
 
 
 class EncryptedStore(BaseStore):
@@ -79,18 +81,26 @@ class EncryptedStore(BaseStore):
 
     def _decrypt_item(self, item: Any) -> Any:
         value = item.value
-        if isinstance(value, dict) and set(value) == {_ENC, _CT}:
-            data = base64.b64decode(value[_CT])
-            plain = self._serde.loads_typed((value[_ENC], data))
-            if isinstance(item, SearchItem):
-                return SearchItem(
-                    item.namespace, item.key, plain, item.created_at, item.updated_at, item.score
-                )
-            return Item(
-                value=plain,
-                key=item.key,
-                namespace=item.namespace,
-                created_at=item.created_at,
-                updated_at=item.updated_at,
+        if not (
+            isinstance(value, dict)
+            and set(value) == {_ENC, _CT}
+            and isinstance(value[_ENC], str)
+            and value[_ENC].endswith("+aes")
+        ):
+            raise StoreEncryptionError(
+                f"store item {item.namespace!r}/{item.key!r} is not encrypted"
+                " (expected an {'__enc': '<type>+aes', 'ct': ...} envelope)"
             )
-        return item
+        data = base64.b64decode(value[_CT])
+        plain = self._serde.loads_typed((value[_ENC], data))
+        if isinstance(item, SearchItem):
+            return SearchItem(
+                item.namespace, item.key, plain, item.created_at, item.updated_at, item.score
+            )
+        return Item(
+            value=plain,
+            key=item.key,
+            namespace=item.namespace,
+            created_at=item.created_at,
+            updated_at=item.updated_at,
+        )

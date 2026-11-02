@@ -15,7 +15,7 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import tool
 
-SETTINGS = Settings(_env_file=None)
+SETTINGS = Settings(_env_file=None, deployment_tenant="default")  # built at import: pin tenant
 
 
 def _search(ctx: Any, **_: Any) -> Any:

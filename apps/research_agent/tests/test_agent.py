@@ -275,3 +275,13 @@ def test_cli_tenant_mismatch_exits_1_with_one_line(offline_cli, monkeypatch, cap
     err = capsys.readouterr().err
     assert "TenantMismatch: run tenant 'other' != deployment tenant 'acme'" in err
     assert "Traceback" not in err
+
+
+async def test_run_called_directly_prints_its_minted_thread(offline_cli, capsys):
+    from research_agent import cli
+
+    await cli.run("q", str(DEFAULT_AGENT), {})
+    out = capsys.readouterr().out
+    assert out.startswith("thread: ") and out.strip().removeprefix("thread: ") == (
+        offline_cli[0].thread_id
+    )

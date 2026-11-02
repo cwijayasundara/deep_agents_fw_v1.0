@@ -4,7 +4,7 @@
     uv run python scripts/smoke.py --threads 2     # two threads, one process, own selections
     uv run python scripts/smoke.py --repeat 200    # perf probe: wall time of N runs
 
-Exit codes: 0 ok, 1 the run was refused (TenantMismatch / missing context), 2 bad context.
+Exit codes: 0 ok, 1 the run was refused (TenantMismatch), 2 bad context.
 """
 
 from __future__ import annotations

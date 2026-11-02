@@ -25,6 +25,8 @@ async def run(
     user: str = "local",
     thread: str | None = None,
 ) -> str:
+    thread = thread or new_thread()
+    print(f"thread: {thread}", flush=True)
     settings = Settings()
     log.info("env file: %s", settings.env_file_used() or "none found (using process env)")
     log.info("keys set: %s", ", ".join(settings.keys_present()) or "none")
@@ -38,7 +40,7 @@ async def run(
         loaded.spec.tier,
         loaded.spec.selection or "off",
     )
-    ctx = platform_context(loaded.spec, tenant=tenant, user=user, thread=thread or new_thread())
+    ctx = platform_context(loaded.spec, tenant=tenant, user=user, thread=thread)
     log.info("run: tenant=%s user=%s thread=%s", ctx.tenant, ctx.user_id, ctx.thread_id)
     log.info("question: %s", question)
     result = await run_with_progress(
@@ -63,10 +65,8 @@ def _main() -> None:
     p.add_argument("-q", "--quiet", action="store_true", help="warnings only")
     a = p.parse_args()
     setup_logging(-1 if a.quiet else 1 if a.verbose else 0)
-    thread = a.thread or new_thread()
-    print(f"thread: {thread}", flush=True)
     report = asyncio.run(
-        run(a.question, a.agent, overrides_from(a), tenant=a.tenant, user=a.user, thread=thread)
+        run(a.question, a.agent, overrides_from(a), tenant=a.tenant, user=a.user, thread=a.thread)
     )
     a.out.write_text(report)
     log.info("wrote %s (%d chars)", a.out, len(report))

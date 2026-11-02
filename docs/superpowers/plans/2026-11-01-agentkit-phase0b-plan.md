@@ -468,7 +468,7 @@ Still unproven, each assigned to the PR that proves it.
 
 - A Langfuse project receives the collector-forwarded spans with user and session intact. P6 lane 9 covers this when keys exist.
 - The perf budgets in P3, P4, and P5 are guesses until each PR's probe measures trunk.
-- Whether `SelectionMiddleware` state survives into declarative subagents. P2 adds a test.
+- Answered in Task 2: a declarative subagent with selection selects once per `task` call (its own state), not once per parent thread; the shipped researcher has no selection.
 
 ## Appendix B. Alternatives rejected
 

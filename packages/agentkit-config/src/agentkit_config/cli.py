@@ -34,7 +34,8 @@ def _check_file(path: Path, code: CodePools, models: ModelRegistry, tenant: str)
     file = str(path)
     kind = load_yaml(path).get("kind")
     if kind == "Flow":
-        return validate_flow(parse_flow(path), flow_library(path, code), models, file=file)
+        lib = flow_library(path, code)
+        return validate_flow(parse_flow(path), lib, models, file=file, tenant=tenant)
     if kind not in ("Agent", "SubAgent"):
         msg = f"unknown or missing kind {kind!r}; expected Agent, SubAgent or Flow"
         return [SpecError(file, "kind", msg)]

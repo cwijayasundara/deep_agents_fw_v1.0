@@ -32,20 +32,24 @@ def _pool_error(
 
 
 def _agent_errors(
-    node: AgentNode, path: str, lib: Library, models: ModelRegistry, file: str
+    node: AgentNode, path: str, lib: Library, models: ModelRegistry, file: str, tenant: str | None
 ) -> tuple[Path | None, list[SpecError]]:
     if node.agent not in lib.agents:
         msg = f"unknown agent {node.agent!r}; known: {_known(lib.agents.names())}"
         return None, [SpecError(file, f"{path}.agent", msg)]
     agent_file = lib.agents.get(node.agent, file=file, path=f"{path}.agent")
     try:
-        errs = validate_agent(parse_agent(agent_file), lib, models, file=str(agent_file))
+        errs = validate_agent(
+            parse_agent(agent_file), lib, models, file=str(agent_file), tenant=tenant
+        )
     except SpecErrors as exc:
         errs = exc.errors
     return agent_file, errs
 
 
-def _node_errors(spec: FlowSpec, lib: Library, models: ModelRegistry, file: str) -> list[SpecError]:
+def _node_errors(
+    spec: FlowSpec, lib: Library, models: ModelRegistry, file: str, tenant: str | None
+) -> list[SpecError]:
     schemas = lib.code.schemas if lib.code is not None else None
     fns = lib.code.nodes if lib.code is not None else None
     out = _pool_error(file, "state", "state schema", spec.state, schemas)
@@ -55,7 +59,7 @@ def _node_errors(spec: FlowSpec, lib: Library, models: ModelRegistry, file: str)
         if isinstance(node, FnNode):
             out += _pool_error(file, f"{path}.fn", "node fn", node.fn, fns)
         elif isinstance(node, AgentNode):
-            agent_file, errs = _agent_errors(node, path, lib, models, file)
+            agent_file, errs = _agent_errors(node, path, lib, models, file, tenant)
             if agent_file not in checked:
                 out += errs
             if agent_file is not None:
@@ -127,11 +131,13 @@ def _shape_errors(spec: FlowSpec, file: str) -> list[SpecError]:
 
 
 def validate_flow(
-    spec: FlowSpec, lib: Library, models: ModelRegistry, *, file: str
+    spec: FlowSpec, lib: Library, models: ModelRegistry, *, file: str, tenant: str | None = None
 ) -> list[SpecError]:
-    """Collect every problem in a flow, including each referenced agent's own errors."""
+    """Collect every problem in a flow, including each referenced agent's own errors.
+
+    With `tenant`, tools restricted to other tenants are errors (as in `validate_agent`)."""
     return (
-        _node_errors(spec, lib, models, file)
+        _node_errors(spec, lib, models, file, tenant)
         + _edge_errors(spec, lib, file)
         + _shape_errors(spec, file)
     )

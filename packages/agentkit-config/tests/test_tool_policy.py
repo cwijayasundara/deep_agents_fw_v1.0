@@ -141,3 +141,45 @@ def test_factory_validate_hook_gets_params_and_library(tmp_path: Path) -> None:
         msgs = [(e.path, e.message) for e in errs if e.severity == "error"]
         assert len(msgs) == 1 and msgs[0][0] == "tools[0]" and want in msgs[0][1]
     assert seen == [({}, (tmp_path.resolve(),))]
+
+
+def _flow_with_agent(tmp_path: Path) -> Path:
+    (tmp_path / "agents").mkdir(exist_ok=True)
+    _agent_file(tmp_path).rename(tmp_path / "agents" / "demo.yaml")
+    f = tmp_path / "flow.yaml"
+    f.write_text(
+        "apiVersion: agentkit/v1\nkind: Flow\nname: f\nstate: t.S\n"
+        "nodes:\n  a: {agent: demo, input: q, output: d}\nedges:\n  - START -> a\n  - a -> END\n"
+    )
+    return f
+
+
+def test_flow_validate_applies_tenant_policy_to_agent_nodes(tmp_path: Path) -> None:
+    """Triage #8: a flow's agents are checked against the deployment tenant, like an agent file."""
+    from agentkit_config.flow.validate import validate_flow
+    from agentkit_config.spec import parse_flow
+
+    f = _flow_with_agent(tmp_path)
+    pools = _pools(x=restricted).override(schemas={"t.S": dict})
+    lib = Library.from_roots([tmp_path], pools)
+    models = ModelRegistry.default()
+    errs = validate_flow(parse_flow(f), lib, models, file=str(f), tenant="tenant-b")
+    assert [e.message for e in errs if e.severity == "error"] == [
+        "tool 'x' is not available to tenant 'tenant-b'"
+    ]
+    assert not [
+        e
+        for e in validate_flow(parse_flow(f), lib, models, file=str(f), tenant="tenant-a")
+        if e.severity == "error"
+    ]
+
+
+def test_cli_validate_flow_uses_the_deployment_tenant(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    f = _flow_with_agent(tmp_path)
+    pools = _pools(x=restricted).override(schemas={"t.S": dict})
+    monkeypatch.setattr(CodePools, "from_entry_points", classmethod(lambda cls: pools))
+    monkeypatch.setenv("AGENTKIT_TENANT", "tenant-b")
+    assert main(["validate", str(f)]) == 1
+    assert "not available to tenant 'tenant-b'" in capsys.readouterr().out

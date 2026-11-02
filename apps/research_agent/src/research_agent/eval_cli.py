@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+import math
 import sys
 import time
 import uuid
@@ -216,6 +217,10 @@ def _gate(a: argparse.Namespace, summary: dict[str, Any]) -> None:
         errored = [c["case_id"] for c in summary["cases"] if c.get("error")]
         if errored:
             print(f"gate: refusing to write baseline, cases errored: {errored}", file=sys.stderr)
+            raise SystemExit(2)
+        nan = sorted(k for k, v in summary["aggregate"].items() if math.isnan(v))
+        if nan:
+            print(f"gate: refusing to write baseline, NaN metrics: {nan}", file=sys.stderr)
             raise SystemExit(2)
         spec.baseline.write_text(
             Baseline.from_summary(summary, Path(a.dataset)).model_dump_json(indent=2)

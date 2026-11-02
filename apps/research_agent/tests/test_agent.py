@@ -836,6 +836,18 @@ def test_eval_write_baseline_requires_gate(offline_cli, monkeypatch, capsys):
     assert exc.value.code == 2 and "--gate" in capsys.readouterr().err
 
 
+def test_eval_write_baseline_refuses_nan_aggregate(gate_env, monkeypatch, capsys):
+    from research_agent import eval_cli
+
+    run, _, tmp = gate_env
+    real = eval_cli.aggregate
+    monkeypatch.setattr(eval_cli, "aggregate", lambda rs: {**real(rs), "score": float("nan")})
+    assert run("--write-baseline") == 2
+    assert not (tmp / "base.json").exists()
+    err = capsys.readouterr().err
+    assert "NaN" in err and "score" in err
+
+
 def test_eval_write_baseline_refuses_errored_case(gate_env, monkeypatch, capsys):
     from research_agent import eval_cli
 

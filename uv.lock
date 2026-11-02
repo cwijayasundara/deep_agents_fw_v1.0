@@ -22,8 +22,15 @@ dependencies = [
     { name = "agentkit-core" },
     { name = "agentkit-deep" },
     { name = "agentkit-middleware" },
+    { name = "langchain" },
+    { name = "langchain-core" },
     { name = "pydantic" },
     { name = "pyyaml" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "agentkit-tools" },
 ]
 
 [package.metadata]
@@ -31,9 +38,14 @@ requires-dist = [
     { name = "agentkit-core", editable = "packages/agentkit-core" },
     { name = "agentkit-deep", editable = "packages/agentkit-deep" },
     { name = "agentkit-middleware", editable = "packages/agentkit-middleware" },
+    { name = "langchain" },
+    { name = "langchain-core" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "agentkit-tools", editable = "packages/agentkit-tools" }]
 
 [[package]]
 name = "agentkit-core"

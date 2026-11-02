@@ -1,3 +1,4 @@
+import pytest
 from agentkit_config.pools.code import CodePools, check_params
 
 
@@ -22,3 +23,8 @@ def test_check_params_rejects_unknown_kwarg():
 
     assert check_params(factory, {"a": 2}) is None
     assert "unexpected keyword argument 'bogus'" in (check_params(factory, {"bogus": 1}) or "")
+
+
+def test_override_rejects_unknown_pool():
+    with pytest.raises(TypeError, match="unknown pool"):
+        CodePools.from_entry_points().override(bogus={"x": 1})

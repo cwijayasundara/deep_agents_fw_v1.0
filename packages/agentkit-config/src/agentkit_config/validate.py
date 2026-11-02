@@ -95,9 +95,27 @@ def _tool_errors(c: _Ctx, path: str, tools: list[ToolRef], tenant: str | None) -
             out.append(_unknown(c, p, "tool", t.name, c.lib.code.tools.names()))
         else:
             factory = c.lib.code.tools.get(t.name, file=c.file, path=p)
-            out.extend(_params_error(c, p, factory, t.params, t.name))
+            bad_params = _params_error(c, p, factory, t.params, t.name)
+            out.extend(bad_params)
+            if not bad_params:
+                out.extend(_hook_errors(c, p, factory, t.params, t.name))
             out.extend(_policy_errors(c, p, factory, t.name, tenant))
     return out
+
+
+def _hook_errors(
+    c: _Ctx, path: str, factory: Callable[..., Any], params: Mapping[str, Any], name: str
+) -> list[SpecError]:
+    """A factory's own param checks (ruling S3): `__agentkit_validate__(params, library)`
+    returns problem messages. Duck-typed, so config never imports the tool's package."""
+    hook = getattr(factory, "__agentkit_validate__", None)
+    if not callable(hook):
+        return []
+    try:
+        problems = list(hook(params, c.lib))
+    except Exception as e:  # validate never raises
+        problems = [f"validation hook of tool {name!r} failed: {type(e).__name__}: {e}"]
+    return [c.err(path, str(m)) for m in problems]
 
 
 def _policy_errors(

@@ -17,6 +17,57 @@
     },
     "version": "1.0.0"
   },
+  "kb_search": {
+    "schema": {
+      "description": "Search the knowledge base. Returns numbered passages, each with title and source URL.\n\nUse to answer questions from the curated knowledge base, and cite the URLs you use.\nDo not use for live web facts (use web_search) or to query tables (use sql_query).",
+      "properties": {
+        "k": {
+          "anyOf": [
+            {
+              "maximum": 10,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many passages to return (1-10); omit for the configured default.",
+          "title": "K"
+        },
+        "query": {
+          "description": "What to look up in the knowledge base, phrased as a focused search query.",
+          "title": "Query",
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "kb_search",
+      "type": "object"
+    },
+    "version": "1.0.0"
+  },
+  "sql_query": {
+    "schema": {
+      "description": "Run one read-only SQL query and return the rows as a Markdown table.\n\nUse for exact counts, lists and lookups over the connector's tables.\nDo not use to change data (writes are refused) or for free-text search (use kb_search).",
+      "properties": {
+        "sql": {
+          "description": "Exactly one read-only SQL statement (usually SELECT); no ';'-separated statements. Unqualified table names resolve in the connector's schemas.",
+          "title": "Sql",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sql"
+      ],
+      "title": "sql_query",
+      "type": "object"
+    },
+    "version": "1.0.0"
+  },
   "web_search": {
     "schema": {
       "description": "Search the web. Returns numbered results with URL, title and snippet.\n\nUse to find candidate sources or current facts you do not already have.\nDo not use to read a page you already have a URL for (use fetch_url), or\nfor questions you can answer from the conversation.",

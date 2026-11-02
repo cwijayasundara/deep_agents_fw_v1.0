@@ -118,3 +118,26 @@ def test_tools_list_filters_by_tenant(
     assert main(["tools", "list", "--tenant", "tenant-a"]) == 0
     out = capsys.readouterr().out
     assert "restricted_tool 1.0.0 read internal team-a tenant-a" in out
+
+
+def test_factory_validate_hook_gets_params_and_library(tmp_path: Path) -> None:
+    """Ruling S3: `__agentkit_validate__(params, library)` messages become errors; a crashing
+    hook is an error too, never an exception out of validate."""
+    seen: list[Any] = []
+
+    def ok_hook(params: Any, library: Any) -> list[str]:
+        seen.append((dict(params), library.roots))
+        return ["connector 'c' is unknown"]
+
+    def boom(params: Any, library: Any) -> list[str]:
+        raise RuntimeError("bad")
+
+    p = _agent_file(tmp_path)
+    for hook, want in ((ok_hook, "connector 'c' is unknown"), (boom, "RuntimeError: bad")):
+        f = platform_tool(owner="platform", version="1.0.0", side_effects="read")(_fresh())
+        f.__agentkit_validate__ = hook  # type: ignore[attr-defined]
+        lib = Library.from_roots([tmp_path], _pools(x=f))
+        errs = validate_agent(parse_agent(p), lib, ModelRegistry.default(), file="a.yaml")
+        msgs = [(e.path, e.message) for e in errs if e.severity == "error"]
+        assert len(msgs) == 1 and msgs[0][0] == "tools[0]" and want in msgs[0][1]
+    assert seen == [({}, (tmp_path.resolve(),))]

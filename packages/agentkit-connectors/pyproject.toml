@@ -2,8 +2,16 @@
 name = "agentkit-connectors"
 version = "0.0.1"
 requires-python = ">=3.12,<3.13"
-dependencies = ["agentkit-core", "langchain-core", "langchain-fireworks", "langchain-openai",
-  "langchain-postgres", "pydantic", "pyyaml"]
+dependencies = ["agentkit-core", "agentkit-tools", "asyncpg", "langchain-core",
+  "langchain-fireworks", "langchain-openai", "langchain-postgres", "pydantic", "pyyaml",
+  "sqlalchemy"]
+
+[project.entry-points."agentkit.tools"]
+kb_search = "agentkit_connectors.tools:kb_search"
+sql_query = "agentkit_connectors.tools:sql_query"
+
+[project.scripts]
+agentkit-kb = "agentkit_connectors.kb_cli:main"
 
 [build-system]
 requires = ["hatchling"]

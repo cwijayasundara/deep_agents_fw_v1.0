@@ -62,6 +62,45 @@ names the other), and that each database's checkpoints and `agentkit_usage` rows
 tenant only. It ends with `phase0 exit: tenant-a OK, tenant-b OK, traces separated` and leaves both
 stamps running.
 
+## Knowledge base: schema `kb` and the read-only role
+
+Agents reach Postgres only through the curated tools `kb_search` (a `pgvector` connector) and
+`sql_query` (a `postgres` connector); connector specs live in `libraries/connectors/<name>.yaml`
+and their `dsn` is an `env://VAR` ref, resolved when the agent is built. KB tables live in schema
+`kb`. Set it up once per tenant database, with a connector whose DSN is the admin login:
+
+```bash
+export KB_READER_PASSWORD=...        # read from this env var; never printed or logged
+scripts/tenant_env.sh tenant-a sh -c 'KB_DATABASE_URL="$DATABASE_URL" uv run agentkit-kb setup \
+  --connector kb-docs --reader-password-env KB_READER_PASSWORD'
+scripts/tenant_env.sh tenant-a sh -c 'KB_DATABASE_URL="$DATABASE_URL" uv run agentkit-kb ingest \
+  --connector kb-docs README.md docs/*.md --source-base https://github.com/<owner>/<repo>/blob/main'
+```
+
+`setup` is idempotent (a re-run resets the password and re-applies the grants). It creates schema
+`kb` and role `kb_reader`: LOGIN, no superuser/createdb/createrole/replication/bypassrls,
+`default_transaction_read_only=on`, USAGE + SELECT on `kb` (including future tables, through
+default privileges), nothing else. The password goes to the server as a SCRAM-SHA-256 verifier,
+so it never appears in server logs. `ingest` splits Markdown on headings and then into ~1,500
+character chunks, and upserts them with `{title, source_url}`; re-ingesting a file replaces its
+chunks.
+
+Point the `sql_query` connector at `kb_reader` (e.g. `KB_READER_DATABASE_URL`). Its safety is
+layered and the role is the real wall: every call runs one statement (anything after `;` is
+refused) in a rolled-back `READ ONLY` transaction with `SET LOCAL statement_timeout` and
+`search_path` = the connector's `schemas`, and reads at most `max_rows` rows. Never give
+`sql_query` an admin DSN.
+
+The connector pg tests (`packages/agentkit-connectors/tests/test_pg_tools.py`) create schema `kb`
+and reset `kb_reader`'s password; run them on a throwaway stamp only:
+
+```bash
+make stamp TENANT=kbtest
+scripts/tenant_env.sh kbtest sh -c 'AGENTKIT_TEST_DATABASE_URL="$DATABASE_URL" \
+  uv run --no-sync pytest -m pg packages/agentkit-connectors'
+make unstamp TENANT=kbtest && rm deploy/tenants/kbtest.env
+```
+
 ## Encryption at rest
 
 `agentkit-persistence` encrypts checkpoint blobs and writes, and store item values (Ruling P7), with

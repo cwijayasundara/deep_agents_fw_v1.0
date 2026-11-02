@@ -30,10 +30,18 @@ def list_lines(code: CodePools, tenant: str) -> list[str]:
 
 
 def build_pool_tools(code: CodePools) -> dict[str, BaseTool]:
-    """Build every pool tool with fake settings and its default params."""
+    """Build every pool tool with fake settings and its default params.
+
+    A factory that needs params it cannot default (e.g. a connector name) may provide
+    `__agentkit_snapshot__(ctx) -> BaseTool`, a schema-identical build that touches nothing."""
     settings = Settings(_env_file=None, tavily_api_key="snapshot-fake")  # type: ignore[call-arg,arg-type]
     ctx = BuildContext(settings, ModelRegistry.default().resolve(), "snapshot")
-    return {n: code.tools.get(n, file="<tools>", path=n)(ctx) for n in code.tools.names()}
+    out: dict[str, BaseTool] = {}
+    for n in code.tools.names():
+        factory = code.tools.get(n, file="<tools>", path=n)
+        build = getattr(factory, "__agentkit_snapshot__", None)
+        out[n] = build(ctx) if callable(build) else factory(ctx)
+    return out
 
 
 def current_snapshot(code: CodePools) -> dict[str, Any]:

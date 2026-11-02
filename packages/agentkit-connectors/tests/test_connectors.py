@@ -97,7 +97,9 @@ def test_get_vectorstore_wires_engine_and_embeddings(monkeypatch):
     monkeypatch.setattr(
         engines.PGVectorStore,
         "create_sync",
-        lambda eng, emb, table_name: seen.update(eng=eng, emb=emb, table=table_name) or "store",
+        lambda eng, emb, table_name, schema_name: (
+            seen.update(eng=eng, emb=emb, table=table_name, schema=schema_name) or "store"
+        ),
     )
     spec = PgVectorSpec(
         kind="pgvector", dsn="env://KB_URL", collection="docs", embeddings="openai-small"
@@ -105,6 +107,7 @@ def test_get_vectorstore_wires_engine_and_embeddings(monkeypatch):
     s = Settings(_env_file=None, openai_api_key="k")
     assert get_vectorstore(spec, s) == "store"
     assert seen["eng"] == ("engine", "postgresql://u@h/db") and seen["table"] == "docs"
+    assert seen["schema"] == "kb"
 
 
 @pytest.mark.live

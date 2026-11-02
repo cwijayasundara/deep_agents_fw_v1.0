@@ -58,23 +58,29 @@ version = "0.0.1"
 source = { editable = "packages/agentkit-connectors" }
 dependencies = [
     { name = "agentkit-core" },
+    { name = "agentkit-tools" },
+    { name = "asyncpg" },
     { name = "langchain-core" },
     { name = "langchain-fireworks" },
     { name = "langchain-openai" },
     { name = "langchain-postgres" },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "sqlalchemy" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "agentkit-core", editable = "packages/agentkit-core" },
+    { name = "agentkit-tools", editable = "packages/agentkit-tools" },
+    { name = "asyncpg" },
     { name = "langchain-core" },
     { name = "langchain-fireworks" },
     { name = "langchain-openai" },
     { name = "langchain-postgres" },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "sqlalchemy" },
 ]
 
 [[package]]

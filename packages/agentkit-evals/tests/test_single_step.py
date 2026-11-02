@@ -281,3 +281,56 @@ async def test_single_step_latency_stays_out_of_the_aggregate():
 
     results = await run_eval([step_case()], _no_full, _no_judge, run_step=run_step)
     assert "mean_latency_s" not in aggregate(results)
+
+
+PREFIX_CALL = {
+    "role": "assistant",
+    "content": "planning",
+    "tool_calls": [{"name": "write_todos", "args": {"todos": []}, "id": "t1"}],
+}
+
+
+async def test_pii_middleware_re_emitting_the_prefix_is_not_the_decision():
+    """Review I3: PIIMiddleware.before_model returns the whole (redacted) message list, prefix
+    AIMessage included, before the model runs; the score is the model's new reply."""
+    from langchain.agents.middleware import PIIMiddleware
+
+    model = Recorder(messages=iter([call("web_search", {"query": "mcp"}, "n")]))
+    graph = create_agent(model, tools=[], middleware=[PIIMiddleware("email", strategy="redact")])
+    case = step_case(
+        messages=[
+            {"role": "user", "content": "research mcp"},
+            PREFIX_CALL,
+            {"role": "tool", "tool_call_id": "t1", "name": "write_todos", "content": "ok"},
+            {"role": "user", "content": "now search, then email ops@example.com"},
+        ]
+    )
+    step = await single_step(graph, case, config={}, context=None)
+    assert (step.name, step.args) == ("web_search", {"query": "mcp"})
+    assert len(model.seen) == 1 and "ops@example.com" not in str(model.seen[0][-1].content)
+
+
+async def test_patched_dangling_prefix_call_is_not_the_decision():
+    """Review I3: deepagents PatchToolCallsMiddleware.before_agent re-emits every message when a
+    prefix tool call has no answer; the prefix call must not be scored."""
+    from deepagents.middleware.patch_tool_calls import PatchToolCallsMiddleware
+
+    model = Recorder(messages=iter([call("web_search", {"query": "mcp"}, "n")]))
+    graph = create_agent(model, tools=[], middleware=[PatchToolCallsMiddleware()])
+    case = step_case(messages=[{"role": "user", "content": "research mcp"}, PREFIX_CALL])
+    step = await single_step(graph, case, config={}, context=None)
+    assert (step.name, step.args) == ("web_search", {"query": "mcp"})
+    assert len(model.seen) == 1
+
+
+async def test_a_node_re_emitting_the_full_input_is_skipped():
+    """Any top-level node that echoes the input list (prefix AIMessage included) is skipped."""
+
+    class Echo:
+        async def astream(self, inputs, **kw):
+            yield (), {"echo": {"messages": list(inputs["messages"])}}
+            yield (), {"model": {"messages": [call("web_search", {"query": "q"}, "n")]}}
+
+    case = step_case(messages=[{"role": "user", "content": "q"}, PREFIX_CALL])
+    step = await single_step(Echo(), case, config={}, context=None)
+    assert step.name == "web_search"

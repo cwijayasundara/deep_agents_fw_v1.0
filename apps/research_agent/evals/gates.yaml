@@ -1,0 +1,11 @@
+baseline: baseline.json
+min_cases: 20
+metrics:
+  completed: {min: 0.96}
+  has_citation: {min: 0.96}
+  sources_section: {min: 0.9}
+  citation_validity: {min: 0.85, max_drop: 0.05}
+  completeness: {min: 0.85, max_drop: 0.05}
+  groundedness: {min: 0.55, max_drop: 0.10}
+  tool_recall: {min: 0.9}
+  mean_total_tokens: {max_rise: 0.30}

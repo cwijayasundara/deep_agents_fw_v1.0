@@ -1,6 +1,16 @@
 """agentkit-evals: minimal eval runner on openevals."""
 
 from .dataset import EvalCase, load_dataset
+from .gates import (
+    Baseline,
+    BaselineMismatch,
+    GateFailure,
+    GateSpec,
+    MetricGate,
+    check_gates,
+    dataset_sha256,
+    load_gates,
+)
 from .judge import Judge, LLMJudge
 from .metrics import (
     citation_scores,
@@ -12,6 +22,14 @@ from .metrics import (
 from .runner import CaseResult, RunResult, aggregate, run_eval, to_markdown
 
 __all__ = [
+    "Baseline",
+    "BaselineMismatch",
+    "GateFailure",
+    "GateSpec",
+    "MetricGate",
+    "check_gates",
+    "dataset_sha256",
+    "load_gates",
     "CaseResult",
     "EvalCase",
     "Judge",

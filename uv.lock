@@ -110,6 +110,7 @@ dependencies = [
     { name = "langchain-core" },
     { name = "openevals" },
     { name = "pydantic" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
@@ -118,6 +119,7 @@ requires-dist = [
     { name = "langchain-core" },
     { name = "openevals" },
     { name = "pydantic" },
+    { name = "pyyaml" },
 ]
 
 [[package]]

@@ -1,0 +1,182 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from agentkit_config.errors import SpecError
+from agentkit_config.library import Library
+from agentkit_config.pools.code import CodePools
+from agentkit_config.registry import Registry
+from agentkit_config.spec import AgentSpec, SubAgentSpec
+from agentkit_config.validate import validate_agent, validate_subagent
+from agentkit_core import ModelRegistry
+
+MODELS = ModelRegistry({"m1": {"provider": "openai", "fast": "a", "default": "b", "strong": "c"}})
+
+
+def _tool(ctx: Any, *, limit: int = 1) -> Any: ...
+
+
+def _mw(ctx: Any, *, n: int = 1) -> Any: ...
+
+
+def _pools() -> CodePools:
+    return CodePools(
+        Registry("tool", {"t1": _tool, "t2": _tool}),
+        Registry("middleware", {"call_limit": _mw}),
+        Registry("node", {}),
+        Registry("schema", {"Report": dict}),
+    )
+
+
+def _lib(tmp_path: Path, skills: dict[str, str] | None = None) -> Library:
+    (tmp_path / "prompts").mkdir(exist_ok=True)
+    (tmp_path / "prompts" / "main.md").write_text("Hi {{agent_name}} on {{date}}")
+    (tmp_path / "prompts" / "bad.md").write_text("Hi {{who}}")
+    for name, tools in (skills or {}).items():
+        d = tmp_path / "skills" / name
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "SKILL.md").write_text(
+            f"---\nname: {name}\ndescription: d\nallowed-tools: {tools}\n---\nbody\n"
+        )
+    return Library.from_roots([tmp_path], _pools())
+
+
+def _agent(**kw: Any) -> AgentSpec:
+    base: dict[str, Any] = {
+        "apiVersion": "agentkit/v1",
+        "kind": "Agent",
+        "name": "a",
+        "model": "m1",
+        "prompt": "main",
+    }
+    return AgentSpec.model_validate({**base, **kw})
+
+
+def _sub(**kw: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "name": "s",
+        "description": "d",
+        "prompt": "main",
+        "response_schema": "Report",
+    }
+    return {**base, **kw}
+
+
+def _run(tmp_path: Path, spec: AgentSpec, skills: dict[str, str] | None = None) -> list[SpecError]:
+    return validate_agent(spec, _lib(tmp_path, skills), MODELS, file="agent.yaml")
+
+
+def _msgs(errs: list[SpecError]) -> dict[str, str]:
+    return {e.path: e.message for e in errs}
+
+
+def test_valid_agent_has_no_errors(tmp_path: Path) -> None:
+    assert _run(tmp_path, _agent(tools=["t1"], middleware=[{"type": "call_limit"}])) == []
+
+
+def test_unknown_model_and_tier(tmp_path: Path) -> None:
+    m = _msgs(_run(tmp_path, _agent(model="nope", tier="huge")))
+    assert "m1" in m["model"]
+    assert "tier" in m and "fast" in m["tier"]
+
+
+def test_unknown_prompt(tmp_path: Path) -> None:
+    m = _msgs(_run(tmp_path, _agent(prompt="nope")))
+    assert "main" in m["prompt"]
+
+
+def test_unknown_tool_in_subagent_exact_path(tmp_path: Path) -> None:
+    spec = _agent(subagents=[_sub(tools=["t1", "t_typo"])])
+    errs = _run(tmp_path, spec)
+    assert [e.path for e in errs] == ["subagents[0].tools[1]"]
+    assert "t_typo" in errs[0].message and "t1, t2" in errs[0].message
+
+
+def test_unknown_skill(tmp_path: Path) -> None:
+    m = _msgs(_run(tmp_path, _agent(skills=["ghost"])))
+    assert "ghost" in m["skills[0]"]
+
+
+def test_unknown_subagent_name(tmp_path: Path) -> None:
+    m = _msgs(_run(tmp_path, _agent(subagents=["ghost"])))
+    assert "ghost" in m["subagents[0]"]
+
+
+def test_pool_subagent_is_validated(tmp_path: Path) -> None:
+    (tmp_path / "subagents").mkdir()
+    (tmp_path / "subagents" / "s.yaml").write_text(
+        "name: s\ndescription: d\nprompt: main\nresponse_schema: Report\ntools: [bad_tool]\n"
+    )
+    errs = _run(tmp_path, _agent(subagents=["s"]))
+    assert [e.path for e in errs] == ["subagents[0].tools[0]"]
+
+
+def test_unknown_middleware_and_schema(tmp_path: Path) -> None:
+    m = _msgs(_run(tmp_path, _agent(middleware=[{"type": "zzz"}], output="Nope")))
+    assert "call_limit" in m["middleware[0]"]
+    assert "Report" in m["output"]
+
+
+def test_unknown_response_schema_in_subagent(tmp_path: Path) -> None:
+    m = _msgs(_run(tmp_path, _agent(subagents=[_sub(response_schema="Nope")])))
+    assert "Report" in m["subagents[0].response_schema"]
+
+
+def test_bad_params(tmp_path: Path) -> None:
+    spec = _agent(
+        tools=[{"t1": {"bogus": 1}}], middleware=[{"type": "call_limit", "params": {"x": 1}}]
+    )
+    m = _msgs(_run(tmp_path, spec))
+    assert "bogus" in m["tools[0]"]
+    assert "'x'" in m["middleware[0]"]
+
+
+def test_duplicate_tool_and_subagent_names(tmp_path: Path) -> None:
+    spec = _agent(tools=["t1", "t1"], subagents=[_sub(tools=["t2", "t2"]), _sub()])
+    m = _msgs(_run(tmp_path, spec))
+    assert "duplicate" in m["tools[1]"]
+    assert "duplicate" in m["subagents[0].tools[1]"]
+    assert "duplicate" in m["subagents[1]"]
+
+
+def test_prompt_variable_not_allowed(tmp_path: Path) -> None:
+    m = _msgs(_run(tmp_path, _agent(prompt="bad")))
+    assert "who" in m["prompt"]
+
+
+def test_skill_tools_must_exist(tmp_path: Path) -> None:
+    spec = _agent(tools=["t1"], skills=["sk"])
+    errs = _run(tmp_path, spec, {"sk": "t1 t2 read_file"})
+    assert [e.path for e in errs] == ["skills[0]"]
+    assert "t2" in errs[0].message and "t1" not in errs[0].message.split("missing")[1]
+
+
+def test_subagent_skill_uses_own_tools(tmp_path: Path) -> None:
+    spec = _agent(tools=["t1"], subagents=[_sub(skills=["sk"])])
+    errs = _run(tmp_path, spec, {"sk": "t1"})
+    assert [e.path for e in errs] == ["subagents[0].skills[0]"]
+
+
+def test_subagent_without_schema_warns(tmp_path: Path) -> None:
+    spec = _agent(subagents=[_sub(response_schema=None)])
+    errs = _run(tmp_path, spec)
+    assert len(errs) == 1 and errs[0].severity == "warning"
+    assert errs[0].message == "no response_schema; completion contract recommended"
+    assert errs[0].path == "subagents[0]"
+
+
+def test_selection_middleware_rejected(tmp_path: Path) -> None:
+    m = _msgs(_run(tmp_path, _agent(middleware=[{"type": "selection"}])))
+    assert m["middleware[0]"] == "use top-level 'selection:'"
+
+
+def test_collects_all_errors(tmp_path: Path) -> None:
+    spec = _agent(model="nope", prompt="nope", tools=["zzz"])
+    assert {e.path for e in _run(tmp_path, spec)} == {"model", "prompt", "tools[0]"}
+
+
+def test_validate_subagent_standalone(tmp_path: Path) -> None:
+    sub = SubAgentSpec.model_validate(_sub(tools=["zzz"], model="m1"))
+    errs = validate_subagent(sub, _lib(tmp_path), MODELS, file="s.yaml")
+    assert [e.path for e in errs] == ["tools[0]"]

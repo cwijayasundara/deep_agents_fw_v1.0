@@ -15,15 +15,16 @@ from research_agent import build_research_agent, extract_report, load_config
 
 CFG_DIR = Path(__file__).parents[1] / "config"
 NAMES = os.environ.get("RESEARCH_LIVE_CONFIGS", "anthropic").split(",")
+PRESENT = set(Settings().keys_present())  # reads .env like the CLIs do
 
 
 @pytest.mark.live
 @pytest.mark.parametrize("name", NAMES)
 async def test_full_research_run(name):
-    if not os.environ.get("TAVILY_API_KEY"):
+    if "TAVILY_API_KEY" not in PRESENT:
         pytest.skip("TAVILY_API_KEY not set")
     cfg = load_config(CFG_DIR / f"{name}.yaml")
-    if cfg.get("selection") and not os.environ.get("OPENAI_API_KEY"):
+    if cfg.get("selection") and "OPENAI_API_KEY" not in PRESENT:
         pytest.skip("OPENAI_API_KEY not set (needed for Decisions selection)")
     agent = build_research_agent(cfg, Settings())
     out = await agent.ainvoke(

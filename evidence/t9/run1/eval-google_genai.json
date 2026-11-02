@@ -1,0 +1,15 @@
+{
+  "config": {
+    "model": "google_genai",
+    "tier": "default",
+    "selection": "decisions"
+  },
+  "judge": "anthropic",
+  "aggregate": {
+    "citation_validity": 0.9941176470588236,
+    "completeness": 0.962,
+    "groundedness": 0.11,
+    "has_citation": 1.0,
+    "completed": 1.0
+  }
+}

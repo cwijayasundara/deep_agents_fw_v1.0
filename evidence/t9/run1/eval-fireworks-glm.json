@@ -1,0 +1,15 @@
+{
+  "config": {
+    "model": "fireworks-glm",
+    "tier": "default",
+    "selection": "decisions"
+  },
+  "judge": "anthropic",
+  "aggregate": {
+    "citation_validity": 0.9777777777777777,
+    "completeness": 0.9777777777777777,
+    "groundedness": 0.2777777777777778,
+    "has_citation": 1.0,
+    "completed": 0.9
+  }
+}

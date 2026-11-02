@@ -46,3 +46,21 @@ def test_get_model_builds_without_network():
     assert m.model == "claude-sonnet-5-5"
     f = get_model(ModelSpec(Provider.FIREWORKS, "accounts/fireworks/models/glm-5p3-flash"), s)
     assert "glm-5p3-flash" in f.model_name
+
+
+def test_dotenv_wins_over_process_env(tmp_path, monkeypatch):
+    env = tmp_path / ".env"
+    env.write_text("FIREWORKS_API_KEY=from-dotenv\n")
+    monkeypatch.setenv("FIREWORKS_API_KEY", "from-shell")
+    s = Settings(_env_file=env)
+    assert s.fireworks_api_key.get_secret_value() == "from-dotenv"
+    assert "FIREWORKS_API_KEY" in s.keys_present()
+
+
+def test_find_env_file_walks_up(tmp_path):
+    from agentkit_core.settings import find_env_file
+
+    (tmp_path / ".env").write_text("X=1\n")
+    nested = tmp_path / "a" / "b"
+    nested.mkdir(parents=True)
+    assert find_env_file(nested) == tmp_path / ".env"

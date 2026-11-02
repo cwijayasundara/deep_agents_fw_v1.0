@@ -150,3 +150,29 @@ async def test_breaker_opens_then_short_circuits():
 async def test_question_bounds():
     with pytest.raises(ValueError):
         await client().decide("x", [])
+
+
+# Real /v1/decisions responses recorded live on 2026-11-02 (T9), replayed through the selector.
+FIXTURES = __import__("pathlib").Path(__file__).parent / "fixtures"
+
+
+def live(name):
+    return httpx.Response(200, json=json.loads((FIXTURES / name).read_text()))
+
+
+@respx.mock
+async def test_live_response_orchestrator_prompt():
+    # tier answer 'fast' at confidence 0.27 < floor 0.5 -> stays on default; sql dropped
+    respx.post(URL).mock(return_value=live("decisions_live_orchestrator.json"))
+    sel = await DecisionsSelector(client(), default_tier="default").select("q", CARDS)
+    assert sel.tier == "default"
+    assert sel.tool_names == {"web_search", "fetch_url"}
+
+
+@respx.mock
+async def test_live_response_vague_prompt_drops_all_tools():
+    # Known risk: with a vague system prompt Decisions rates every tool ~0 and hides them all.
+    respx.post(URL).mock(return_value=live("decisions_live_short_prompt.json"))
+    sel = await DecisionsSelector(client(), default_tier="default").select("q", CARDS)
+    assert sel.tool_names == set()
+    assert sel.tier == "fast"

@@ -1,0 +1,15 @@
+{
+  "config": {
+    "model": "openai",
+    "tier": "default",
+    "selection": "decisions"
+  },
+  "judge": "anthropic",
+  "aggregate": {
+    "citation_validity": 0.9629629629629629,
+    "completeness": 0.9511111111111111,
+    "groundedness": 0.4577777777777778,
+    "has_citation": 1.0,
+    "completed": 0.9
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "config": {
+    "model": "fireworks-deepseek",
+    "tier": "default",
+    "selection": "decisions"
+  },
+  "judge": "anthropic",
+  "aggregate": {
+    "citation_validity": 0.9280701754385965,
+    "completeness": 0.985,
+    "groundedness": 0.40700000000000003,
+    "has_citation": 1.0,
+    "completed": 1.0
+  }
+}

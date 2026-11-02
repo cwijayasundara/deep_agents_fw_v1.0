@@ -1,12 +1,40 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+from collections.abc import Callable
 from typing import Any, Protocol
 
 from langchain_core.language_models import BaseChatModel
 from openevals.llm import create_llm_as_judge
 
 from .dataset import EvalCase
+
+log = logging.getLogger(__name__)
+
+# Retrieved text includes subagent fetches, so it is large; ~30k tokens keeps the judge in budget.
+MAX_CONTEXT_CHARS = 120_000
+_ATTEMPTS = 3
+
+
+class JudgeError(RuntimeError):
+    """The judge model never returned a numeric score."""
+
+
+def _score(name: str, evaluator: Callable[..., Any], **kwargs: Any) -> float:
+    """Judges sometimes reply without a score; retry rather than failing the whole case."""
+    last: Any = None
+    for attempt in range(1, _ATTEMPTS + 1):
+        try:
+            last = evaluator(**kwargs)
+        except KeyError as e:  # openevals indexes response["score"] itself
+            last = f"KeyError: {e}"
+        score = last.get("score") if isinstance(last, dict) else None
+        if isinstance(score, int | float):
+            return float(score)
+        log.warning("%s judge returned no score (attempt %d/%d)", name, attempt, _ATTEMPTS)
+    raise JudgeError(f"{name} judge returned no score after {_ATTEMPTS} attempts: {last!r:.200}")
+
 
 GROUNDED = """Judge whether every factual claim in the report is supported by the retrieved
 source material. 1 = fully supported, 0 = unsupported or fabricated claims.
@@ -39,10 +67,16 @@ class LLMJudge:
 
     async def __call__(self, case: EvalCase, report: str, retrieved: str) -> dict[str, float]:
         def run() -> dict[str, float]:
-            g: Any = self._g(outputs=report, context=retrieved[:30_000])
-            c: Any = self._c(
-                inputs=case.question, outputs=report, reference_outputs="; ".join(case.must_cover)
+            g = _score(
+                "groundedness", self._g, outputs=report, context=retrieved[:MAX_CONTEXT_CHARS]
             )
-            return {"groundedness": float(g["score"]), "completeness": float(c["score"])}
+            c = _score(
+                "completeness",
+                self._c,
+                inputs=case.question,
+                outputs=report,
+                reference_outputs="; ".join(case.must_cover),
+            )
+            return {"groundedness": g, "completeness": c}
 
         return await asyncio.to_thread(run)

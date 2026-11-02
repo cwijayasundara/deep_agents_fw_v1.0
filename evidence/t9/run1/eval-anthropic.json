@@ -1,0 +1,15 @@
+{
+  "config": {
+    "model": "anthropic",
+    "tier": "default",
+    "selection": "decisions"
+  },
+  "judge": "anthropic",
+  "aggregate": {
+    "citation_validity": 1.0,
+    "completeness": 0.8855555555555555,
+    "groundedness": 0.43333333333333335,
+    "has_citation": 1.0,
+    "completed": 0.9
+  }
+}

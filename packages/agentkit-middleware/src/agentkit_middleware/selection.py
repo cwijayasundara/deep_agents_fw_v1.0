@@ -106,6 +106,13 @@ class SelectionMiddleware(AgentMiddleware):
         except Exception as e:  # degrade: all tools, default tier
             log.warning("selection unavailable for thread %s (%s); using all tools", thread, e)
             sel = Selection(self._default_tier, frozenset(c.name for c in cards))
+        else:
+            log.info(
+                "selection for thread %s: tier=%s tools=%s",
+                thread,
+                sel.tier,
+                ", ".join(sorted(sel.tool_names)) or "none",
+            )
         self._cache[thread] = sel
         if len(self._cache) > self._max:
             self._cache.popitem(last=False)

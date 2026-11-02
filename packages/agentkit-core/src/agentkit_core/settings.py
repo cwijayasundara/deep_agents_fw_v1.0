@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from pathlib import Path
 
 from pydantic import SecretStr
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
 
 class ConfigError(ValueError):
@@ -25,16 +30,49 @@ _ENV_VAR = {
 }
 
 
-class Settings(BaseSettings):
-    """Secrets from env / .env (never committed). Only the selected provider's key is required."""
+def find_env_file(start: Path | None = None) -> Path | None:
+    """The nearest `.env` in `start` (default: cwd) or any parent directory."""
+    here = (start or Path.cwd()).resolve()
+    for d in (here, *here.parents):
+        if (d / ".env").is_file():
+            return d / ".env"
+    return None
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+class Settings(BaseSettings):
+    """Secrets from `.env` (never committed), found by walking up from the cwd.
+
+    `.env` wins over process env vars, so a stale shell export cannot shadow the key in `.env`.
+    Explicit constructor kwargs still win over both. Only the selected provider's key is required.
+    """
+
+    model_config = SettingsConfigDict(env_file=find_env_file(), extra="ignore")
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return init_settings, dotenv_settings, env_settings, file_secret_settings
 
     openai_api_key: SecretStr | None = None
     google_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
     fireworks_api_key: SecretStr | None = None
     tavily_api_key: SecretStr | None = None
+
+    def env_file_used(self) -> Path | None:
+        env = self.model_config.get("env_file")
+        return Path(env) if isinstance(env, (str, Path)) else None
+
+    def keys_present(self) -> list[str]:
+        """Names (never values) of the API keys that are set."""
+        names = [*_ENV_VAR.values(), "TAVILY_API_KEY"]
+        return [n for n in names if (v := getattr(self, n.lower())) and v.get_secret_value()]
 
     def require_key(self, provider: Provider) -> str:
         key = getattr(self, _ENV_VAR[provider].lower())

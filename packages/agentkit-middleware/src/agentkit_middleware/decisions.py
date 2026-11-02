@@ -7,6 +7,7 @@ Schema: docs/reference/openai-decisions-api.md. Anything that doc marks "not doc
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
@@ -15,6 +16,8 @@ import httpx
 
 from .resilience import CircuitBreaker, call_with_retry
 from .selection import Selection, ToolCard
+
+log = logging.getLogger(__name__)
 
 DECISIONS_URL = "https://api.openai.com/v1/decisions"
 MODEL = "gpt-6-luna"
@@ -72,14 +75,17 @@ class DecisionsClient:
                     self._url, headers={"Authorization": f"Bearer {self._key}"}, json=body
                 )
             except httpx.TransportError as e:
+                log.warning("Decisions API unreachable (%s); retrying", type(e).__name__)
                 raise _Retryable(type(e).__name__) from e
             if resp.status_code == 429 or resp.status_code >= 500:
+                log.warning("Decisions API HTTP %s; retrying", resp.status_code)
                 raise _Retryable(f"HTTP {resp.status_code}")
             if resp.status_code >= 400:
                 raise DecisionsError(f"HTTP {resp.status_code}")
             data: dict[str, Any] = resp.json()
             return data
 
+        log.info("Decisions API: asking %d questions (%s)", len(questions), MODEL)
         return await call_with_retry(
             once,
             breaker=self._breaker,

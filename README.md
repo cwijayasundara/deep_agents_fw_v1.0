@@ -16,10 +16,95 @@ Run the research agent (needs the chosen provider's key plus `TAVILY_API_KEY`):
 
 ```bash
 UV_CONSTRAINT=constraints.txt uv run research "your question" --config apps/research_agent/config/fireworks-glm.yaml
-UV_CONSTRAINT=constraints.txt uv run research-eval --config apps/research_agent/config/anthropic.yaml --judge anthropic
+UV_CONSTRAINT=constraints.txt uv run research-eval --config apps/research_agent/config/fireworks-glm.yaml --judge anthropic
 ```
 
 Switching provider = pick a different file in `apps/research_agent/config/` (one line: `model: <registry entry>`).
+
+`--config` defaults to `fireworks-glm.yaml` (`accounts/fireworks/models/glm-5p3-flash`). Keys always come
+from the nearest `.env` (searched upward from the current directory), and `.env` values win over shell
+exports. Both CLIs log progress to stderr: resolved model, which keys are set (names only), the Decisions
+selection, every delegation, search, fetch and file write, and total run time. Add `-v` for tool output and
+token counts, or `-q` for warnings only.
+
+## Test it manually
+
+Run every command from the repo root. The CLIs read `.env` and the default config path relative to the
+current directory. Each step below costs real tokens except step 1.
+
+### 1. Check the offline build
+
+```bash
+make test        # expect: 59 passed, 7 deselected
+make lint        # expect: no ruff or mypy errors
+```
+
+### 2. Check which keys you have
+
+```bash
+cp .env.example .env    # then fill in the keys you have
+grep -oE '^[A-Z_]+=.' .env | cut -d= -f1    # lists the keys that are set, never their values
+```
+
+Each run needs these keys.
+
+| What you run | Keys it needs |
+|---|---|
+| Any shipped config (`apps/research_agent/config/*.yaml`) | `TAVILY_API_KEY`, `OPENAI_API_KEY` (every config sets `selection: decisions`), and the provider's own key |
+| A config without the `selection` line | `TAVILY_API_KEY` and the provider's own key |
+| `research-eval` | The above, plus the key of the `--judge` entry (default `anthropic`) |
+
+To try a provider without an OpenAI key, copy its config and delete the `selection: decisions` line. The
+agent then sees every tool and stays on the configured tier.
+
+```bash
+grep -v '^selection' apps/research_agent/config/fireworks-glm.yaml > /tmp/fireworks-glm-nosel.yaml
+```
+
+### 3. Check that each model answers
+
+```bash
+uv run pytest -m live packages/agentkit-core/tests/test_live_providers.py -v
+```
+
+This makes one short call per registry entry. An entry whose key is missing is skipped, not failed.
+
+### 4. Run one research question
+
+```bash
+uv run research "When should a team choose RAG over fine-tuning?" \
+	--config apps/research_agent/config/fireworks-glm.yaml --out report.md
+```
+
+Check `report.md`. A good run gives a structured report with inline citations, and each citation is a URL
+the agent fetched. Common failures:
+
+- `ConfigError` naming a key means that key is missing from `.env`.
+- A Decisions API error does not stop the run. The middleware logs `selection unavailable for thread ...`
+  and falls back to all tools and the default tier.
+- An empty `report.md` means the model never wrote `/report.md`. Try another config, and note the model in
+  `docs/phase0-results.md`.
+
+### 5. Score a config with the eval
+
+```bash
+uv run research-eval --config apps/research_agent/config/fireworks-glm.yaml --judge anthropic \
+	--out eval_results.md
+```
+
+The eval runs the 10 questions in `apps/research_agent/evals/smoke.jsonl` and judges each report for
+citations, groundedness, and completeness. It writes `eval_results.md` and `eval_results.json`. Use
+`--dataset` to point at a smaller JSONL file for a cheaper run. If you lack the judge's key, pass
+`--judge` with an entry you have a key for, such as `openai`.
+
+### 6. Run the full live suite
+
+```bash
+RESEARCH_LIVE_CONFIGS=anthropic,openai,google_genai,fireworks-deepseek,fireworks-glm,fireworks-minimax \
+	uv run pytest -m live -v
+```
+
+A config whose keys are missing is skipped. Record each result in `docs/phase0-results.md`.
 
 ## Layout
 
@@ -40,15 +125,20 @@ Switching provider = pick a different file in `apps/research_agent/config/` (one
 
 ## Status
 
-Done and tested offline (53 tests): T1-T8, including the Decisions client/selector (T4) built from
-`docs/reference/openai-decisions-api.md` with mocked fixtures. The shipped provider configs enable
-`selection: decisions` (needs `OPENAI_API_KEY`) so Decisions picks the visible tools and the model tier.
+Done: T1-T9. There are 66 offline tests. T9 passed live on 2026-11-02. All six model ids answer a live call,
+two real Decisions responses are now test fixtures, and the research agent runs end to end with Decisions
+and Tavily. Results and eval scores are in `docs/phase0-results.md`.
 
-Not done - **T9 live verification** (needs network access to the provider/Tavily/OpenAI hosts and keys):
-- Record a real `/v1/decisions` response and replace the T4 fixtures; confirm the undocumented bits
-  (refusal shape, answer ordering, rate limits, timeouts) and that `usage.input_tokens_details.cached_tokens` > 0
-  on the second call of a thread.
-- Verify the Tavily request format, the OpenAI/Gemini ids in `models.yaml` (placeholders), the three Fireworks ids,
-  and `extract_report` against a real run.
-- `uv run pytest -m live`, then `research-eval` for all six configs; record results in `docs/phase0-results.md`.
-- Then generate the verification skill (see `CLAUDE.md`).
+Live testing of the sample agent uses only `fireworks-glm` (`accounts/fireworks/models/glm-5p3-flash`).
+Its eval baseline is completed 1.00, citation validity 0.96, completeness 0.97 and groundedness 0.64.
+
+OpenAI, Google and Anthropic use one cheap fast model on every tier: `gpt-6-luna`, `gemini-3.8-flash`,
+and `claude-haiku-5-5`.
+
+**Next: declarative agents and flows.** Build agents and LangGraph flows from YAML that picks tools,
+skills, prompts, subagents and middleware from shared pools.
+Spec: `docs/superpowers/specs/2026-11-01-agentkit-declarative-agents-design.md`.
+Plan: `docs/superpowers/plans/2026-11-02-agentkit-declarative-agents-plan.md`.
+
+**Phase 0b** (persistence, telemetry, tenant context, per-tenant stamps) is planned in
+`docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md` and not started.

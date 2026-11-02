@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 from langchain_core.tools import BaseTool, StructuredTool
 
 from .models import FetchTool, SearchTool, ToolError
+
+log = logging.getLogger(__name__)
 
 
 def make_research_tools(search: SearchTool, fetch: FetchTool) -> list[BaseTool]:
@@ -13,6 +17,7 @@ def make_research_tools(search: SearchTool, fetch: FetchTool) -> list[BaseTool]:
         try:
             results = await search.search(query, k)
         except ToolError as e:
+            log.warning("web_search %r failed: %s", query, e)
             return f"ERROR: {e}"
         if not results:
             return "No results."
@@ -25,6 +30,7 @@ def make_research_tools(search: SearchTool, fetch: FetchTool) -> list[BaseTool]:
         try:
             page = await fetch.fetch(url)
         except ToolError as e:
+            log.warning("fetch_url %s failed: %s", url, e)
             return f"ERROR: {e}"
         note = "\n[truncated]" if page.truncated else ""
         return f"{page.title}\n{page.url}\n\n{page.text}{note}"

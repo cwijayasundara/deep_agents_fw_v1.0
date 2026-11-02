@@ -4,3 +4,8 @@ __pycache__/
 *.pyc
 .DS_Store
 .pytest_cache/
+
+# Raw live-run logs stay local; summaries (md/json) are committed
+evidence/**/*.log
+evidence/**/*.stdout
+evidence/**/status.txt

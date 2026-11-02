@@ -73,3 +73,18 @@ async def test_run_with_progress_collects_subagent_tool_outputs():
     )
     # the search result was seen only inside the researcher subagent
     assert any("https://a.example/x" in o and "fact" in o for o in outputs)
+
+
+async def test_run_with_progress_collects_tool_call_names_from_subagents():
+    model = scripted(
+        tool_call("task", {"description": "look up x", "subagent_type": "researcher"}, "0"),
+        tool_call("web_search", {"query": "x"}, "1"),
+        AIMessage(content="found x"),
+        AIMessage(content="done"),
+    )
+    loaded = build_agent(model)
+    calls: list[str] = []
+    await run_with_progress(
+        loaded.graph, {"messages": [HumanMessage("q")]}, context=ctx(), tool_calls=calls
+    )
+    assert calls == ["task", "web_search"]

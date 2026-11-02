@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+import time
 import uuid
 from collections.abc import Mapping
 from dataclasses import asdict
@@ -71,6 +72,8 @@ async def evaluate(
             log.info("eval thread %s: %s", ctx.thread_id, question)
             config = run_config(ctx, agent_prompt_hash(loaded.graph), ledger)
             seen: list[str] = []  # every tool result, orchestrator and subagents
+            calls: list[str] = []
+            started = time.monotonic()
             async with turn_lock(p, ctx.thread_id):
                 res = await run_with_progress(
                     loaded.graph,
@@ -78,13 +81,17 @@ async def evaluate(
                     config=dict(config),
                     context=ctx,
                     tool_outputs=seen,
+                    tool_calls=calls,
                 )
+            latency = time.monotonic() - started
             return RunResult(
                 report=read_output(res, loaded.spec.output),
                 retrieved="\n".join(seen),
                 run_id=str(config["run_id"]),
                 trace_id=trace_id(config),
                 usage=usage_of(ledger, config["run_id"]),
+                tool_calls=calls,
+                latency_s=latency,
             )
 
         results = await run_eval(load_dataset(dataset), run_agent, judge)

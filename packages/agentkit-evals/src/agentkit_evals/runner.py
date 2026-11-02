@@ -8,7 +8,7 @@ from typing import Any
 
 from .dataset import EvalCase
 from .judge import Judge
-from .metrics import citation_scores
+from .metrics import citation_scores, source_count_ok, sources_section, tool_recall
 
 
 @dataclass
@@ -18,6 +18,8 @@ class RunResult:
     run_id: str | None = None  # the agent run's root run id (the cost ledger's key)
     trace_id: str | None = None  # its trace id when tracing is on
     usage: dict[str, Any] | None = None  # the run's ledger row (token counts), if recorded
+    tool_calls: list[str] = field(default_factory=list)  # tool names in call order, all agents
+    latency_s: float | None = None
 
 
 @dataclass
@@ -28,6 +30,8 @@ class CaseResult:
     run_id: str | None = None
     trace_id: str | None = None
     usage: dict[str, Any] | None = None
+    latency_s: float | None = None
+    tool_calls: list[str] = field(default_factory=list)
 
 
 AgentRunner = Callable[[str], Awaitable[RunResult]]
@@ -38,12 +42,22 @@ async def _one(case: EvalCase, run_agent: AgentRunner, judge: Judge) -> CaseResu
         r = await run_agent(case.question)
     except Exception as e:  # one bad case must not sink the run
         return CaseResult(case.id, error=f"{type(e).__name__}: {e}")
-    result = CaseResult(case.id, run_id=r.run_id, trace_id=r.trace_id, usage=r.usage)
+    result = CaseResult(
+        case.id,
+        run_id=r.run_id,
+        trace_id=r.trace_id,
+        usage=r.usage,
+        latency_s=r.latency_s,
+        tool_calls=list(r.tool_calls),
+    )
     try:
         if not r.report.strip():
             result.error = "empty report"
             return result
         result.scores = citation_scores(r.report, r.retrieved)
+        result.scores["sources_section"] = sources_section(r.report)
+        result.scores["source_count_ok"] = source_count_ok(r.report, case.min_sources)
+        result.scores["tool_recall"] = tool_recall(case.expect_tools, r.tool_calls)
         result.scores.update(await judge(case, r.report, r.retrieved))
     except Exception as e:
         result.scores, result.error = {}, f"{type(e).__name__}: {e}"
@@ -66,6 +80,16 @@ def aggregate(results: list[CaseResult]) -> dict[str, float]:
     ok = [r for r in results if r.error is None]
     keys = sorted({k for r in ok for k in r.scores})
     agg = {k: mean(r.scores[k] for r in ok) for k in keys} if ok else {}
+    latencies = [r.latency_s for r in ok if r.latency_s is not None]
+    if latencies:
+        agg["mean_latency_s"] = mean(latencies)
+    tokens = [
+        r.usage["input_tokens"] + r.usage["output_tokens"]
+        for r in ok
+        if r.usage and "input_tokens" in r.usage and "output_tokens" in r.usage
+    ]
+    if tokens:
+        agg["mean_total_tokens"] = mean(tokens)
     agg["completed"] = len(ok) / len(results) if results else 0.0
     return agg
 

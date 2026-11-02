@@ -81,8 +81,8 @@ def test_wrong_name_and_wrong_arg_score_zero_with_reasons():
     wrong = StepResult("fetch_url", {"url": "u"})
     assert step_pass(case, wrong) == 0.0
     assert step_failure(case, wrong) == "called fetch_url, expected ^web_search$"
-    assert "does not match" in (step_failure(case, StepResult("web_search", {"query": "x"})) or "")
-    assert "missing arg" in (step_failure(case, StepResult("web_search", {})) or "")
+    assert "not matching" in (step_failure(case, StepResult("web_search", {"query": "x"})) or "")
+    assert "not matching" in (step_failure(case, StepResult("web_search", {})) or "")
 
 
 async def test_text_only_reply_is_a_zero_not_an_exception():
@@ -232,3 +232,52 @@ def test_shipped_steps_dataset_and_gates_load():
     spec = load_gates(root / "gates_steps.yaml")
     assert spec.baseline.name == "baseline_steps.json"
     assert spec.metrics["step_pass"].min == 0.80 and spec.metrics["completed"].min == 1.0
+
+
+async def test_nudge_middleware_does_not_give_a_text_reply_a_second_try():
+    from agentkit_middleware import RequireOutputMiddleware
+
+    ran: list[str] = []
+
+    @tool
+    def web_search(query: str) -> str:
+        """search"""
+        ran.append(query)
+        return "r"
+
+    model = Recorder(messages=iter([AIMessage(content="Let me look."), call("web_search", {})]))
+    graph = create_agent(
+        model, tools=[web_search], middleware=[RequireOutputMiddleware("/report.md")]
+    )
+    step = await single_step(graph, step_case(), config={}, context=None)
+    assert step.name is None and len(model.seen) == 1 and ran == []
+    from agentkit_evals import step_failure
+
+    assert step_failure(step_case(), step) == "no tool call"
+
+
+def test_any_parallel_call_may_match_and_the_reason_lists_all_names():
+    from agentkit_evals import step_failure
+
+    case = step_case(args={"query": "mcp"})
+    step = StepResult(
+        "fetch_url", {}, "", [("fetch_url", {}), ("web_search", {"query": "mcp protocol"})]
+    )
+    assert step_pass(case, step) == 1.0
+    bad = StepResult("fetch_url", {}, "", [("fetch_url", {}), ("write_file", {})])
+    assert step_failure(case, bad) == "called fetch_url, write_file, expected ^web_search$"
+
+
+def test_markdown_shows_step_failure_reason():
+    from agentkit_evals import to_markdown
+
+    md = to_markdown([CaseResult("s", {"step_pass": 0.0}, reason="no tool call")])
+    assert "no tool call" in md
+
+
+async def test_single_step_latency_stays_out_of_the_aggregate():
+    async def run_step(case):
+        return StepResult("web_search", {}, "", [("web_search", {})])
+
+    results = await run_eval([step_case()], _no_full, _no_judge, run_step=run_step)
+    assert "mean_latency_s" not in aggregate(results)

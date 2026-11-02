@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from statistics import mean
@@ -52,7 +51,6 @@ StepRunner = Callable[[EvalCase], Awaitable[StepResult]]
 async def _one_step(case: EvalCase, run_step: StepRunner | None) -> CaseResult:
     if run_step is None:
         return CaseResult(case.id, error="single_step case but no step runner")
-    started = time.monotonic()
     try:
         step = await run_step(case)
     except Exception as e:
@@ -61,8 +59,7 @@ async def _one_step(case: EvalCase, run_step: StepRunner | None) -> CaseResult:
     return CaseResult(
         case.id,
         scores={"step_pass": 0.0 if reason else 1.0},
-        latency_s=time.monotonic() - started,
-        tool_calls=[step.name] if step.name else [],
+        tool_calls=[n for n, _ in step.calls],
         reason=reason,
         report=step.text,
     )
@@ -142,7 +139,7 @@ def to_markdown(results: list[CaseResult]) -> str:
     rows = ["| case | " + " | ".join(keys) + " | error |", "|" + "---|" * (len(keys) + 2)]
     for r in results:
         cells = [f"{r.scores[k]:.2f}" if k in r.scores else "-" for k in keys]
-        rows.append(f"| {r.case_id} | " + " | ".join(cells) + f" | {r.error or ''} |")
+        rows.append(f"| {r.case_id} | " + " | ".join(cells) + f" | {r.error or r.reason or ''} |")
     agg = aggregate(results)
     rows.append("| **mean** | " + " | ".join(f"{agg.get(k, 0):.2f}" for k in keys) + " | |")
     return "\n".join(rows)

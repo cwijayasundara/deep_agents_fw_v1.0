@@ -41,20 +41,22 @@ def citation_scores(report: str, retrieved_text: str) -> dict[str, float]:
 
 
 def step_failure(case: EvalCase, step: StepResult) -> str | None:
-    """Why a single-step decision misses the case's `expect_call`; None when it matches."""
+    """Why a single-step decision misses `expect_call`; None when ANY call matches."""
     want = case.expect_call
     if want is None:
         return "case has no expect_call"
     if step.name is None:
         return "no tool call"
-    if not re.search(want.name, step.name):
-        return f"called {step.name}, expected {want.name}"
-    for arg, pattern in want.args.items():
-        if arg not in step.args:
-            return f"{step.name} is missing arg {arg}"
-        if not re.search(pattern, str(step.args[arg])):
-            return f"arg {arg}={step.args[arg]!r} does not match {pattern!r}"
-    return None
+    calls = step.calls or [(step.name, step.args)]
+    for name, args in calls:
+        if re.search(want.name, name) and all(
+            k in args and re.search(v, str(args[k])) for k, v in want.args.items()
+        ):
+            return None
+    names = [n for n, _ in calls]
+    if not any(re.search(want.name, n) for n in names):
+        return f"called {', '.join(names)}, expected {want.name}"
+    return f"{want.name} called with args not matching {want.args}: {calls[0][1]}"
 
 
 def step_pass(case: EvalCase, step: StepResult) -> float:

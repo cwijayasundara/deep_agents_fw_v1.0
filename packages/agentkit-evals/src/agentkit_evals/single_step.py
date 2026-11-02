@@ -17,6 +17,7 @@ class StepResult:
     name: str | None  # the first top-level tool call's name; None for a text-only reply
     args: dict[str, Any] = field(default_factory=dict)
     text: str = ""
+    calls: list[tuple[str, dict[str, Any]]] = field(default_factory=list)  # all, in order
 
 
 def to_messages(turns: Iterable[dict[str, Any]]) -> list[BaseMessage]:
@@ -52,12 +53,10 @@ def _ai_messages(update: Any) -> list[AIMessage]:
 
 
 async def single_step(graph: Any, case: EvalCase, *, config: Any, context: Any) -> StepResult:
-    """The first top-level model update that carries tool calls, scored by nothing here.
+    """The first top-level model reply: its tool calls, or `name=None` and its text.
 
     No tool runs: leaving the stream at that update stops the graph before its tools node. Calls
-    inside subagents (non-empty namespace) are never considered. If the model answers in text and
-    stops, the result has `name=None` and that text."""
-    text = ""
+    inside subagents (non-empty namespace) are never considered."""
     stream = graph.astream(
         {"messages": case_messages(case)},
         config=config,
@@ -71,10 +70,10 @@ async def single_step(graph: Any, case: EvalCase, *, config: Any, context: Any) 
                 continue
             for update in data.values():
                 for m in _ai_messages(update):
-                    if m.tool_calls:
-                        first = m.tool_calls[0]
-                        return StepResult(
-                            first["name"], dict(first.get("args") or {}), str(m.content)
-                        )
-                    text = str(m.content) or text
-    return StepResult(None, {}, text)
+                    # The first top-level model reply is the decision, whatever it holds:
+                    # a text-only reply must not be given a second try by a nudge middleware.
+                    calls = [(c["name"], dict(c.get("args") or {})) for c in m.tool_calls]
+                    if not calls:
+                        return StepResult(None, {}, str(m.content))
+                    return StepResult(calls[0][0], calls[0][1], str(m.content), calls)
+    return StepResult(None, {}, "")

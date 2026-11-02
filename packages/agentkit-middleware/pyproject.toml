@@ -6,6 +6,12 @@ dependencies = ["agentkit-core", "httpx", "langchain", "langchain-core", "langgr
 
 [project.entry-points."agentkit.middleware"]
 call_limit = "agentkit_middleware.factories:call_limit"
+tool_call_limit = "agentkit_middleware.factories:tool_call_limit"
+model_fallback = "agentkit_middleware.factories:model_fallback"
+model_retry = "agentkit_middleware.factories:model_retry"
+tool_retry = "agentkit_middleware.factories:tool_retry"
+pii = "agentkit_middleware.factories:pii"
+require_output = "agentkit_middleware.factories:require_output"
 
 [build-system]
 requires = ["hatchling"]

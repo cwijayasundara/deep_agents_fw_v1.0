@@ -14,7 +14,7 @@ from typing import Any
 
 import httpx
 
-from .resilience import CircuitBreaker, call_with_retry
+from .resilience import CircuitBreaker, call_with_retry, shared_breaker
 from .selection import DecisionsUsage, Selection, ToolCard
 
 log = logging.getLogger(__name__)
@@ -55,7 +55,8 @@ class DecisionsClient:
     ) -> None:
         self._key, self._url = api_key, url
         self._client = client or httpx.AsyncClient(timeout=timeout)
-        self._breaker = breaker or CircuitBreaker()
+        # Default: one breaker per endpoint for the whole process, not per client.
+        self._breaker = breaker or shared_breaker(f"decisions:{url}")
         self._retry: dict[str, Any] = {"attempts": attempts, "base": base, "cap": cap}
         self._sleep, self._rng = sleep, rng
 

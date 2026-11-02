@@ -140,7 +140,7 @@ def test_middleware_order(tmp_path):
     spec = parse_agent(p)
     kw = resolve_agent(spec, _lib(tmp_path), ModelRegistry.default(), s, model=scripted())
     names = [type(m).__name__ for m in kw["middleware"]]
-    assert names == ["MwA", "MwB", "SelectionMiddleware"]
+    assert names == ["SelectionMiddleware", "MwA", "MwB"]  # selection outermost, then unknown types
 
 
 def test_subagent_tools_replace_parent(tmp_path):

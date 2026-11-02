@@ -9,6 +9,7 @@ import httpx
 from .models import Page, ToolError
 
 _SKIP = {"script", "style", "noscript", "svg", "head"}
+MAX_REDIRECTS = 5
 
 
 class _Text(HTMLParser):
@@ -64,21 +65,29 @@ class HttpFetch:
         max_chars: int = 20_000,
         timeout: float = 20.0,
     ) -> None:
-        self._client = client or httpx.AsyncClient(timeout=timeout, follow_redirects=True)
+        self._client = client or httpx.AsyncClient(timeout=timeout)
         self._max_bytes = max_bytes
         self._max_chars = max_chars
 
     async def fetch(self, url: str) -> Page:
-        _check_url(url)
+        """GET `url`, following up to MAX_REDIRECTS redirects by hand so every hop is re-checked."""
         try:
-            async with self._client.stream("GET", url) as resp:
-                resp.raise_for_status()
-                buf = bytearray()
-                async for chunk in resp.aiter_bytes():
-                    buf += chunk
-                    if len(buf) > self._max_bytes:
-                        break
-                ctype = resp.headers.get("content-type", "")
+            for _ in range(MAX_REDIRECTS + 1):
+                _check_url(url)
+                async with self._client.stream("GET", url, follow_redirects=False) as resp:
+                    if resp.is_redirect:
+                        url = str(resp.url.join(resp.headers["location"]))
+                        continue
+                    resp.raise_for_status()
+                    buf = bytearray()
+                    async for chunk in resp.aiter_bytes():
+                        buf += chunk
+                        if len(buf) > self._max_bytes:
+                            break
+                    ctype = resp.headers.get("content-type", "")
+                    break
+            else:
+                raise ToolError(f"too many redirects (more than {MAX_REDIRECTS})")
         except httpx.HTTPError as e:
             raise ToolError(f"fetch failed: {type(e).__name__}") from e
         raw = bytes(buf[: self._max_bytes]).decode("utf-8", errors="replace")

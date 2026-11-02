@@ -91,11 +91,13 @@ async def run_with_progress(
     *,
     context: Any = None,
     tool_outputs: list[str] | None = None,
+    tool_calls: list[str] | None = None,
 ) -> dict[str, Any]:
     """Stream the agent, logging every step; return the final top-level state.
 
     If `tool_outputs` is given, every tool result is appended to it, including results seen only
-    inside subagents (which never reach the top-level message list)."""
+    inside subagents (which never reach the top-level message list). `tool_calls` likewise collects
+    the name of every tool call, in order, from any namespace."""
     start = time.monotonic()
     final: dict[str, Any] = {}
     async for namespace, mode, data in agent.astream(
@@ -109,5 +111,12 @@ async def run_with_progress(
                 log_update(namespace, node, update)
                 if tool_outputs is not None:
                     tool_outputs.extend(_tool_texts(update))
+                if tool_calls is not None:
+                    tool_calls.extend(
+                        tc["name"]
+                        for m in _messages(update)
+                        if isinstance(m, AIMessage)
+                        for tc in m.tool_calls
+                    )
     log.info("agent finished in %.1fs", time.monotonic() - start)
     return final

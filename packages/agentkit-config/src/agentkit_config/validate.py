@@ -12,8 +12,12 @@ from agentkit_config.pools.code import check_params
 from agentkit_config.pools.prompts import ALLOWED_VARS, variables
 from agentkit_config.registry import Registry
 from agentkit_config.spec import AgentSpec, MiddlewareRef, SubAgentSpec, ToolRef
+from agentkit_config.stack import SINGLETONS
 
 NO_SCHEMA = "no response_schema; completion contract recommended"
+NO_CALL_LIMIT = "no call_limit; a runaway loop is unbounded"
+# Types that may repeat, and the param that must differ between repeats.
+_REPEAT_KEY = {"pii": "type", "tool_call_limit": "tool_name"}
 
 
 class _Ctx:
@@ -90,8 +94,14 @@ def _tool_errors(c: _Ctx, path: str, tools: list[ToolRef]) -> list[SpecError]:
 
 def _middleware_errors(c: _Ctx, path: str, mws: list[MiddlewareRef]) -> list[SpecError]:
     out: list[SpecError] = []
+    seen: set[tuple[str, Any]] = set()
     for i, m in enumerate(mws):
         p = f"{_join(path, 'middleware')}[{i}]"
+        if m.enabled and m.type != "selection" and (m.type in SINGLETONS or m.type in _REPEAT_KEY):
+            key = (m.type, m.params.get(_REPEAT_KEY[m.type]) if m.type in _REPEAT_KEY else None)
+            if key in seen:
+                out.append(c.err(p, f"duplicate middleware {m.type!r}"))
+            seen.add(key)
         if m.type == "selection":
             out.append(c.err(p, "use top-level 'selection:'"))
         elif c.lib.code is None:
@@ -178,5 +188,7 @@ def validate_agent(
     out += _middleware_errors(c, "", spec.middleware)
     if spec.output is not None and not spec.output.startswith("/"):
         out.append(c.err("output", "output must be an absolute file path like /report.md"))
+    if not any(m.type == "call_limit" and m.enabled for m in spec.middleware):
+        out.append(c.err("", NO_CALL_LIMIT, "warning"))
     out += _subagent_errors(c, spec)
     return out

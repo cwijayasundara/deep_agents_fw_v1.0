@@ -26,7 +26,7 @@ async def test_full_research_run(name):
     loaded = load_agent(DEFAULT_AGENT, settings=Settings(), overrides={"model": name})
     out = await loaded.graph.ainvoke(
         {"messages": [HumanMessage("What is the Model Context Protocol? Keep it short.")]},
-        config={"recursion_limit": 100},
+        config={"recursion_limit": 1_000},
         context=ctx(tenant=Settings().deployment_tenant, agent_name=loaded.spec.name),
     )
     report = read_output(out, loaded.spec.output)

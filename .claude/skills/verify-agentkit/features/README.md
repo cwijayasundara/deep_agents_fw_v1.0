@@ -46,8 +46,8 @@ details out; name only user paths, commands, stable output lines and observable 
 
 ## Features
 
-- [Research question](./research-question.md): one research turn, ephemeral or persisted, producing a cited report, a usage line and (persisted) a trace and ledger row.
+- [Research question](./research-question.md): one research turn, ephemeral or persisted, producing a cited report, a usage line and (persisted) a trace and ledger row; the shipped middleware stack (fallback, retry, call and tool budgets, PII).
 - [Persisted research and resume](./persisted-research-and-resume.md): a second turn on the same thread resumes it, recalls the first turn and is metered and traced on its own.
-- [Research eval](./research-eval.md): scored eval on a one-case dataset, JSON and Markdown scores, per-case trace and usage.
+- [Research eval](./research-eval.md): scored eval on a one-case dataset, JSON and Markdown scores (citation, source, trajectory and judge metrics), per-case trace and usage, and the `--gate`/`--write-baseline` regression gate and its exit codes.
 - [Tenant isolation](./tenant-isolation.md): stamping, port/key separation, the TenantMismatch pre-check, `make contract` and `make phase0-exit`.
 - [agentkit validate](./agentkit-validate.md): offline YAML validation with file:path errors and exit codes.

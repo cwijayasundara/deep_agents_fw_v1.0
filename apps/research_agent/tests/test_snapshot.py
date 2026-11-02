@@ -39,7 +39,11 @@ def test_yaml_build_matches_python_snapshot(monkeypatch):
     load_agent(
         DEFAULT_AGENT,
         settings=Settings(
-            _env_file=None, tavily_api_key="t", openai_api_key="o", anthropic_api_key="a"
+            _env_file=None,
+            tavily_api_key="t",
+            openai_api_key="o",
+            anthropic_api_key="a",
+            fireworks_api_key="f",
         ),
         library=Library.for_file(DEFAULT_AGENT, pools),
         overrides={"model": "anthropic"},

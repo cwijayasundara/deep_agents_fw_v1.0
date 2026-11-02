@@ -194,3 +194,23 @@ async def test_missing_or_malformed_usage_is_none():
         return_value=httpx.Response(200, json={"answers": [], "usage": {"input_tokens": "x"}})
     )
     assert (await DecisionsSelector(client()).select("q", CARDS)).usage is None
+
+
+@respx.mock
+async def test_clients_without_explicit_breaker_share_one_per_process():
+    """A new client per `load_agent` must not reset the breaker (eval builds one agent per case)."""
+    route = respx.post(URL).mock(return_value=httpx.Response(500))
+    q = [{"type": "predicate", "name": "a", "instructions": "i"}]
+    for _ in range(2):  # 2 agents x 3 attempts = 6 failures >= threshold 5
+        with pytest.raises(Unavailable):
+            await client(attempts=3).decide("x", q)
+    calls = route.call_count
+    with pytest.raises(Unavailable):
+        await client().decide("x", q)  # a third, fresh client sees the open breaker
+    assert route.call_count == calls
+
+
+async def test_explicit_breaker_is_not_shared():
+    a, b = CircuitBreaker(), CircuitBreaker()
+    assert client(breaker=a)._breaker is a and client(breaker=b)._breaker is b
+    assert client()._breaker is client()._breaker

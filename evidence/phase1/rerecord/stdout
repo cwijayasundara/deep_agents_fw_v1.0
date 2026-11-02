@@ -1,0 +1,34 @@
+eval user: local
+usage: 25 runs, 250 model calls, input 5360535 (cached 4360672), output 225394, decisions input 19086
+## fireworks-glm (judge: anthropic)
+
+| case | citation_validity | completeness | groundedness | has_citation | source_count_ok | sources_section | tool_recall | error |
+|---|---|---|---|---|---|---|---|---|
+| rag-vs-finetune | 1.00 | 0.92 | 0.72 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| lang-graph | 1.00 | 1.00 | 0.65 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| mcp | 1.00 | 1.00 | 0.93 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| prompt-cache | 0.62 | 0.95 | 0.82 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| llm-judge | 1.00 | 0.80 | 0.45 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| agent-evals | 1.00 | 1.00 | 0.85 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| vector-db | 1.00 | 1.00 | 0.45 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| guardrails | 1.00 | 1.00 | 0.55 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| context-eng | 1.00 | 1.00 | 0.92 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| oss-models | 1.00 | 1.00 | 0.92 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| pgvector-hnsw | 1.00 | 1.00 | 0.82 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| otel-genai | 1.00 | 1.00 | 0.50 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| react-pattern | 1.00 | 0.80 | 0.82 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| speculative-decoding | 1.00 | 0.95 | 0.60 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| quantization | 0.86 | 1.00 | 0.60 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| structured-output | 1.00 | 1.00 | 0.30 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| rag-eval | 1.00 | 1.00 | 0.88 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| agent-memory | 0.91 | 1.00 | 0.35 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| pii-llm | 1.00 | 1.00 | 0.80 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| model-routing | 1.00 | 1.00 | 0.45 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| mcp-false-premise | 1.00 | 1.00 | 0.65 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| postgres-rls | 1.00 | 1.00 | 0.40 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| tokenization | 0.86 | 1.00 | 0.72 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| moe | 1.00 | 0.97 | 0.87 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| circuit-breaker | 0.75 | 0.97 | 0.85 | 1.00 | 1.00 | 1.00 | 1.00 |  |
+| **mean** | 0.96 | 0.97 | 0.67 | 1.00 | 1.00 | 1.00 | 1.00 | |
+
+gate: baseline written to apps/research_agent/evals/baseline.json

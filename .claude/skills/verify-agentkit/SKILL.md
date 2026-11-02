@@ -173,6 +173,11 @@ anywhere; they `cd` to the repo root and set `UV_CONSTRAINT=constraints.txt`):
   Only run it when no one uses those names, and `make unstamp` both afterwards.
 - `make unstamp` keeps the env file on purpose (it holds the AES key); `cleanup.sh` deletes it
   because a verify tenant's data is throwaway. Never do that for a real tenant.
+- `ImportError: cannot import name ... from 'agentkit_core' (unknown location)` means macOS re-hid the
+  editable-install `.pth` files (it can recur mid-session). Run `make sync` (or
+  `chflags nohidden .venv/lib/python*/site-packages/*.pth`) and rerun the drive as a new LABEL.
+- The shipped agent needs `FIREWORKS_API_KEY` even off Fireworks (its fallback model is built at load),
+  and its eval gate (`research-eval --gate`) is a 25-case release check, not a verification drive.
 - Default CLI outputs (`report.md`, `eval_results.*` at the repo root) are git-ignored but are not
   evidence: always pass `--out` into the evidence dir (the helpers do).
 
@@ -181,7 +186,10 @@ anywhere; they `cd` to the repo root and set `UV_CONSTRAINT=constraints.txt`):
 First proven 2026-11-02 (RUN_ID `20261102-proof1`, local Docker Desktop on macOS): doctor, stamp,
 one persisted `research-question` turn (exit 0, 5 sources, 41 s), the mismatch probe (exit 1, no
 row), a one-case `mcp` eval (all scores 1.00), collect (all PASS: 88 masked spans of the tenant
-only, 2 usage rows), cleanup (project gone, evidence kept). Not yet driven live by this skill: the
+only, 2 usage rows), cleanup (project gone, evidence kept). Re-proven 2026-11-02 for Phase 1 (RUN_ID `20261102-phase1`): the middleware stack rode along on a
+persisted turn (exit 0, 35 s, `## Sources` report), a one-case `mcp` eval scored all seven metrics 1.00,
+the `--gate` mismatch probe exited 2 with `gate: baseline mismatch: ...`, `--write-baseline` without
+`--gate` exited 2, checks all PASS (223 spans, 2 usage rows), cleanup clean. Not yet driven live by this skill: the
 resume turn, `make contract`, `make phase0-exit`, `agentkit validate` recipes (validate output was
 checked by hand when writing the map). Keep the map honest as the CLIs change with
 `/pstack:maintain-verification-skill`.

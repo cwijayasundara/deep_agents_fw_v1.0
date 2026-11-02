@@ -1,5 +1,6 @@
 # Logical model entries. Switching provider = pick a different entry name (config only).
-# OpenAI, Google and Anthropic use only their cheap fast model on every tier (operator's call, 2026-11-01).
+# fast and default stay on the cheap model (operator's call, 2026-11-01); strong is a bigger model where one
+# is known (2026-11-02). openai, google_genai and fireworks-deepseek have no strong model chosen yet.
 default_provider: anthropic
 models:
   openai:
@@ -13,7 +14,7 @@ models:
   anthropic:
     fast: claude-haiku-5-5
     default: claude-haiku-5-5
-    strong: claude-haiku-5-5
+    strong: claude-opus-5-5
   fireworks-deepseek:
     provider: fireworks
     fast: accounts/fireworks/models/deepseek-v4p1-flash-1017
@@ -23,9 +24,9 @@ models:
     provider: fireworks
     fast: accounts/fireworks/models/glm-5p3-flash
     default: accounts/fireworks/models/glm-5p3-flash
-    strong: accounts/fireworks/models/glm-5p3-flash
+    strong: accounts/fireworks/models/glm-5p3
   fireworks-minimax:
     provider: fireworks
     fast: accounts/fireworks/models/minimax-m3p1-flash
     default: accounts/fireworks/models/minimax-m3p1-flash
-    strong: accounts/fireworks/models/minimax-m3p1-flash
+    strong: accounts/fireworks/models/minimax-m3

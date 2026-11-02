@@ -37,7 +37,7 @@ def test_every_registry_entry_loads_with_model_override():
     for name in ModelRegistry.default().names():
         loaded = load_agent(
             DEFAULT_AGENT,
-            settings=Settings(_env_file=None),
+            settings=Settings(_env_file=None, fireworks_api_key="f"),
             library=lib(),
             overrides={"model": name, "selection": "off"},
             model=scripted(AIMessage(content="x")),
@@ -55,7 +55,7 @@ async def test_end_to_end_report_with_citation():
     )
     loaded = load_agent(
         DEFAULT_AGENT,
-        settings=Settings(_env_file=None),
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
         library=lib(),
         overrides={"model": "anthropic", "selection": "off"},
         model=model,
@@ -67,18 +67,102 @@ async def test_end_to_end_report_with_citation():
     assert any("https://a.example/x" in str(c) for c in tool_msgs)  # citation was retrieved
 
 
+async def test_default_run_config_lets_the_call_limits_bound_a_long_run():
+    """Each middleware hook is a graph step, so the stack multiplies steps per model call. The
+    default recursion limit must not end a run the stack's own call limits would still allow."""
+    from agentkit_deep import agent_prompt_hash
+    from agentkit_telemetry import run_config
+
+    report = "# R\nX [1]\n\n## Sources\n[1] https://a.example/x"
+    searches = [tool_call("web_search", {"query": f"x{i}"}, str(i)) for i in range(30)]
+    model = scripted(
+        *searches,
+        tool_call("write_file", {"file_path": "/report.md", "content": report}, "w"),
+        AIMessage(content="done"),
+    )
+    loaded = load_agent(
+        DEFAULT_AGENT,
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
+        library=lib(),
+        overrides={"selection": "off"},
+        model=model,
+    )
+    c = ctx()
+    config = run_config(c, agent_prompt_hash(loaded.graph), CostLedger())
+    out = await loaded.graph.ainvoke(
+        {"messages": [HumanMessage("what is x?")]}, config=dict(config), context=c
+    )
+    assert "https://a.example/x" in read_output(out, loaded.spec.output)
+
+
+async def test_tool_budget_never_blocks_writing_the_report():
+    """A run that spends its whole search/fetch budget must still be able to save /report.md."""
+    from agentkit_deep import agent_prompt_hash
+    from agentkit_telemetry import run_config
+
+    report = "# R\nX [1]\n\n## Sources\n[1] https://a.example/x"
+    calls = [tool_call("web_search", {"query": f"x{i}"}, f"s{i}") for i in range(24)]
+    calls += [tool_call("fetch_url", {"url": "https://a.example/x"}, f"f{i}") for i in range(28)]
+    model = scripted(
+        *calls,
+        tool_call("write_file", {"file_path": "/report.md", "content": report}, "w"),
+        AIMessage(content="done"),
+    )
+    loaded = load_agent(
+        DEFAULT_AGENT,
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
+        library=lib(),
+        overrides={"selection": "off"},
+        model=model,
+    )
+    c = ctx()
+    config = run_config(c, agent_prompt_hash(loaded.graph), CostLedger())
+    out = await loaded.graph.ainvoke(
+        {"messages": [HumanMessage("what is x?")]}, config=dict(config), context=c
+    )
+    assert read_output(out, loaded.spec.output) == report
+    blocked = [m for m in out["messages"] if m.type == "tool" and m.status == "error"]
+    assert blocked  # the budget did bite on search/fetch
+
+
+async def test_a_reply_that_only_announces_more_work_is_sent_back_to_finish_the_report():
+    """Live glm runs sometimes end on "Let me delegate ..." with no tool call; the run goes on."""
+    report = "# R\nX [1]\n\n## Sources\n[1] https://a.example/x"
+    model = scripted(
+        tool_call("web_search", {"query": "x"}, "1"),
+        AIMessage(content="I still need more detail. Let me delegate the remaining gaps."),
+        tool_call("write_file", {"file_path": "/report.md", "content": report}, "2"),
+        AIMessage(content="done"),
+    )
+    loaded = load_agent(
+        DEFAULT_AGENT,
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
+        library=lib(),
+        overrides={"selection": "off"},
+        model=model,
+    )
+    out = await loaded.graph.ainvoke({"messages": [HumanMessage("what is x?")]}, context=ctx())
+    assert read_output(out, loaded.spec.output) == report
+
+
 def test_decisions_selection_requires_openai_key():
     with pytest.raises(ConfigError, match="OPENAI_API_KEY"):
         load_agent(
             DEFAULT_AGENT,
-            settings=Settings(_env_file=None, tavily_api_key="t"),
+            settings=Settings(_env_file=None, tavily_api_key="t", fireworks_api_key="f"),
             library=lib(),
             overrides={"model": "anthropic"},
         )
 
 
 def test_decisions_selection_builds_with_keys():
-    s = Settings(_env_file=None, tavily_api_key="t", openai_api_key="o", anthropic_api_key="a")
+    s = Settings(
+        _env_file=None,
+        tavily_api_key="t",
+        openai_api_key="o",
+        anthropic_api_key="a",
+        fireworks_api_key="f",
+    )
     loaded = load_agent(DEFAULT_AGENT, settings=s, library=lib(), overrides={"model": "anthropic"})
     assert loaded.graph is not None
 
@@ -94,7 +178,7 @@ def test_unknown_model_override_lists_registry():
     with pytest.raises(SpecErrors, match="anthropic"):
         load_agent(
             DEFAULT_AGENT,
-            settings=Settings(_env_file=None),
+            settings=Settings(_env_file=None, fireworks_api_key="f"),
             library=lib(),
             overrides={"model": "nope"},
         )
@@ -152,7 +236,7 @@ def test_shipped_agent_loads_without_tavily_key(monkeypatch):
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     loaded = load_agent(
         DEFAULT_AGENT,
-        settings=Settings(_env_file=None),
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
         library=lib(CodePools.from_entry_points()),
         overrides={"selection": "off"},
         model=scripted(AIMessage(content="x")),
@@ -335,7 +419,7 @@ def _scripted_cli(monkeypatch, model):
         loaded.append(
             load_agent(
                 path,
-                settings=Settings(_env_file=None),
+                settings=Settings(_env_file=None, fireworks_api_key="f"),
                 library=lib(),
                 overrides={"model": "anthropic", "selection": "off"},
                 model=model,
@@ -357,18 +441,21 @@ async def test_persist_resumes_a_thread_and_sees_turn_one(
     monkeypatch.delenv("AGENTKIT_TENANT", raising=False)
     p, locks = fake_persistence
     report = "# R\nX [1]\n\n## Sources\n[1] https://a.example/x"
+    report2 = "# R2\nY [1]\n\n## Sources\n[1] https://a.example/y"
     loaded = _scripted_cli(
         monkeypatch,
         scripted(
             tool_call("write_file", {"file_path": "/report.md", "content": report}, "1"),
             AIMessage(content="done"),
+            # turn 2 must write its own report: require_output ignores turn one's /report.md
+            tool_call("write_file", {"file_path": "/report.md", "content": report2}, "2"),
             AIMessage(content="follow-up answered"),
         ),
     )
     assert await cli.run("turn one", str(DEFAULT_AGENT), {}, thread="th-r", persist=True) == report
     first = capsys.readouterr().out
     assert "resumed thread" not in first
-    assert await cli.run("turn two", str(DEFAULT_AGENT), {}, thread="th-r", persist=True) == report
+    assert await cli.run("turn two", str(DEFAULT_AGENT), {}, thread="th-r", persist=True) == report2
     out = capsys.readouterr().out
     assert "resumed thread th-r at step " in out
     n = int(out.split("resumed thread th-r at step ")[1].split()[0])
@@ -605,3 +692,255 @@ def test_eval_checks_the_tenant_up_front_without_persist(
     err = capsys.readouterr().err
     assert "run tenant 'other' != deployment tenant 'default'" in err and "Traceback" not in err
     assert offline_cli == [] and not (tmp_path / "eval_results.md").exists()
+
+
+def test_shipped_agent_has_standard_stack():
+    from agentkit_config.resolve import resolve_agent
+    from agentkit_config.spec import parse_agent
+
+    s = Settings(_env_file=None, openai_api_key="o", anthropic_api_key="a", fireworks_api_key="f")
+    kw = resolve_agent(
+        parse_agent(DEFAULT_AGENT),
+        lib(),
+        ModelRegistry.default(),
+        s,
+        model=scripted(AIMessage(content="x")),
+    )
+    names = [type(m).__name__ for m in kw["middleware"]]
+    assert names == [
+        "SelectionMiddleware",
+        "ModelFallbackMiddleware",
+        "ModelRetryMiddleware",
+        "RequireOutputMiddleware",
+        "ModelCallLimitMiddleware",
+        "ToolCallLimitMiddleware",
+        "ToolCallLimitMiddleware",
+        "PIIMiddleware",
+        "PIIMiddleware",
+    ]
+    (sub,) = kw["subagents"]
+    # YAML lists call_limit before model_retry; canonical order puts retry first
+    assert [type(m).__name__ for m in sub["middleware"]] == [
+        "ModelRetryMiddleware",
+        "ModelCallLimitMiddleware",
+        "ToolCallLimitMiddleware",
+    ]
+
+
+@pytest.fixture
+def gate_env(offline_cli, monkeypatch, tmp_path):
+    """Offline eval with a fixed-score judge, a 2-case dataset and a gates file."""
+    import json as _json
+
+    from research_agent import eval_cli
+
+    data = tmp_path / "d.jsonl"
+    data.write_text(
+        "".join(f'{{"id": "{q}", "question": "{q}", "must_cover": ["x"]}}\n' for q in "ab")
+    )
+    gates = tmp_path / "gates.yaml"
+    gates.write_text(
+        "baseline: base.json\nmin_cases: 2\nmetrics:\n"
+        "  score: {min: 0.5, max_drop: 0.1}\n  completed: {min: 1.0}\n"
+    )
+
+    class Judge:
+        def __init__(self, model):
+            pass
+
+        async def __call__(self, case, report, retrieved):
+            return {"score": 0.8}
+
+    monkeypatch.setattr(eval_cli, "LLMJudge", Judge)
+    monkeypatch.setattr(eval_cli, "get_model", lambda spec, settings: None)
+
+    def run(*extra):
+        monkeypatch.setattr(
+            "sys.argv",
+            ["research-eval", "--dataset", str(data), "--user", "e1", "--gate", str(gates), *extra],
+        )
+        try:
+            eval_cli.main()
+        except SystemExit as e:
+            return e.code
+        return 0
+
+    def baseline(**over):
+        b = _json.loads((tmp_path / "base.json").read_text())
+        b.update(over)
+        (tmp_path / "base.json").write_text(_json.dumps(b))
+
+    return run, baseline, tmp_path
+
+
+def test_eval_write_baseline_then_gate_passes(gate_env, capsys):
+    run, _, tmp = gate_env
+    assert run("--write-baseline") == 0
+    assert f"gate: baseline written to {tmp / 'base.json'}" in capsys.readouterr().out
+    assert run() == 0
+    assert "gate: PASS" in capsys.readouterr().out
+
+
+def test_eval_gate_pass_exits_0(gate_env, capsys):
+    run, _, _ = gate_env
+    run("--write-baseline")
+    capsys.readouterr()
+    assert run() == 0
+    out = capsys.readouterr().out
+    assert out.index("| **mean**") < out.index("gate: PASS")
+
+
+def test_eval_gate_regression_exits_1_and_names_metric(gate_env, capsys):
+    run, baseline, tmp = gate_env
+    run("--write-baseline")
+    import json
+
+    agg = json.loads((tmp / "base.json").read_text())["aggregate"]
+    baseline(aggregate={**agg, "score": 0.99})
+    capsys.readouterr()
+    assert run() == 1
+    captured = capsys.readouterr()
+    assert "gate: FAIL score:" in captured.err and "gate: FAIL" not in captured.out
+
+
+def test_eval_gate_mismatch_exits_2(gate_env, capsys):
+    run, baseline, _ = gate_env
+    run("--write-baseline")
+    baseline(model_id="other-model")
+    capsys.readouterr()
+    assert run() == 2
+    captured = capsys.readouterr()
+    assert "gate: baseline mismatch:" in captured.err and "mismatch" not in captured.out
+
+
+def test_eval_gate_corrupt_baseline_exits_2(gate_env, capsys):
+    run, _, tmp = gate_env
+    (tmp / "base.json").write_text("{not json")
+    assert run() == 2
+    err = capsys.readouterr().err
+    assert f"gate: unreadable baseline {tmp / 'base.json'}" in err and "Traceback" not in err
+
+
+def test_eval_gate_missing_baseline_exits_2(gate_env, capsys):
+    run, _, _ = gate_env
+    assert run() == 2
+    assert "run with --write-baseline first" in capsys.readouterr().err
+
+
+def test_eval_write_baseline_requires_gate(offline_cli, monkeypatch, capsys):
+    from research_agent import eval_cli
+
+    monkeypatch.setattr("sys.argv", ["research-eval", "--write-baseline"])
+    with pytest.raises(SystemExit) as exc:
+        eval_cli.main()
+    assert exc.value.code == 2 and "--gate" in capsys.readouterr().err
+
+
+def test_eval_write_baseline_refuses_nan_aggregate(gate_env, monkeypatch, capsys):
+    from research_agent import eval_cli
+
+    run, _, tmp = gate_env
+    real = eval_cli.aggregate
+    monkeypatch.setattr(eval_cli, "aggregate", lambda rs: {**real(rs), "score": float("nan")})
+    assert run("--write-baseline") == 2
+    assert not (tmp / "base.json").exists()
+    err = capsys.readouterr().err
+    assert "NaN" in err and "score" in err
+
+
+def test_eval_write_baseline_refuses_errored_case(gate_env, monkeypatch, capsys):
+    from research_agent import eval_cli
+
+    run, _, tmp = gate_env
+
+    async def boom(agent, inputs, config, *, context, **kw):
+        raise RuntimeError("nope")
+
+    monkeypatch.setattr(eval_cli, "run_with_progress", boom)
+    assert run("--write-baseline") == 2
+    assert not (tmp / "base.json").exists()
+    assert "errored" in capsys.readouterr().err
+
+
+@pytest.fixture
+def subset_env(offline_cli, monkeypatch, tmp_path):
+    """Offline eval over a 3-case tagged dataset; returns run(*argv) -> exit code."""
+    from research_agent import eval_cli
+
+    data = tmp_path / "d.jsonl"
+    data.write_text(
+        '{"id": "a", "question": "a", "must_cover": ["x"], "tags": ["t1"]}\n'
+        '{"id": "b", "question": "b", "must_cover": ["x"], "tags": ["t2"]}\n'
+        '{"id": "c", "question": "c", "must_cover": ["x"], "tags": ["t2"]}\n'
+    )
+
+    class Judge:
+        def __init__(self, model):
+            pass
+
+        async def __call__(self, case, report, retrieved):
+            return {"score": 1.0}
+
+    monkeypatch.setattr(eval_cli, "LLMJudge", Judge)
+    monkeypatch.setattr(eval_cli, "get_model", lambda spec, settings: None)
+
+    def run(*extra):
+        monkeypatch.setattr(
+            "sys.argv", ["research-eval", "--dataset", str(data), "--user", "e1", *extra]
+        )
+        try:
+            eval_cli.main()
+        except SystemExit as e:
+            return e.code
+        return 0
+
+    return run, tmp_path
+
+
+def test_eval_case_and_tag_run_only_the_subset(subset_env, offline_cli):
+    import json
+
+    run, tmp = subset_env
+    assert run("--case", "a", "--tag", "t2") == 0
+    assert len(offline_cli) == 3
+    offline_cli.clear()
+    assert run("--tag", "t2") == 0
+    summary = json.loads((tmp / "eval_results.json").read_text())
+    assert [c["case_id"] for c in summary["cases"]] == ["b", "c"]
+    assert summary["subset"] == {"cases": [], "tags": ["t2"]}
+    assert len(offline_cli) == 2
+
+
+def test_eval_unknown_case_exits_2_naming_it(subset_env, offline_cli, capsys):
+    run, _ = subset_env
+    assert run("--case", "zzz") == 2
+    assert "zzz" in capsys.readouterr().err and offline_cli == []
+
+
+def test_eval_subset_with_gate_is_rejected(subset_env, tmp_path, capsys):
+    run, _ = subset_env
+    assert run("--tag", "t1", "--gate", str(tmp_path / "g.yaml")) == 2
+    assert "--gate" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("bad", ["0", "-1", "x"])
+def test_eval_concurrency_must_be_positive(subset_env, bad, capsys):
+    run, _ = subset_env
+    assert run("--concurrency", bad) == 2
+    assert "--concurrency" in capsys.readouterr().err
+
+
+def test_eval_concurrency_reaches_run_eval(subset_env, monkeypatch):
+    from research_agent import eval_cli
+
+    seen = {}
+    real = eval_cli.run_eval
+
+    async def spy(cases, run_agent, judge, concurrency=2):
+        seen["concurrency"] = concurrency
+        return await real(cases, run_agent, judge, concurrency=concurrency)
+
+    monkeypatch.setattr(eval_cli, "run_eval", spy)
+    run, _ = subset_env
+    assert run() == 0 and seen["concurrency"] == 6
+    assert run("--concurrency", "3") == 0 and seen["concurrency"] == 3

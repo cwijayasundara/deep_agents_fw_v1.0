@@ -155,7 +155,32 @@ prompt: research/orchestrator
 tools: [web_search, fetch_url]
 subagents: [researcher]
 output: /report.md
+middleware:
+  - {type: model_fallback, params: {models: ["fireworks-glm:strong"]}}
+  - {type: model_retry, params: {max_retries: 2}}
+  - {type: call_limit, params: {max_model_calls: 60}}
+  # Budget the research tools, not every tool: a run that spends it must still write /report.md.
+  - {type: tool_call_limit, params: {tool_name: web_search, run_limit: 20}}
+  - {type: tool_call_limit, params: {tool_name: fetch_url, run_limit: 25}}
+  - {type: pii, params: {type: email}}
+  - {type: pii, params: {type: credit_card, strategy: mask}}
+  - {type: require_output, params: {path: /report.md}}
 ```
+
+The `middleware` list is the Phase 1 standard stack, applied in the canonical order (section 4)
+whatever the file order: a failing primary model falls back to `fireworks-glm:strong`
+(`accounts/fireworks/models/glm-5p3`), each model is retried twice, a run stops after 60 model calls
+and the orchestrator may call `web_search` 20 times and `fetch_url` 25 times per run (further calls get an
+error tool message telling the model to stop; `write_file` is never budgeted, so the report can always be
+saved; a single all-tools `run_limit: 40` blocked the final `write_file` and left two golden cases with an
+empty report), e-mail addresses and card numbers are redacted or masked, and `require_output` sends
+the run back to the model (a user nudge, at most twice per run, logged as `/report.md missing after a
+final reply; nudging (n/2)`) when the model replies without a tool call before `/report.md` is written
+in this run (a report left by an earlier turn of a resumed thread does not count; a run resumed from an
+interrupt accepts any existing report):
+live `fireworks-glm` runs sometimes ended on "Let me delegate ..." with no tool call. Fallback models are
+built when the agent loads, so the shipped agent needs `FIREWORKS_API_KEY` for every `--model`, not only
+for `fireworks-*` entries; an agent file without the `model_fallback` entry does not.
 
 `AgentSpec` fields (`spec/agent.py`):
 
@@ -392,7 +417,7 @@ build_deep_agent(
 | A concrete model | `model` is a `BaseChatModel` or a `ModelSpec`; a `ModelSpec` needs `settings` and is built with `get_model`, which fails fast if the provider key is missing. |
 | `context_schema=PlatformContext` | Every run must pass `context=PlatformContext(...)` (a dict is validated against it). |
 | `TenantGuardMiddleware` first | The guard for the deployment tenant (`settings.deployment_tenant`, or `AGENTKIT_TENANT` read once per process when no settings are given) is prepended to the caller's middleware. Passing a `TenantGuardMiddleware` yourself raises `ValueError`. |
-| Caller middleware order preserved | The middleware list is `[guard, *middleware]`. From YAML, `middleware` is the pool entries in file order, then `SelectionMiddleware` last when `selection: decisions`. DeepAgents then wraps its own stack around this user-middleware slot. |
+| Caller middleware order preserved | The middleware list is `[guard, *middleware]`. From YAML, `middleware` is sorted into the canonical order (`agentkit_config/stack.py`, `STACK_ORDER`): `selection` (when `selection: decisions`), `model_fallback`, `model_retry`, `tool_retry`, `require_output`, `call_limit`, `tool_call_limit`, `pii`, then any other pool entries in file order. File order no longer matters. The first entry is the outermost wrapper: `SelectionMiddleware` overrides the request's model, so fallback sits inside it and can swap the model on failure, and retry sits inside fallback so each model is retried before the next is tried. `require_output` sits outside `call_limit`, so the model calls its nudges cause are counted against the budget. Validation rejects a second enabled `selection`, `model_fallback`, `model_retry`, `tool_retry`, `require_output` or `call_limit`, and repeats of `pii` (same `type`) or `tool_call_limit` (same `tool_name`); an agent without an enabled `call_limit` gets a warning. DeepAgents then wraps its own stack around this user-middleware slot. |
 | Skills | `skills` are skill *sources* (`skills_source(owner)`), passed through with `backend` and `permissions` (section 7). |
 | Persistence | With `persistence`: its encrypted `saver` and `store` become the checkpointer and store (passing `checkpointer` or `store` too raises `ValueError`); the backend becomes `memory_backend()` unless the caller passed one built by `memory_backend(...)` (any other backend raises `ValueError`); `memory=["/org/AGENTS.md", "/memories/AGENTS.md"]`; and `ORG_WRITE_DENY` is prepended to the permissions. |
 | Prompt hash | The returned graph is `agent.with_config(metadata={"prompt_hash": prompt_hash(system_prompt)})`, so every run and trace inherits it. |
@@ -404,7 +429,9 @@ it back (`""` for a graph not built by the factory).
 **Gap.** The research report's factory sketch has a fixed, canonical platform middleware list (tenant
 guard, identity and tool policy, tool surface, model fallback and retry, tool error handling and
 retry, call limits, PII, todo list) and an org-to-tenant-to-role prompt composer. The code enforces
-only the guard's position; everything else is whatever the caller (or the YAML) adds. The factory
+the guard's position, and YAML agents get the resilience and limit middleware (fallback, retry, call
+limits, PII) in the canonical order; identity and tool policy, tool error handling, the todo list and
+the prompt composer are not there yet. The factory
 also does not disable DeepAgents' automatically added `general-purpose` subagent, which the report
 recommends turning off by default.
 
@@ -424,16 +451,20 @@ models:
     fast: gpt-6-luna
     default: gpt-6-luna
     strong: gpt-6-luna
-  # google_genai: gemini-3.8-flash, anthropic: claude-haiku-5-5 on every tier
+  # google_genai: gemini-3.8-flash on every tier
+  anthropic:
+    fast: claude-haiku-5-5
+    default: claude-haiku-5-5
+    strong: claude-opus-5-5
   fireworks-glm:
     provider: fireworks
     fast: accounts/fireworks/models/glm-5p3-flash
     default: accounts/fireworks/models/glm-5p3-flash
-    strong: accounts/fireworks/models/glm-5p3-flash
-  # fireworks-deepseek, fireworks-minimax: same shape
+    strong: accounts/fireworks/models/glm-5p3
+  # fireworks-minimax: strong is minimax-m3; fireworks-deepseek: same model on every tier
 ```
 
-| Entry | Provider | Model id (all tiers) | Key |
+| Entry | Provider | Model id (fast, default) | Key |
 |---|---|---|---|
 | `openai` | `openai` | `gpt-6-luna` | `OPENAI_API_KEY` |
 | `google_genai` | `google_genai` | `gemini-3.8-flash` | `GOOGLE_API_KEY` |
@@ -449,8 +480,10 @@ entry's `provider` key, else the entry name; it must be a `Provider` value (`ope
 model_provider=..., api_key=..., **kwargs)`.
 
 Switching provider is a config change: `--model <entry>` on the CLIs, or `model:` in the YAML. Tiers are
-`fast`, `default` and `strong` (`TIERS`). Today every tier of every entry is the same model (an
-operator decision to keep costs down), so tier switching is wired but has no effect on which model runs.
+`fast`, `default` and `strong` (`TIERS`). `fast` and `default` stay on the cheap model (an
+operator decision to keep costs down). `strong` is a bigger model for `anthropic` (`claude-opus-5-5`),
+`fireworks-glm` (`glm-5p3`) and `fireworks-minimax` (`minimax-m3`). `openai`, `google_genai` and
+`fireworks-deepseek` have no strong model chosen yet, so tier switching changes nothing on those entries.
 
 ### 5.2 How selection is wired
 
@@ -519,9 +552,10 @@ timeout). Other 4xx responses raise `DecisionsError` without retry. Every attemp
 `CircuitBreaker` (opens after 5 failures, half-opens after 30 s and lets one probe through). An open
 breaker or exhausted retries raise `Unavailable`.
 
-**Gap.** Each `DecisionsClient` creates its own breaker, and a new client is built for every
-`load_agent` call. The CLI builds one agent per process and `research-eval` builds one per case, so
-the breaker protects a single run rather than the process.
+Unless a breaker is passed in, every `DecisionsClient` uses the process-wide breaker for its endpoint
+(`shared_breaker("decisions:<url>")`). A new client is built for every `load_agent` call
+(`research-eval` builds one per case), so the breaker's state lasts for the whole process rather than one
+run. Tests reset it with `reset_shared_breakers()` (an autouse fixture in the root `conftest.py`).
 
 **Risk: vague prompts hide every tool.** Two real responses are recorded as fixtures
 (`packages/agentkit-middleware/tests/fixtures/decisions_live_orchestrator.json`,
@@ -540,11 +574,12 @@ the agent can recover instead of crashing.
 | Tool | Factory | Params | Behaviour |
 |---|---|---|---|
 | `web_search(query, k=5)` | `agentkit_tools.factories.web_search` | `backend`: `duckduckgo` (default) or `tavily` | Numbered results with title, URL and snippet. DuckDuckGo uses the `ddgs` package and needs no key. `backend: tavily` needs `TAVILY_API_KEY` (missing key: `ConfigError` at build). |
-| `fetch_url(url)` | `agentkit_tools.factories.fetch_url` | `max_chars` (default 20000) | Fetches a page with `httpx` (20 s timeout, follows redirects), reads at most 1,000,000 bytes, strips HTML to text (skipping `script`, `style`, `noscript`, `svg`, `head`), truncates to `max_chars` and appends `[truncated]`. |
+| `fetch_url(url)` | `agentkit_tools.factories.fetch_url` | `max_chars` (default 20000) | Fetches a page with `httpx` (20 s timeout, follows up to 5 redirects), reads at most 1,000,000 bytes, strips HTML to text (skipping `script`, `style`, `noscript`, `svg`, `head`), truncates to `max_chars` and appends `[truncated]`. |
 
 `fetch_url` refuses non-`http(s)` URLs, `localhost`, hosts ending in `.internal`, and IP literals that are
-not globally routable. DNS rebinding is out of scope for Phase 0, and redirect targets are not
-re-checked (see section 16).
+not globally routable. Redirects are followed by hand and every hop is re-checked
+against these rules, so a public URL cannot redirect to a private address. DNS rebinding is out of scope
+(see section 16).
 
 To use Tavily:
 
@@ -846,8 +881,13 @@ instead.
 
 ### 10.3 Run config
 
-`run_config(ctx, prompt_hash, ledger, *, recursion_limit=100)` is the one way to build a run's
-`RunnableConfig`:
+`run_config(ctx, prompt_hash, ledger, *, recursion_limit=1000)` is the one way to build a run's
+`RunnableConfig`. The recursion limit is a backstop, not the run's budget: each middleware
+`before_model`/`after_model` hook is its own graph step, so the standard stack costs about nine
+steps per model call, and the old limit of 100 ended runs after about eleven model calls (11 of 25
+golden cases failed with `GraphRecursionError` in the first Phase 1 baseline attempt). The
+`call_limit` and `tool_call_limit` middleware are what bound a run. That limit is set by `run_config`, so it
+applies to the CLIs; flow agent nodes invoke without a config and keep LangGraph's default of 9,999.
 
 - `run_id`: a fresh uuid4 (the ledger key; the trace id derives from it);
 - `configurable={"thread_id": ctx.thread_id}`;
@@ -1028,7 +1068,7 @@ walking up from the working directory when the module is imported) over the proc
 | `OPENAI_API_KEY` | `Settings` | unset | OpenAI models and the Decisions API (`selection: decisions`) |
 | `ANTHROPIC_API_KEY` | `Settings` | unset | Anthropic models (also the default `--judge`) |
 | `GOOGLE_API_KEY` | `Settings` | unset | `google_genai` models |
-| `FIREWORKS_API_KEY` | `Settings` | unset | Fireworks models |
+| `FIREWORKS_API_KEY` | `Settings` | unset | Fireworks models; also required by the shipped research agent for any `--model`, because its `model_fallback` target `fireworks-glm:strong` is built at load |
 | `TAVILY_API_KEY` | `Settings` | unset | `web_search: {backend: tavily}` only |
 | `AGENTKIT_TENANT` | `Settings.deployment_tenant`, `TelemetrySettings.tenant` | `default` | The one tenant this deployment serves; must be a label |
 | `AGENTKIT_LIBRARY_PATH` | `Library.for_file` | unset | Extra library roots, `os.pathsep`-separated |
@@ -1143,11 +1183,11 @@ Exit codes: 0 ok, 1 refused (`TenantMismatch`), 2 bad context or persistence con
 | Researcher subagent | `libraries/subagents/researcher.yaml` (section 3.2) |
 | CLIs | `cli.py`, `eval_cli.py`, with `agent.py` (shared args and context), `persist.py`, `telemetry.py`, `progress.py` |
 | Flow example | `flows/research_with_review.yaml` with `flow_nodes.py` |
-| Eval dataset | `evals/smoke.jsonl` (10 questions) |
+| Eval datasets and gate | `evals/smoke.jsonl` (10 questions), `evals/golden.jsonl` (25), `evals/gates.yaml`, `evals/baseline.json` |
 
 The orchestrator prompt tells the model to plan with `write_todos`, gather with `web_search` and
 `fetch_url` (or delegate sub-questions to `researcher` through the `task` tool), never cite a URL it
-did not retrieve, and save a report with numbered citations and a "Sources" section to `/report.md`:
+did not retrieve, and save a report with numbered citations and a `## Sources` section to `/report.md`:
 
 ```markdown
 You are a deep-research agent. Answer the user's question with a cited report.
@@ -1158,10 +1198,18 @@ Process:
    `researcher` subagent via the task tool). Prefer primary sources. Never cite a URL you did
    not actually retrieve.
 3. Write: save the final report to /report.md. Every factual claim carries a numbered citation
-   like [1]; end with a "Sources" section listing `[n] URL`. State uncertainty and conflicts
-   between sources plainly.
+   like [1]; end with a `## Sources` heading followed by one `[n] URL` line per source. State
+   uncertainty and conflicts between sources plainly.
 4. Reply with a two-sentence summary and the path /report.md.
+
+A reply without a tool call ends your turn. Never end it before /report.md is saved: when you decide to
+search, fetch or delegate, make that tool call in the same message instead of announcing it. If a tool
+reports its call limit, stop gathering and write the report from what you have.
 ```
+
+The last paragraph was added in Phase 1: in live golden runs `fireworks-glm` sometimes announced a
+delegation ("Let me delegate ...") in a reply with no tool call, which ended the run before the report
+was written (one case in each of two 25-case runs).
 
 The explicit tool names matter: they are what keeps Decisions from hiding search (section 5.4).
 
@@ -1262,7 +1310,12 @@ rows in memory and prints the `usage:` total.
 fail fast, and builds an `LLMJudge` on the `--judge` entry's `strong` tier. Each case runs on its own
 new thread and agent build (inside its own `thread_lock` when persisted), with
 `run_with_progress(tool_outputs=...)` collecting every tool result, including those seen only inside
-subagents. `run_eval` runs cases two at a time; one failing case does not stop the others.
+subagents. `run_eval` runs cases concurrently (`research-eval --concurrency`, default 6); one failing case does not stop the others.
+
+Datasets are JSONL, one `EvalCase` per line: `id`, `question`, `must_cover` (at least one point),
+optional `tags`, `expect_tools` (default `["web_search"]`) and `min_sources` (default 1). Two ship:
+`evals/smoke.jsonl` (10 questions, the Phase 0 set) and `evals/golden.jsonl` (25 questions: 8
+definitions, 10 how-tos, 6 comparisons and one false premise), the set the regression gate runs on.
 
 Scores per case:
 
@@ -1270,15 +1323,55 @@ Scores per case:
 |---|---|
 | `has_citation` | 1 if the report contains any URL |
 | `citation_validity` | share of cited URLs that appear in the retrieved tool output |
+| `sources_section` | 1 if the report has a Markdown heading named Sources (`^#{1,6}\s*Sources\b`) |
+| `source_count_ok` | 1 if the report cites at least `min_sources` distinct URLs |
+| `tool_recall` | share of `expect_tools` the run called at least once (any agent, including subagents); 1 when none are expected |
 | `groundedness` | openevals LLM judge: claims supported by the retrieved text (capped at 120,000 characters) |
 | `completeness` | openevals LLM judge: answers the question and covers `must_cover` |
-| `completed` (aggregate) | share of cases without an error |
+
+The aggregate is the mean of each score over the cases without an error, plus `completed` (share of
+cases without an error), `mean_latency_s` (agent run time, judge excluded) and `mean_total_tokens`
+(input + output tokens from the case's ledger row). A case whose report is empty errors with
+`empty report`.
 
 The judge retries a missing score up to 3 times, then raises `JudgeError` for that case. Output is
 `eval_results.md` (table with a mean row) and `eval_results.json` (agent, overrides, model, tier,
-selection, judge, persist, aggregate, and per case `scores`, `error`, `run_id`, `trace_id`, `usage`).
-The `fireworks-glm` baseline is completed 1.00, citation validity 0.96, completeness 0.97,
-groundedness 0.64.
+selection, judge, `model_id`, `judge_model_id`, dataset, persist, aggregate, and per case `scores`,
+`error`, `run_id`, `trace_id`, `usage`, `latency_s`, `tool_calls`).
+
+**Regression gate.** `--gate apps/research_agent/evals/gates.yaml` compares the run with the
+committed baseline (`agentkit_evals.gates`). The gates file names the baseline (relative to itself),
+`min_cases`, and per metric any of `min`, `max`, `max_drop` (absolute drop from the baseline) and
+`max_rise` (relative rise, e.g. `0.30` = +30%). The baseline (`evals/baseline.json`) records the
+dataset's SHA-256, the agent and judge `model_id`s, the aggregate, the ids of the cases that completed,
+and the date. A gate run fails when a metric breaks its bounds, a metric is missing, there are fewer
+than `min_cases` cases, or a case that completed in the baseline now errors. It refuses to compare
+(mismatch) when the dataset bytes, the agent model id or the judge model id differ from the baseline:
+re-record instead. `--write-baseline` (needs `--gate`) writes the baseline from this run and refuses
+if any case errored. The comparison happens after the run, so a mismatched gate run still costs its
+cases.
+
+| Exit | Meaning | Line |
+|---|---|---|
+| 0 | gate passed (or baseline written) | `gate: PASS` / `gate: baseline written to <path>` |
+| 1 | regression (including NaN scores, and baseline cases missing from or errored in the run) | one `gate: FAIL <metric>: <detail>` per failure |
+| 2 | no baseline, unreadable baseline, mismatch, or errored cases on `--write-baseline` | `gate: no baseline at ...`, `gate: unreadable baseline ...`, `gate: baseline mismatch: ...`, `gate: refusing to write baseline, cases errored: [...]` |
+
+Every `gate:` line except `PASS` and `baseline written` goes to stderr.
+
+```bash
+uv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/golden.jsonl \
+  --judge anthropic --gate apps/research_agent/evals/gates.yaml [--write-baseline] --out <file.md>
+```
+
+The committed baseline (`evals/baseline.json`, recorded 2026-11-02 on the final Phase 1 agent, with the
+`## Sources` prompt and `require_output`, 25/25 cases, agent `accounts/fireworks/models/glm-5p3-flash`,
+judge `claude-opus-5-5`): citation validity 0.96, completeness 0.97, groundedness 0.68, has_citation
+1.00, source_count_ok 1.00, sources_section 1.00, tool_recall 1.00, mean latency 102 s, mean 223k total
+tokens per case. Means move a few points between runs, so read these as one sample. A run with a weakened prompt
+(no citations) fails the gate with exit 1 on six metrics. Details, the four failed recording attempts
+and the fixes they led to: `docs/phase1-results.md`. The Phase 0 `smoke.jsonl` baseline was completed
+1.00, citation validity 0.96, completeness 0.97, groundedness 0.64.
 
 ### 14.6 The `research_with_review` flow
 
@@ -1303,7 +1396,7 @@ flow = load_flow(REVIEW_FLOW, settings=Settings(), checkpointer=InMemorySaver())
 | To add | Do this |
 |---|---|
 | **A tool** | Factory `(ctx: BuildContext, **params) -> BaseTool`, registered under `[project.entry-points."agentkit.tools"]`; name it in YAML (section 6). Read secrets from `ctx.settings`; return errors as text. |
-| **A middleware** | Factory `(ctx: BuildContext, **params) -> AgentMiddleware` under `agentkit.middleware` (see `agentkit_middleware.factories.call_limit`). Use it as `middleware: [{type: name, params: {...}}]`. The name `selection` is reserved. |
+| **A middleware** | Factory `(ctx: BuildContext, **params) -> AgentMiddleware` under `agentkit.middleware` (see `agentkit_middleware.factories.call_limit`). Use it as `middleware: [{type: name, params: {...}}]`. The name `selection` is reserved. Built in (`agentkit_middleware.factories`): `call_limit`, `tool_call_limit`, `model_fallback`, `model_retry`, `tool_retry`, `require_output {path, max_nudges: 2}`, `pii`; these are placed in the canonical order (section 4) wherever they appear in the YAML. |
 | **A skill** | A directory `libraries/skills/<name>/SKILL.md` whose front matter `name` equals `<name>`. List the tools it needs in `allowed-tools` (space-separated) or `metadata.include_tools`, so validation can check the owner has them. Add it to an agent's or subagent's `skills:`. |
 | **A prompt** | A Markdown file under `libraries/prompts/`, named by its relative path without `.md`. Optional front matter is stripped. Only `{{agent_name}}` and `{{date}}` are allowed. For Decisions agents, name the tools and when to use them. |
 | **A subagent** | `libraries/subagents/<name>.yaml` with `kind: SubAgent`, or inline in an agent's `subagents:`. Give it its own `tools` (they replace the parent's). Add a `response_schema` (a `agentkit.schemas` entry point) to clear the warning. |
@@ -1346,10 +1439,13 @@ agent, flow and subagent. When you rely on a new upstream behaviour, pin it with
 | Prune has no tenant filter | Safe while each tenant has its own database; needs a tenant filter if tenants ever share one. |
 | Guard writes input before rejecting | When a persistent graph or flow is invoked directly, the guard refuses a mismatched run only after LangGraph has checkpointed its input (P4). Callers must pre-check, as `require_tenant` does. |
 | Store TTL off by default | `STORE_DEFAULT_TTL_MINUTES` is unset, so memory items never expire unless configured. |
-| `fetch_url` redirects | Redirects are followed and the redirect target is not re-checked against the private-host rules; DNS rebinding is also out of scope. |
-| Per-build circuit breaker | Section 5.4. |
-| Tier switching inert | Every tier of every shipped entry is the same model (section 5.1). |
+| `fetch_url` DNS rebinding | Hostnames are not resolved before fetching, so a public name that resolves to a private address is not blocked. |
+| Tier switching partial | `openai`, `google_genai` and `fireworks-deepseek` use the same model on every tier (section 5.1). |
 | Vague prompts and Decisions | A vague system prompt can make Decisions hide every tool; no minimum-tools guard yet. |
+| Fallback needs a Fireworks key | The shipped research agent's `model_fallback` target (`fireworks-glm:strong`) is built at load, so `FIREWORKS_API_KEY` is required for every `--model`, not only Fireworks entries. Drop the `model_fallback` entry (or point it at the run's own provider) to run without it. |
+| Fallback hides the primary's failure | When the primary model fails, the fallback answers silently: the CLI's model line still names the primary, and only the ledger row's `model` (every model id the run called, comma-joined) shows the switch. |
+| Eval gate scope | The gate compares means over one live run; a single golden run has run-to-run noise (DuckDuckGo results, model sampling), so floors and `max_drop` are set loosely (`docs/phase1-results.md`). The judge is one model (`anthropic`, strong tier); judges are not calibrated yet (Phase 2). The gate checks only after all cases ran, so a mismatched run still costs its cases. |
+| Phase 1 still open | No pytest plugin for evals, no single-step (node-level) evals, no connectors, no git prompt registry, no `@platform_tool` decorator. |
 | Not built yet | No hosted server (FastAPI or Agent Server), no authentication or identity (OAuth, on-behalf-of), no channels (Slack), no sandboxed code execution or secret proxy, no scheduler, no MCP gateway, no connectors, no layered or tenant-filtered pools, no online evals. |
 
 ---
@@ -1362,13 +1458,14 @@ foundations to ambient agents"):
 | Phase | Theme |
 |---|---|
 | 0 | Foundations (done: this document) |
-| 1 | Factory v0 with a fixed middleware order and memory tiers; tools registry; connectors; git prompt registry; eval core with trajectory metrics |
+| 1 | (partly done: middleware stack, golden set and eval gates) Factory v0 with a fixed middleware order and memory tiers; tools registry; connectors; git prompt registry; eval core with trajectory metrics |
 | 2 | Libraries: MCP gateway, skills library with CI, subagent specs with mandatory response schemas, a LangGraph builder, calibrated judges |
 | 3 | Tool surface (`ToolSurfaceMiddleware`) and repo uplift; architecture A/B tooling |
 | 4 | Company-harness glue: Slack adapter, OAuth vault and on-behalf-of policy, sandbox and egress secret proxy, scheduler, async subagents |
 | 5 | Online evals and platform 1.0 |
 
-The next step after Phase 0 is a project verification skill, then Phase 1.
+Phase 1 so far delivered the standard middleware stack (section 3.1, section 4) and the golden-set
+regression gate (section 14.5); results in `docs/phase1-results.md`.
 
 Documents:
 

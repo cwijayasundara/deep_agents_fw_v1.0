@@ -60,6 +60,52 @@ async def test_fetch_blocks_unsafe_urls(url):
         await HttpFetch().fetch(url)
 
 
+@pytest.mark.parametrize(
+    "target",
+    ["http://127.0.0.1/admin", "http://169.254.169.254/latest/meta-data/", "http://localhost/"],
+)
+@respx.mock
+async def test_fetch_blocks_redirect_to_private_address(target):
+    respx.get("https://e.com/r").mock(
+        return_value=httpx.Response(302, headers={"location": target})
+    )
+    private = respx.get(target).mock(return_value=httpx.Response(200, text="secret"))
+    with pytest.raises(ToolError, match="private"):
+        await HttpFetch().fetch("https://e.com/r")
+    assert not private.called
+
+
+@respx.mock
+async def test_fetch_follows_safe_relative_redirect():
+    respx.get("https://e.com/old").mock(
+        return_value=httpx.Response(301, headers={"location": "/new"})
+    )
+    respx.get("https://e.com/new").mock(
+        return_value=httpx.Response(200, text="moved", headers={"content-type": "text/plain"})
+    )
+    page = await HttpFetch().fetch("https://e.com/old")
+    assert page.text == "moved" and page.url == "https://e.com/new"
+
+
+@respx.mock
+async def test_fetch_caps_redirect_chain():
+    respx.get("https://e.com/loop").mock(
+        return_value=httpx.Response(302, headers={"location": "https://e.com/loop"})
+    )
+    with pytest.raises(ToolError, match="redirects"):
+        await HttpFetch().fetch("https://e.com/loop")
+
+
+@respx.mock
+async def test_fetch_ignores_injected_client_redirect_setting():
+    respx.get("https://e.com/r").mock(
+        return_value=httpx.Response(302, headers={"location": "http://10.0.0.5/"})
+    )
+    client = httpx.AsyncClient(follow_redirects=True)
+    with pytest.raises(ToolError, match="private"):
+        await HttpFetch(client=client).fetch("https://e.com/r")
+
+
 @respx.mock
 async def test_langchain_tools_return_errors_as_text():
     respx.post("https://api.tavily.com/search").mock(return_value=httpx.Response(500))

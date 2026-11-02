@@ -51,3 +51,20 @@ async def test_retries_when_openevals_raises_keyerror():
     g = Seq(KeyError("score"), {"score": 0.7})
     out = await judge(g, Seq({"score": 1.0}))(CASE, "report", "ctx")
     assert out["groundedness"] == 0.7
+
+
+@pytest.mark.parametrize(
+    ("cls", "kwargs"), [("ChatAnthropic", {"method": "json_schema"}), ("ChatOpenAI", None)]
+)
+def test_judge_uses_json_schema_on_anthropic(monkeypatch, cls, kwargs):
+    """Opus 5.5 rejects forced tool calling, so an Anthropic judge asks for json_schema output."""
+    from agentkit_evals import judge as judge_mod
+
+    seen = []
+    monkeypatch.setattr(
+        judge_mod,
+        "create_llm_as_judge",
+        lambda **kw: seen.append(kw.get("structured_output_kwargs")),
+    )
+    LLMJudge(type(cls, (), {})())
+    assert seen == [kwargs, kwargs]

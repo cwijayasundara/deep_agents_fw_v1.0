@@ -64,3 +64,18 @@ def test_find_env_file_walks_up(tmp_path):
     nested = tmp_path / "a" / "b"
     nested.mkdir(parents=True)
     assert find_env_file(nested) == tmp_path / ".env"
+
+
+@pytest.mark.parametrize(
+    ("entry", "strong"),
+    [
+        ("anthropic", "claude-opus-5-5"),
+        ("fireworks-glm", "accounts/fireworks/models/glm-5p3"),
+        ("fireworks-minimax", "accounts/fireworks/models/minimax-m3"),
+    ],
+)
+def test_shipped_strong_tier_is_a_bigger_model(entry, strong):
+    """Tier switching must change the model: fast/default stay cheap, strong is bigger."""
+    r = ModelRegistry.default()
+    assert r.resolve(entry, "fast").model_id == r.resolve(entry, "default").model_id
+    assert r.resolve(entry, "strong").model_id == strong

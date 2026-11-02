@@ -8,7 +8,7 @@ from agentkit_config.library import Library
 from agentkit_config.pools.code import CodePools
 from agentkit_config.registry import Registry
 from agentkit_config.spec import AgentSpec, SubAgentSpec
-from agentkit_config.validate import validate_agent, validate_subagent
+from agentkit_config.validate import NO_CALL_LIMIT, validate_agent, validate_subagent
 from agentkit_core import ModelRegistry
 
 MODELS = ModelRegistry({"m1": {"provider": "openai", "fast": "a", "default": "b", "strong": "c"}})
@@ -64,7 +64,8 @@ def _sub(**kw: Any) -> dict[str, Any]:
 
 
 def _run(tmp_path: Path, spec: AgentSpec, skills: dict[str, str] | None = None) -> list[SpecError]:
-    return validate_agent(spec, _lib(tmp_path, skills), MODELS, file="agent.yaml")
+    errs = validate_agent(spec, _lib(tmp_path, skills), MODELS, file="agent.yaml")
+    return [e for e in errs if e.message != NO_CALL_LIMIT]  # covered by its own tests
 
 
 def _msgs(errs: list[SpecError]) -> dict[str, str]:
@@ -214,3 +215,77 @@ def test_subagent_name_must_differ_from_agent(tmp_path: Path) -> None:
     errs = _run(tmp_path, _agent(subagents=[_sub(name="a")]))
     assert [e.path for e in errs] == ["subagents[0]"]
     assert "differ" in errs[0].message
+
+
+def _mwpools() -> CodePools:
+    return CodePools(
+        Registry("tool", {}),
+        Registry(
+            "middleware",
+            {
+                "call_limit": _mw,
+                "model_retry": _mw,
+                "pii": _mw_kw,
+                "tool_call_limit": _mw_kw,
+                "require_output": _mw_kw,
+            },
+        ),
+        Registry("node", {}),
+        Registry("schema", {"Report": dict}),
+    )
+
+
+def _mw_kw(ctx: Any, **kw: Any) -> Any: ...
+
+
+def _run_mw(tmp_path: Path, spec: AgentSpec) -> list[SpecError]:
+    _lib(tmp_path)  # writes the prompt files
+    lib = Library.from_roots([tmp_path], _mwpools())
+    return validate_agent(spec, lib, MODELS, file="agent.yaml")
+
+
+CL = {"type": "call_limit"}
+
+
+def test_duplicate_singleton_middleware_is_error(tmp_path: Path) -> None:
+    spec = _agent(middleware=[CL, {"type": "model_retry"}, {"type": "model_retry"}])
+    m = _msgs(_run_mw(tmp_path, spec))
+    assert m["middleware[2]"] == "duplicate middleware 'model_retry'"
+    off = _agent(
+        middleware=[CL, {"type": "model_retry"}, {"type": "model_retry", "enabled": False}]
+    )
+    assert _run_mw(tmp_path, off) == []
+
+
+def test_duplicate_require_output_is_error(tmp_path: Path) -> None:
+    ro = {"type": "require_output", "params": {"path": "/report.md"}}
+    m = _msgs(_run_mw(tmp_path, _agent(middleware=[ro, ro])))
+    assert m["middleware[1]"] == "duplicate middleware 'require_output'"
+
+
+def test_two_pii_types_ok_same_type_error(tmp_path: Path) -> None:
+    def pii(t: str) -> dict[str, Any]:
+        return {"type": "pii", "params": {"type": t}}
+
+    ok = _agent(middleware=[CL, pii("email"), pii("url")])
+    assert _run_mw(tmp_path, ok) == []
+    bad = _agent(middleware=[CL, pii("email"), pii("email")])
+    assert "middleware[2]" in _msgs(_run_mw(tmp_path, bad))
+    tl = {"type": "tool_call_limit", "params": {"run_limit": 1}}
+    tl2 = {"type": "tool_call_limit", "params": {"run_limit": 1, "tool_name": "x"}}
+    assert _run_mw(tmp_path, _agent(middleware=[CL, tl, tl2])) == []
+    assert "middleware[2]" in _msgs(_run_mw(tmp_path, _agent(middleware=[CL, tl, tl])))
+
+
+def test_agent_without_call_limit_warns(tmp_path: Path) -> None:
+    errs = _run_mw(tmp_path, _agent())
+    assert [(e.severity, e.message, e.path) for e in errs] == [
+        ("warning", "no call_limit; a runaway loop is unbounded", "")
+    ]
+    off = _agent(middleware=[{"type": "call_limit", "enabled": False}])
+    assert len(_run_mw(tmp_path, off)) == 1
+
+
+def test_subagent_without_call_limit_does_not_warn(tmp_path: Path) -> None:
+    spec = _agent(middleware=[CL], subagents=[_sub()])
+    assert _run_mw(tmp_path, spec) == []

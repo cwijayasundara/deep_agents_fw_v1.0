@@ -8,3 +8,13 @@ prompt: research/orchestrator
 tools: [web_search, fetch_url]
 subagents: [researcher]
 output: /report.md
+middleware:
+  - {type: model_fallback, params: {models: ["fireworks-glm:strong"]}}
+  - {type: model_retry, params: {max_retries: 2}}
+  - {type: call_limit, params: {max_model_calls: 60}}
+  # Budget the research tools, not every tool: a run that spends it must still write /report.md.
+  - {type: tool_call_limit, params: {tool_name: web_search, run_limit: 20}}
+  - {type: tool_call_limit, params: {tool_name: fetch_url, run_limit: 25}}
+  - {type: pii, params: {type: email}}
+  - {type: pii, params: {type: credit_card, strategy: mask}}
+  - {type: require_output, params: {path: /report.md}}

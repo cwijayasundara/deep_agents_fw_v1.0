@@ -1,0 +1,13 @@
+[
+  {
+    "tenant": "default",
+    "thread_id": "6f8d4ca3-63fb-4bdd-9d91-84405f0caf81",
+    "run_id": "ca91331a-93b8-4a95-9884-f91134edbe09",
+    "model": "accounts/fireworks/models/does-not-exist,accounts/fireworks/models/glm-5p3",
+    "input_tokens": 23397,
+    "output_tokens": 839,
+    "cached_input_tokens": 14392,
+    "decisions_input_tokens": 0,
+    "decisions_output_tokens": 0
+  }
+]

@@ -1,0 +1,7 @@
+baseline: apps/research_agent/evals/baseline.json recorded 2026-11-02 model accounts/fireworks/models/glm-5p3-flash judge claude-opus-5-5
+
+$ check_gates(gates.yaml, baseline.json, evidence/phase1/attempt4_sources_heading.json)
+gate: PASS
+
+$ check_gates(gates.yaml, baseline.json, evidence/phase1/attempt5_final.json)
+gate: FAIL completed: case structured-output completed in baseline, now errored: empty report

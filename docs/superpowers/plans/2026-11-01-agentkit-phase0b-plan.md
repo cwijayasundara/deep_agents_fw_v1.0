@@ -158,7 +158,7 @@ Each live lane runs in its own git worktree at the PR head on the operator's mac
 
 **You see.**
 
-- [ ] `uv run research "q" --tenant acme --config ...` prints `thread: <uuid>` before the report path.
+- [ ] `uv run research "q" --tenant acme --model <registry-name>` prints `thread: <uuid>` before the report path.
 - [ ] `AGENTKIT_TENANT=acme uv run python scripts/smoke.py --tenant other` exits 1 with `TenantMismatch: run tenant 'other' != deployment tenant 'acme'`.
 
 **Verify, unit.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
@@ -169,7 +169,7 @@ Each live lane runs in its own git worktree at the PR head on the operator's mac
 
 **Verify, live.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked. Ten lanes on `inherit-parent` at the PR head, per the boot recipe.
 
-- [ ] Lane 1. Regression lane against trunk. Run `uv run research "What is LangGraph?" --config apps/research_agent/config/anthropic.yaml` at trunk and head when keys exist. Without keys, run the end-to-end fake test `apps/research_agent/tests/test_agent.py` at both. Save `regression.log`. Pass when both produce a cited report and head also prints a thread id.
+- [ ] Lane 1. Regression lane against trunk. Run `uv run research "What is LangGraph?" --model anthropic` at trunk and head when keys exist. Without keys, run the end-to-end fake test `apps/research_agent/tests/test_agent.py` at both. Save `regression.log`. Pass when both produce a cited report and head also prints a thread id.
 - [ ] Lane 2. Run `scripts/smoke.py --tenant acme --user u1` with `AGENTKIT_TENANT=acme`. Save `context-flows.log`. Pass when the tool prints `acme/u1/<thread>`.
 - [ ] Lane 3. Run `scripts/smoke.py --tenant other` with `AGENTKIT_TENANT=acme`. Save `guard-rejects.log`. Pass when the process exits 1 with `TenantMismatch` and the scripted model recorded zero calls.
 - [ ] Lane 4. Run `scripts/smoke.py --tenant acme.corp`. Save `label-dot.log`. Pass when the run fails before the agent starts with a validation error that names `tenant`.
@@ -271,7 +271,7 @@ Each live lane runs in its own git worktree at the PR head on the operator's mac
 
 **Build.**
 
-- [ ] Add `memory_backend()` in `memory.py`. It returns a `CompositeBackend` whose default is `StateBackend()` for ephemeral files, with `/memories/` routed to `StoreBackend` on the user namespace and `/org/` routed to `StoreBackend` on the global namespace. Both namespaces come from `store_namespace(rt.context, ...)`.
+- [ ] Add `memory_backend()` in `memory.py`. It returns a `CompositeBackend` whose default is `StateBackend()` for ephemeral files, with `/memories/` routed to `StoreBackend` on the user namespace and `/org/` routed to `StoreBackend` on the global namespace. Both namespaces come from `store_namespace(rt.context, ...)`. The declarative loader (`agentkit_deep.skills_mount`) already mounts agent skills at `/skills/<owner>/`; that mount becomes one more route inside `memory_backend()` (not a second `CompositeBackend`), so a persistent agent keeps its skills.
 - [ ] Make `build_deep_agent` take `persistence: Persistence | None`. When it is set, pass `checkpointer`, `store`, `backend=memory_backend()`, `memory=["/org/AGENTS.md", "/memories/AGENTS.md"]`, and `permissions=[FilesystemPermission(operations=["write"], paths=["/org/**"], mode="deny")]`.
 - [ ] Run every `research` turn inside `thread_lock`. `--thread <id>` resumes a thread. `research-eval` uses persistence only with `--persist`.
 - [ ] Keep `/report.md` on the default `StateBackend` route so `extract_report` keeps working.

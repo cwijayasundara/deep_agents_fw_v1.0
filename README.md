@@ -36,7 +36,8 @@ make test                   # uv sync (pinned via constraints.txt) + offline tes
 make lint                   # ruff, mypy, agentkit validate
 ```
 
-Run the research agent (needs the chosen provider's key; web search uses DuckDuckGo and needs no key):
+Run the research agent (needs the chosen provider's key and `FIREWORKS_API_KEY`, which its fallback model
+uses; web search uses DuckDuckGo and needs no key):
 
 ```bash
 UV_CONSTRAINT=constraints.txt uv run research "your question"
@@ -50,6 +51,11 @@ upward from the current directory), and `.env` values win over shell exports. Bo
 stderr (resolved model, key names set, the Decisions selection, every delegation, search, fetch and file
 write, run time); `-v` adds tool output and token counts, `-q` keeps warnings only. CLI and environment
 reference: `docs/architecture.md` section 13.
+
+The agent runs a standard middleware stack, placed in a fixed order whatever the YAML order: model fallback
+to `fireworks-glm:strong`, two retries per model, a 60 model-call budget and 20 searches and 25 fetches per run (the report write is never budgeted), and PII
+redaction (e-mail) and masking (card numbers), and `require_output`, which sends a run that stops before
+saving `/report.md` back to the model (at most twice). Details: `docs/architecture.md` sections 3.1 and 4.
 
 ## Test it manually
 
@@ -72,7 +78,7 @@ grep -oE '^[A-Z_]+=.' .env | cut -d= -f1    # lists the keys that are set, never
 
 | What you run | Keys it needs |
 |---|---|
-| The shipped `apps/research_agent/agent.yaml` | `OPENAI_API_KEY` (it sets `selection: decisions`) and the provider's own key |
+| The shipped `apps/research_agent/agent.yaml` | `OPENAI_API_KEY` (it sets `selection: decisions`), the provider's own key, and `FIREWORKS_API_KEY` for any `--model` (its fallback model, `fireworks-glm:strong`, is built at load) |
 | Any run with `--no-selection` | The provider's own key |
 | `research-eval` | The above, plus the key of the `--judge` entry (default `anthropic`) |
 
@@ -174,7 +180,19 @@ passes offline.
 Open items: P10 thread-to-user binding, P3 primitive state stored in plaintext, AES key rotation and
 backup, never-pruned store items of `eval-<hex>` users, and a prune tenant filter if tenants ever share a
 database (`docs/architecture.md` section 16). Verify changes end to end with the `verify-agentkit` skill
-(`.claude/skills/verify-agentkit/`). Next: Phase 1.
+(`.claude/skills/verify-agentkit/`).
+
+Phase 1 is partly done (`docs/phase1-results.md`): the standard middleware stack (fallback, retry, call and
+tool budgets, PII, `require_output`) and eval gates. Gate a change against the committed golden baseline:
+
+```bash
+uv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/golden.jsonl \
+	--judge anthropic --gate apps/research_agent/evals/gates.yaml --out eval_results.md
+```
+
+Exit 0 is `gate: PASS`, 1 a regression (`gate: FAIL <metric>: ...`), 2 a missing or mismatched baseline. It
+runs 25 cases (about 20-25 minutes). Still open from the roadmap's Phase 1: a pytest plugin, single-step
+evals, connectors, a prompt registry and `@platform_tool`.
 
 Design and plans: `docs/superpowers/specs/` and `docs/superpowers/plans/`; research and roadmap:
 `reports/Reusable agent platform components.md`.

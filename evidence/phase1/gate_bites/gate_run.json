@@ -1,0 +1,703 @@
+{
+  "agent": "evidence/phase1/gate_bites/agent.yaml",
+  "overrides": {
+    "model": "fireworks-glm"
+  },
+  "model": "fireworks-glm",
+  "tier": "default",
+  "selection": "decisions",
+  "judge": "anthropic",
+  "model_id": "accounts/fireworks/models/glm-5p3-flash",
+  "judge_model_id": "claude-opus-5-5",
+  "dataset": "apps/research_agent/evals/golden.jsonl",
+  "persist": false,
+  "aggregate": {
+    "citation_validity": 0.0,
+    "completeness": 0.9744,
+    "groundedness": 0.028,
+    "has_citation": 0.0,
+    "source_count_ok": 0.0,
+    "sources_section": 0.0,
+    "tool_recall": 0.0,
+    "mean_latency_s": 11.465932955162135,
+    "mean_total_tokens": 7729.24,
+    "completed": 1.0
+  },
+  "cases": [
+    {
+      "case_id": "rag-vs-finetune",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.0,
+        "completeness": 0.95
+      },
+      "error": null,
+      "run_id": "32b46864-7fe2-4db3-9cc3-f05887401112",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 5714,
+        "output_tokens": 541,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 596,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 6.308678459026851,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "lang-graph",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "0af51eb7-8eb4-40cd-af45-c35b638a6496",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6334,
+        "output_tokens": 1207,
+        "cached_input_tokens": 4608,
+        "decisions_input_tokens": 595,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 10.235654958989471,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "mcp",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "e404399c-89eb-493c-a022-9ff58d1ae3b3",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6479,
+        "output_tokens": 1334,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 591,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 10.829682375013363,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "prompt-cache",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.0,
+        "completeness": 0.9
+      },
+      "error": null,
+      "run_id": "0f0c0ac9-87c3-4412-a9cd-5bb5c878f4aa",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 8646,
+        "output_tokens": 3504,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 595,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 27.8829530000221,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "llm-judge",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "d4939175-e950-4881-a0a9-cb3dbacd92d9",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6860,
+        "output_tokens": 1698,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 594,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 15.244551958050579,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "agent-evals",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "c015a147-af60-4907-b916-d8c8c412ad2e",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6320,
+        "output_tokens": 1165,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 592,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 10.497160583967343,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "vector-db",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.0,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "f3a21cc4-018b-4774-b76d-6f0da6c21ad7",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6616,
+        "output_tokens": 1465,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 595,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 11.464101999998093,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "guardrails",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.0,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "7c6de98d-c872-4426-ad8a-6a9a7b637e72",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6504,
+        "output_tokens": 1384,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 591,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 12.517796542029828,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "context-eng",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "6fc2631a-cdbc-4c74-907d-dbfb088b63f7",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6393,
+        "output_tokens": 1254,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 592,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 10.911653208022472,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "oss-models",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "ba49d356-7b4d-4abc-baf0-c57383435717",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6392,
+        "output_tokens": 1240,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 592,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 10.62516970798606,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "pgvector-hnsw",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "b17c5573-dc13-43bd-8fb9-c190b5ba4f5d",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6498,
+        "output_tokens": 1353,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 599,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 11.391024041979108,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "otel-genai",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "aab3c8af-c11e-47f6-a212-5a539296f1ca",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6672,
+        "output_tokens": 1557,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 593,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 12.17569495801581,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "react-pattern",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.0,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "d0ceefe2-6d9a-44a1-b3ac-818364b34aba",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6556,
+        "output_tokens": 1453,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 591,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 12.697015292011201,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "speculative-decoding",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.0,
+        "completeness": 0.93
+      },
+      "error": null,
+      "run_id": "201aa08f-11f7-499d-be04-2cd675b02a2f",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 5833,
+        "output_tokens": 686,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 588,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 6.763460332993418,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "quantization",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.0,
+        "completeness": 0.85
+      },
+      "error": null,
+      "run_id": "6cc2f065-2596-4d8b-b46d-9d692da43fa7",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 5929,
+        "output_tokens": 774,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 595,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 7.869546709000133,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "structured-output",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.0,
+        "completeness": 0.95
+      },
+      "error": null,
+      "run_id": "2b264a30-e2c3-4281-8e95-a3e7baf8412f",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 7023,
+        "output_tokens": 1873,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 595,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 16.986665415985044,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "rag-eval",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.0,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "8d02ef4a-e719-4fa4-b4d3-c4d2cd150d7e",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6242,
+        "output_tokens": 1146,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 588,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 10.748262166976929,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "agent-memory",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "6dfea513-f665-4666-9d58-abbf3f310584",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6011,
+        "output_tokens": 848,
+        "cached_input_tokens": 2048,
+        "decisions_input_tokens": 596,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 8.524154208949767,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "pii-llm",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "62ffa746-74dc-4c81-965d-0748b8ca2cad",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6285,
+        "output_tokens": 1133,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 590,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 10.690224915975705,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "model-routing",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "6df439a9-5cf7-403d-8c0a-ac11b9d4cd4f",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 7098,
+        "output_tokens": 1947,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 591,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 17.133805292018224,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "mcp-false-premise",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 0.93
+      },
+      "error": null,
+      "run_id": "2ef3992e-8b36-425e-91ca-49586e1c3322",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6037,
+        "output_tokens": 870,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 591,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 7.596890292013995,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "postgres-rls",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.0,
+        "completeness": 0.9
+      },
+      "error": null,
+      "run_id": "073b93d1-e840-4573-9c1b-ed6fca2aac33",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6451,
+        "output_tokens": 1340,
+        "cached_input_tokens": 5172,
+        "decisions_input_tokens": 598,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 13.015178166970145,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "tokenization",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "094d928c-5aec-4b19-b9f3-9e8a42596f07",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6007,
+        "output_tokens": 823,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 595,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 7.496071791974828,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "moe",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.05,
+        "completeness": 0.95
+      },
+      "error": null,
+      "run_id": "5e1f6170-d6c2-4b24-83b8-70894eafdeb0",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 5829,
+        "output_tokens": 675,
+        "cached_input_tokens": 5172,
+        "decisions_input_tokens": 597,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 7.0002755840541795,
+      "tool_calls": [
+        "write_file"
+      ]
+    },
+    {
+      "case_id": "circuit-breaker",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 0.0,
+        "groundedness": 0.0,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "5b79001e-3471-4322-a206-4944537e29f3",
+      "trace_id": null,
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 6188,
+        "output_tokens": 1044,
+        "cached_input_tokens": 5120,
+        "decisions_input_tokens": 596,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 10.042651917028707,
+      "tool_calls": [
+        "write_file"
+      ]
+    }
+  ]
+}

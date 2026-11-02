@@ -89,6 +89,7 @@ async def run_with_progress(
     inputs: dict[str, Any],
     config: dict[str, Any] | None = None,
     *,
+    context: Any = None,
     tool_outputs: list[str] | None = None,
 ) -> dict[str, Any]:
     """Stream the agent, logging every step; return the final top-level state.
@@ -98,7 +99,7 @@ async def run_with_progress(
     start = time.monotonic()
     final: dict[str, Any] = {}
     async for namespace, mode, data in agent.astream(
-        inputs, config=config, stream_mode=["updates", "values"], subgraphs=True
+        inputs, config=config, context=context, stream_mode=["updates", "values"], subgraphs=True
     ):
         if mode == "values":
             if not namespace:

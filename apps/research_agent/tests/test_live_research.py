@@ -9,6 +9,7 @@ import os
 import pytest
 from agentkit_config import load_agent, read_output
 from agentkit_core import Settings
+from agentkit_deep.testing import ctx
 from agentkit_evals import extract_urls
 from langchain_core.messages import HumanMessage
 from research_agent import DEFAULT_AGENT
@@ -26,6 +27,7 @@ async def test_full_research_run(name):
     out = await loaded.graph.ainvoke(
         {"messages": [HumanMessage("What is the Model Context Protocol? Keep it short.")]},
         config={"recursion_limit": 100},
+        context=ctx(tenant=Settings().deployment_tenant, agent_name=loaded.spec.name),
     )
     report = read_output(out, loaded.spec.output)
     assert report, "agent did not write /report.md"

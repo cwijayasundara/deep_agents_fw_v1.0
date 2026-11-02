@@ -2,7 +2,7 @@ import logging
 
 from agentkit_config import CodePools, Library, load_agent, read_output
 from agentkit_core import Settings
-from agentkit_deep.testing import scripted, tool_call
+from agentkit_deep.testing import ctx, scripted, tool_call
 from agentkit_tools import Page, Source, make_fetch_tool, make_web_search_tool
 from langchain_core.messages import AIMessage, HumanMessage
 from research_agent import DEFAULT_AGENT
@@ -46,7 +46,9 @@ async def test_run_with_progress_logs_steps_and_returns_final_state(caplog):
     loaded = build_agent(model)
     agent = loaded.graph
     with caplog.at_level(logging.INFO, logger="research_agent"):
-        out = await run_with_progress(agent, {"messages": [HumanMessage("what is x?")]})
+        out = await run_with_progress(
+            agent, {"messages": [HumanMessage("what is x?")]}, context=ctx()
+        )
     assert read_output(out, loaded.spec.output) == "# R [1]"
     text = caplog.text
     assert "orchestrator -> delegate to researcher: look up x" in text
@@ -66,6 +68,8 @@ async def test_run_with_progress_collects_subagent_tool_outputs():
     loaded = build_agent(model)
     agent = loaded.graph
     outputs: list[str] = []
-    await run_with_progress(agent, {"messages": [HumanMessage("q")]}, tool_outputs=outputs)
+    await run_with_progress(
+        agent, {"messages": [HumanMessage("q")]}, context=ctx(), tool_outputs=outputs
+    )
     # the search result was seen only inside the researcher subagent
     assert any("https://a.example/x" in o and "fact" in o for o in outputs)

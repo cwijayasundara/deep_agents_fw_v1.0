@@ -13,14 +13,20 @@ from agentkit_core import ModelRegistry, Settings, get_model
 from agentkit_evals import LLMJudge, RunResult, aggregate, load_dataset, run_eval, to_markdown
 from langchain_core.messages import HumanMessage
 
-from .agent import add_agent_args, exit_on_spec_errors, overrides_from
+from .agent import add_agent_args, exit_on_spec_errors, new_thread, overrides_from, platform_context
 from .progress import run_with_progress, setup_logging
 
 log = logging.getLogger("research_agent")
 
 
 async def evaluate(
-    agent_path: str | Path, overrides: Mapping[str, str], dataset: str, judge_entry: str
+    agent_path: str | Path,
+    overrides: Mapping[str, str],
+    dataset: str,
+    judge_entry: str,
+    *,
+    tenant: str = "default",
+    user: str = "local",
 ) -> tuple[str, dict[str, Any]]:
     settings = Settings()
     first = load_agent(agent_path, settings=settings, overrides=overrides)  # fail fast on bad specs
@@ -36,13 +42,15 @@ async def evaluate(
     )
 
     async def run_agent(question: str) -> RunResult:
-        log.info("eval question: %s", question)
         loaded = load_agent(agent_path, settings=settings, overrides=overrides)
+        ctx = platform_context(loaded.spec, tenant=tenant, user=user, thread=new_thread())
+        log.info("eval thread %s: %s", ctx.thread_id, question)
         seen: list[str] = []  # every tool result, orchestrator and subagents
         res = await run_with_progress(
             loaded.graph,
             {"messages": [HumanMessage(question)]},
             config={"recursion_limit": 100},
+            context=ctx,
             tool_outputs=seen,
         )
         return RunResult(report=read_output(res, loaded.spec.output), retrieved="\n".join(seen))
@@ -71,7 +79,9 @@ def _main() -> None:
     p.add_argument("-q", "--quiet", action="store_true", help="warnings only")
     a = p.parse_args()
     setup_logging(-1 if a.quiet else 1 if a.verbose else 0)
-    md, summary = asyncio.run(evaluate(a.agent, overrides_from(a), a.dataset, a.judge))
+    md, summary = asyncio.run(
+        evaluate(a.agent, overrides_from(a), a.dataset, a.judge, tenant=a.tenant, user=a.user)
+    )
     a.out.write_text(md)
     a.out.with_suffix(".json").write_text(json.dumps(summary, indent=2))
     print(md)

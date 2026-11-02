@@ -169,5 +169,6 @@ Turn 2 made no Decisions call, since the thread resumed with the earlier selecti
 `evidence/phase0b/` (logs are local-only). The stamp was torn down afterwards (`make unstamp`, tenant env
 file deleted).
 
-Open items carried forward: P10 thread-to-user binding, P3 primitive state stored in plaintext, and AES key
-rotation and backup.
+Open items carried forward: P10 thread-to-user binding, P3 primitive state stored in plaintext, AES key
+rotation and backup, the encrypted store items of `eval-<hex>` users (never pruned: `agentkit-prune` deletes
+threads only), and a tenant filter for prune if tenants ever share a database.

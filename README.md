@@ -172,5 +172,7 @@ a validated `PlatformContext` with `TenantGuard` on every run, encrypted Postgre
 tiers behind `--persist`, tenant-tagged tracing and a per-run cost ledger, and per-tenant stamps.
 `make phase0-exit` passes offline, and a two-turn persisted `fireworks-glm` run against a stamped tenant
 resumed its thread, traced it and metered both turns (`docs/phase0-results.md`, "Phase 0b close-out").
-Open items: P10 thread-to-user binding, P3 primitive state stored in plaintext, AES key rotation and backup.
+Open items: P10 thread-to-user binding, P3 primitive state stored in plaintext, AES key rotation and backup;
+the encrypted store items of `eval-<hex>` users are never pruned (`agentkit-prune` deletes threads only);
+prune needs a tenant filter if tenants ever share a database.
 Next: the project verification skill, then Phase 1.

@@ -13,7 +13,9 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   tiers, telemetry + cost ledger, per-tenant stamps): `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md`.
   Delivered and live-verified (2026-11-02; `docs/phase0-results.md`). **Phase 0 is complete.** Per-tenant
   stamps: `make stamp TENANT=<t>` (`deploy/README.md`). Next: the project verification skill, then Phase 1.
-  Open items: P10 thread-to-user binding, P3 primitive state plaintext, AES key rotation/backup.
+  Open items: P10 thread-to-user binding, P3 primitive state plaintext, AES key rotation/backup;
+  `eval-<hex>` users' store items are never pruned (prune deletes threads only); prune needs a
+  tenant filter if DBs are ever shared.
 - Web search defaults to DuckDuckGo (no key); Tavily is opt-in via `web_search: {backend: tavily}`.
 - Providers to support: OpenAI, Gemini, Anthropic, Fireworks (deepseek-v4p1-flash-1017,
   glm-5p3-flash, minimax-m3p1-flash). Model/tool selection via OpenAI Decisions API (`gpt-6-luna`).

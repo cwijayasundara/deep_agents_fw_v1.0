@@ -231,3 +231,106 @@ def test_exporter_strips_exception_text_from_status_and_events():
     assert clean.status.description == "ValueError"
     assert dict(clean.events[0].attributes) == {"exception.type": "ValueError"}
     assert "SECRET" not in _error_dump([clean])
+
+
+TOOL_ERRORS = ("hunter2", "sk_live_abc123")
+
+
+async def _run_tool_returning_error_messages():
+    """Tools that return an error ToolMessage (no exception): upstream Langfuse copies its
+    content into the status message without calling the masking hook."""
+    from typing import Annotated
+
+    from agentkit_deep.testing import tool_call
+    from langchain.tools import InjectedToolCallId, tool
+    from langchain_core.messages import ToolMessage
+
+    @tool
+    def login(user: str, tool_call_id: Annotated[str, InjectedToolCallId]) -> ToolMessage:
+        """Log in."""
+        return ToolMessage(content=TOOL_ERRORS[0], tool_call_id=tool_call_id, status="error")
+
+    @tool
+    def charge(amount: int, tool_call_id: Annotated[str, InjectedToolCallId]) -> ToolMessage:
+        """Charge a card."""
+        return ToolMessage(content=TOOL_ERRORS[1], tool_call_id=tool_call_id, status="error")
+
+    model = MeteredChatModel(
+        messages=iter(
+            [
+                tool_call("login", {"user": "u"}, "a"),
+                tool_call("charge", {"amount": 3}, "b"),
+                AIMessage(content="done"),
+            ]
+        )
+    )
+    agent = build_deep_agent(
+        model=model, system_prompt="p", tools=[login, charge], settings=Settings(_env_file=None)
+    )
+    config = run_config(_ctx(), agent_prompt_hash(agent), CostLedger())
+    await agent.ainvoke({"messages": [HumanMessage("go")]}, config, context=_ctx())
+
+
+async def test_one_token_tool_error_text_is_masked_by_default(traced):
+    await _run_tool_returning_error_messages()
+    dumped = _error_dump(traced())
+    for text in TOOL_ERRORS:
+        assert text not in dumped
+    assert '"redacted"' in dumped
+
+
+async def test_one_token_tool_error_text_appears_when_payloads_are_opted_in(traced_payloads):
+    await _run_tool_returning_error_messages()
+    spans = traced_payloads()
+    statuses = {s.status.description for s in spans} | {
+        s.attributes.get("langfuse.observation.status_message") for s in spans
+    }
+    assert set(TOOL_ERRORS) <= statuses
+
+
+def test_status_text_is_kept_only_as_an_exception_type_name():
+    from agentkit_telemetry.export import redact_errors
+    from opentelemetry.sdk.trace import Event, ReadableSpan
+    from opentelemetry.trace import Status, StatusCode
+
+    def described(desc: str, event_type: str | None = None) -> str | None:
+        events = [Event("exception", {"exception.type": event_type})] if event_type else []
+        span = ReadableSpan(
+            name="t", status=Status(StatusCode.ERROR, desc), events=events, attributes={}
+        )
+        return redact_errors([span])[0].status.description
+
+    assert described("hunter2") == "redacted"
+    assert described("sk_live_abc") == "redacted"
+    assert described("Secret") == "redacted"  # an identifier, but not an exception shape
+    assert described("ValueError") == "ValueError"
+    assert described("KeyboardInterrupt") == "KeyboardInterrupt"
+    assert described("TenantMismatch") == "TenantMismatch"
+    assert described("StopIteration") == "redacted"
+    assert described("StopIteration", "StopIteration") == "StopIteration"
+
+
+def test_mask_payloads_keeps_only_exception_shaped_status_messages():
+    from agentkit_telemetry.export import mask_payloads
+    from langfuse.types import MaskOtelSpansParams, OtelSpanData, OtelSpanIdentifier
+
+    def masked(status: str) -> str:
+        ident = OtelSpanIdentifier(trace_id="0" * 32, span_id="1" * 16)
+        data = OtelSpanData(
+            trace_id="0" * 32,
+            span_id="1" * 16,
+            parent_span_id=None,
+            name="t",
+            instrumentation_scope_name="x",
+            instrumentation_scope_version=None,
+            attributes={"langfuse.observation.status_message": status},
+            resource_attributes={},
+        )
+        result = mask_payloads(params=MaskOtelSpansParams(spans={ident: data}))
+        patch = result.span_patches.get(ident)
+        sets = dict(patch.set_attributes) if patch else {}
+        return sets.get("langfuse.observation.status_message", status)
+
+    assert masked("hunter2") == "redacted"
+    assert masked("sk_live_abc") == "redacted"
+    assert masked("ValidationError") == "ValidationError"

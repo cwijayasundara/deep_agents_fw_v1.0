@@ -7,6 +7,7 @@ run's own path.
 from __future__ import annotations
 
 import logging
+import re
 import threading
 import time
 from collections.abc import Sequence
@@ -46,15 +47,24 @@ _PAYLOAD_PREFIXES = (
 )
 
 
-def _is_type_name(text: str) -> bool:
-    return text.isidentifier()
+# What an exception class name looks like. A status text is kept only when it has this shape or
+# names an exception recorded on the same span; any other text (e.g. an error ToolMessage's
+# content, which upstream Langfuse copies into the status as is) may carry user data or secrets.
+_EXCEPTION_NAME = re.compile(
+    r"[A-Z][A-Za-z0-9]*(Error|Exception|Exit|Interrupt|Cancelled|Mismatch)"
+)
+
+
+def _is_type_name(text: str, recorded: frozenset[str] = frozenset()) -> bool:
+    return text in recorded or _EXCEPTION_NAME.fullmatch(text) is not None
 
 
 def mask_payloads(*, params: MaskOtelSpansParams) -> MaskOtelSpansResult:
     """Drop prompt/completion attributes from every span; mark the spans that lost some.
 
-    An error status message is kept only when it is a bare exception type name (what
-    `MaskingCallbackHandler` writes); any other text is replaced by "redacted"."""
+    An error status message is kept only when it is shaped like an exception class name (what
+    `MaskingCallbackHandler` writes); any other text is replaced by "redacted". Span events are
+    not visible here, so `redact_errors` makes the same check against recorded exception types."""
     patches: dict[OtelSpanIdentifier, OtelSpanPatch | None] = {}
     for ident, span in params.spans.items():
         drop = tuple(
@@ -71,8 +81,10 @@ def mask_payloads(*, params: MaskOtelSpansParams) -> MaskOtelSpansResult:
 
 
 def redact_errors(spans: Sequence[ReadableSpan]) -> list[ReadableSpan]:
-    """Copies of `spans` without error text: the status description becomes the span's
-    exception type name (or "redacted"), and exception events keep only `exception.type`.
+    """Copies of `spans` without error text: the status description is kept only when it is an
+    exception type name (one recorded in the span's `exception.type` events, or shaped like an
+    exception class), else the span's type-name status message, else "redacted"; exception
+    events keep only `exception.type`.
 
     `mask_otel_spans` can patch attributes only, so this runs in the exporter."""
     out: list[ReadableSpan] = []
@@ -82,8 +94,14 @@ def redact_errors(spans: Sequence[ReadableSpan]) -> list[ReadableSpan]:
         if not desc and not texty:
             out.append(span)
             continue
+        recorded = frozenset(
+            t
+            for e in span.events
+            if isinstance(t := (e.attributes or {}).get("exception.type"), str)
+        )
         status_attr = (span.attributes or {}).get(STATUS_MESSAGE_ATTR)
-        name = status_attr if isinstance(status_attr, str) and _is_type_name(status_attr) else None
+        kept = [t for t in (desc, status_attr) if isinstance(t, str) and _is_type_name(t, recorded)]
+        name = kept[0] if kept else REDACTED
         events = [
             Event(
                 e.name,
@@ -104,7 +122,7 @@ def redact_errors(spans: Sequence[ReadableSpan]) -> list[ReadableSpan]:
                 events=events,
                 links=span.links,
                 kind=span.kind,
-                status=Status(span.status.status_code, (name or REDACTED) if desc else None),
+                status=Status(span.status.status_code, name if desc else None),
                 start_time=span.start_time,
                 end_time=span.end_time,
                 instrumentation_scope=span.instrumentation_scope,

@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+import sys
 import time
 import uuid
 from collections.abc import Mapping
@@ -14,7 +15,18 @@ from typing import Any
 from agentkit_config import load_agent, read_output
 from agentkit_core import ConfigError, ModelRegistry, Settings, get_model
 from agentkit_deep import agent_prompt_hash
-from agentkit_evals import LLMJudge, RunResult, aggregate, load_dataset, run_eval, to_markdown
+from agentkit_evals import (
+    Baseline,
+    BaselineMismatch,
+    LLMJudge,
+    RunResult,
+    aggregate,
+    check_gates,
+    load_dataset,
+    load_gates,
+    run_eval,
+    to_markdown,
+)
 from agentkit_middleware import TenantMismatch
 from agentkit_telemetry import run_config, trace_id
 from langchain_core.messages import HumanMessage
@@ -52,7 +64,8 @@ async def evaluate(
     user = user or (f"eval-{uuid.uuid4().hex[:8]}" if persist else "local")
     print(f"eval user: {user}", flush=True)
     first = load_agent(agent_path, settings=settings, overrides=overrides)  # fail fast on bad specs
-    judge = LLMJudge(get_model(ModelRegistry.default().resolve(judge_entry, "strong"), settings))
+    judge_spec = ModelRegistry.default().resolve(judge_entry, "strong")
+    judge = LLMJudge(get_model(judge_spec, settings))
     spec = first.model_spec
     log.info(
         "agent %s -> %s %s (tier=%s, selection=%s)",
@@ -104,6 +117,9 @@ async def evaluate(
         "tier": first.spec.tier,
         "selection": first.spec.selection,
         "judge": judge_entry,
+        "model_id": spec.model_id,
+        "judge_model_id": judge_spec.model_id,
+        "dataset": dataset,
         "persist": persist,
         "aggregate": aggregate(results),
         "cases": [asdict(r) for r in results],
@@ -122,9 +138,15 @@ def _main() -> None:
     p.add_argument("--dataset", default="apps/research_agent/evals/smoke.jsonl")
     p.add_argument("--judge", default="anthropic", help="registry entry used as the judge model")
     p.add_argument("--out", type=Path, default=Path("eval_results.md"))
+    p.add_argument("--gate", type=Path, help="gates YAML; exit 1 on a regression vs its baseline")
+    p.add_argument(
+        "--write-baseline", action="store_true", help="record this run as the gate baseline"
+    )
     p.add_argument("-v", "--verbose", action="store_true", help="debug logs (tool output, tokens)")
     p.add_argument("-q", "--quiet", action="store_true", help="warnings only")
     a = p.parse_args()
+    if a.write_baseline and not a.gate:
+        p.error("--write-baseline requires --gate")
     setup_logging(-1 if a.quiet else 1 if a.verbose else 0)
     with tracing(Settings()):
         md, summary = asyncio.run(
@@ -141,6 +163,40 @@ def _main() -> None:
     a.out.write_text(md)
     a.out.with_suffix(".json").write_text(json.dumps(summary, indent=2))
     print(md)
+    if a.gate:
+        _gate(a, summary)
+
+
+def _gate(a: argparse.Namespace, summary: dict[str, Any]) -> None:
+    spec = load_gates(a.gate)
+    if a.write_baseline:
+        errored = [c["case_id"] for c in summary["cases"] if c.get("error")]
+        if errored:
+            print(f"gate: refusing to write baseline, cases errored: {errored}", file=sys.stderr)
+            raise SystemExit(2)
+        spec.baseline.write_text(
+            Baseline.from_summary(summary, Path(a.dataset)).model_dump_json(indent=2)
+        )
+        print(f"gate: baseline written to {spec.baseline}")
+        return
+    if not spec.baseline.exists():
+        print(
+            f"gate: no baseline at {spec.baseline}; run with --write-baseline first",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    baseline = Baseline.model_validate_json(spec.baseline.read_text())
+    try:
+        failures = check_gates(spec, baseline, summary, Path(a.dataset))
+    except BaselineMismatch as e:
+        print(f"gate: baseline mismatch: {e}")
+        raise SystemExit(2) from None
+    if not failures:
+        print("gate: PASS")
+        return
+    for f in failures:
+        print(f"gate: FAIL {f.metric}: {f.detail}")
+    raise SystemExit(1)
 
 
 def main() -> None:

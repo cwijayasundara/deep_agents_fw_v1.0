@@ -642,3 +642,116 @@ def test_shipped_agent_has_standard_stack():
         "ModelCallLimitMiddleware",
         "ToolCallLimitMiddleware",
     ]
+
+
+@pytest.fixture
+def gate_env(offline_cli, monkeypatch, tmp_path):
+    """Offline eval with a fixed-score judge, a 2-case dataset and a gates file."""
+    import json as _json
+
+    from research_agent import eval_cli
+
+    data = tmp_path / "d.jsonl"
+    data.write_text(
+        "".join(f'{{"id": "{q}", "question": "{q}", "must_cover": ["x"]}}\n' for q in "ab")
+    )
+    gates = tmp_path / "gates.yaml"
+    gates.write_text(
+        "baseline: base.json\nmin_cases: 2\nmetrics:\n"
+        "  score: {min: 0.5, max_drop: 0.1}\n  completed: {min: 1.0}\n"
+    )
+
+    class Judge:
+        def __init__(self, model):
+            pass
+
+        async def __call__(self, case, report, retrieved):
+            return {"score": 0.8}
+
+    monkeypatch.setattr(eval_cli, "LLMJudge", Judge)
+    monkeypatch.setattr(eval_cli, "get_model", lambda spec, settings: None)
+
+    def run(*extra):
+        monkeypatch.setattr(
+            "sys.argv",
+            ["research-eval", "--dataset", str(data), "--user", "e1", "--gate", str(gates), *extra],
+        )
+        try:
+            eval_cli.main()
+        except SystemExit as e:
+            return e.code
+        return 0
+
+    def baseline(**over):
+        b = _json.loads((tmp_path / "base.json").read_text())
+        b.update(over)
+        (tmp_path / "base.json").write_text(_json.dumps(b))
+
+    return run, baseline, tmp_path
+
+
+def test_eval_write_baseline_then_gate_passes(gate_env, capsys):
+    run, _, tmp = gate_env
+    assert run("--write-baseline") == 0
+    assert f"gate: baseline written to {tmp / 'base.json'}" in capsys.readouterr().out
+    assert run() == 0
+    assert "gate: PASS" in capsys.readouterr().out
+
+
+def test_eval_gate_pass_exits_0(gate_env, capsys):
+    run, _, _ = gate_env
+    run("--write-baseline")
+    capsys.readouterr()
+    assert run() == 0
+    out = capsys.readouterr().out
+    assert out.index("| **mean**") < out.index("gate: PASS")
+
+
+def test_eval_gate_regression_exits_1_and_names_metric(gate_env, capsys):
+    run, baseline, tmp = gate_env
+    run("--write-baseline")
+    import json
+
+    agg = json.loads((tmp / "base.json").read_text())["aggregate"]
+    baseline(aggregate={**agg, "score": 0.99})
+    capsys.readouterr()
+    assert run() == 1
+    assert "gate: FAIL score:" in capsys.readouterr().out
+
+
+def test_eval_gate_mismatch_exits_2(gate_env, capsys):
+    run, baseline, _ = gate_env
+    run("--write-baseline")
+    baseline(model_id="other-model")
+    capsys.readouterr()
+    assert run() == 2
+    assert "gate: baseline mismatch:" in capsys.readouterr().out + ""
+
+
+def test_eval_gate_missing_baseline_exits_2(gate_env, capsys):
+    run, _, _ = gate_env
+    assert run() == 2
+    assert "run with --write-baseline first" in capsys.readouterr().err
+
+
+def test_eval_write_baseline_requires_gate(offline_cli, monkeypatch, capsys):
+    from research_agent import eval_cli
+
+    monkeypatch.setattr("sys.argv", ["research-eval", "--write-baseline"])
+    with pytest.raises(SystemExit) as exc:
+        eval_cli.main()
+    assert exc.value.code == 2 and "--gate" in capsys.readouterr().err
+
+
+def test_eval_write_baseline_refuses_errored_case(gate_env, monkeypatch, capsys):
+    from research_agent import eval_cli
+
+    run, _, tmp = gate_env
+
+    async def boom(agent, inputs, config, *, context, **kw):
+        raise RuntimeError("nope")
+
+    monkeypatch.setattr(eval_cli, "run_with_progress", boom)
+    assert run("--write-baseline") == 2
+    assert not (tmp / "base.json").exists()
+    assert "errored" in capsys.readouterr().err

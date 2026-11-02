@@ -1,5 +1,5 @@
 {
-  "agent": "/Users/chamindawijayasundara/Documents/learning_102/deep_agents_fw_v1.0/apps/research_agent/agent.yaml",
+  "agent": "apps/research_agent/agent.yaml",
   "overrides": {
     "model": "fireworks-glm"
   },

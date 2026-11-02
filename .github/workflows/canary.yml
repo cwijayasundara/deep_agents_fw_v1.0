@@ -1,6 +1,8 @@
 name: canary
 # Weekly early warning: run the upstream contract suite against the newest
 # deepagents / langchain / langgraph releases, in a scratch copy of the repo.
+# langgraph-checkpoint(-postgres) are unpinned too: a langgraph bump usually needs a newer
+# checkpoint package, and keeping the old pin would fail at resolve, not at the contracts.
 on:
   schedule:
     - cron: "0 6 * * 1"
@@ -31,12 +33,14 @@ jobs:
       - name: Unpin the watched packages and upgrade them
         working-directory: ${{ runner.temp }}/canary
         run: |
-          sed -i -E '/^(deepagents|langchain|langchain-core|langgraph)==/d' constraints.txt
+          watched='deepagents|langchain|langchain-core|langgraph|langgraph-checkpoint|langgraph-checkpoint-postgres'
+          sed -i -E "/^($watched)==/d" constraints.txt
           UV_CONSTRAINT=constraints.txt uv lock --upgrade-package deepagents \
             --upgrade-package langchain --upgrade-package langchain-core \
-            --upgrade-package langgraph
+            --upgrade-package langgraph --upgrade-package langgraph-checkpoint \
+            --upgrade-package langgraph-checkpoint-postgres
           UV_CONSTRAINT=constraints.txt uv sync --python 3.12
-          uv pip list | grep -E '^(deepagents|langchain|langchain-core|langgraph) '
+          uv pip list | grep -E "^($watched) "
       - name: Run the contract suite
         working-directory: ${{ runner.temp }}/canary
         run: uv run pytest contracts -m "contract or pg" -v

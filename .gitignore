@@ -16,3 +16,7 @@ deploy/otel-out/
 # Per-tenant stamps: real tenant env files hold AES keys (only example.env is committed)
 deploy/tenants/*.env
 !deploy/tenants/example.env
+
+# Default research / research-eval CLI outputs at the repo root
+/report.md
+/eval_results.*

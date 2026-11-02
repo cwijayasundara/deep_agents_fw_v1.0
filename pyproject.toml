@@ -47,7 +47,7 @@ addopts = "-m 'not live' --import-mode=importlib"
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["reports", "research_notes", "docs"]
+extend-exclude = ["reports", "research_notes", "docs", "evidence"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]

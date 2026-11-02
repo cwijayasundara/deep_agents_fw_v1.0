@@ -175,7 +175,9 @@ error tool message telling the model to stop; `write_file` is never budgeted, so
 saved; a single all-tools `run_limit: 40` blocked the final `write_file` and left two golden cases with an
 empty report), e-mail addresses and card numbers are redacted or masked, and `require_output` sends
 the run back to the model (a user nudge, at most twice per run, logged as `/report.md missing after a
-final reply; nudging (n/2)`) when the model replies without a tool call before `/report.md` exists:
+final reply; nudging (n/2)`) when the model replies without a tool call before `/report.md` is written
+in this run (a report left by an earlier turn of a resumed thread does not count; a run resumed from an
+interrupt accepts any existing report):
 live `fireworks-glm` runs sometimes ended on "Let me delegate ..." with no tool call. Fallback models are
 built when the agent loads, so the shipped agent needs `FIREWORKS_API_KEY` for every `--model`, not only
 for `fireworks-*` entries; an agent file without the `model_fallback` entry does not.
@@ -415,7 +417,7 @@ build_deep_agent(
 | A concrete model | `model` is a `BaseChatModel` or a `ModelSpec`; a `ModelSpec` needs `settings` and is built with `get_model`, which fails fast if the provider key is missing. |
 | `context_schema=PlatformContext` | Every run must pass `context=PlatformContext(...)` (a dict is validated against it). |
 | `TenantGuardMiddleware` first | The guard for the deployment tenant (`settings.deployment_tenant`, or `AGENTKIT_TENANT` read once per process when no settings are given) is prepended to the caller's middleware. Passing a `TenantGuardMiddleware` yourself raises `ValueError`. |
-| Caller middleware order preserved | The middleware list is `[guard, *middleware]`. From YAML, `middleware` is sorted into the canonical order (`agentkit_config/stack.py`, `STACK_ORDER`): `selection` (when `selection: decisions`), `model_fallback`, `model_retry`, `tool_retry`, `call_limit`, `tool_call_limit`, `pii`, then any other pool entries in file order. File order no longer matters. The first entry is the outermost wrapper: `SelectionMiddleware` overrides the request's model, so fallback sits inside it and can swap the model on failure, and retry sits inside fallback so each model is retried before the next is tried. Validation rejects a second enabled `selection`, `model_fallback`, `model_retry`, `tool_retry` or `call_limit`, and repeats of `pii` (same `type`) or `tool_call_limit` (same `tool_name`); an agent without an enabled `call_limit` gets a warning. DeepAgents then wraps its own stack around this user-middleware slot. |
+| Caller middleware order preserved | The middleware list is `[guard, *middleware]`. From YAML, `middleware` is sorted into the canonical order (`agentkit_config/stack.py`, `STACK_ORDER`): `selection` (when `selection: decisions`), `model_fallback`, `model_retry`, `tool_retry`, `require_output`, `call_limit`, `tool_call_limit`, `pii`, then any other pool entries in file order. File order no longer matters. The first entry is the outermost wrapper: `SelectionMiddleware` overrides the request's model, so fallback sits inside it and can swap the model on failure, and retry sits inside fallback so each model is retried before the next is tried. `require_output` sits outside `call_limit`, so the model calls its nudges cause are counted against the budget. Validation rejects a second enabled `selection`, `model_fallback`, `model_retry`, `tool_retry`, `require_output` or `call_limit`, and repeats of `pii` (same `type`) or `tool_call_limit` (same `tool_name`); an agent without an enabled `call_limit` gets a warning. DeepAgents then wraps its own stack around this user-middleware slot. |
 | Skills | `skills` are skill *sources* (`skills_source(owner)`), passed through with `backend` and `permissions` (section 7). |
 | Persistence | With `persistence`: its encrypted `saver` and `store` become the checkpointer and store (passing `checkpointer` or `store` too raises `ValueError`); the backend becomes `memory_backend()` unless the caller passed one built by `memory_backend(...)` (any other backend raises `ValueError`); `memory=["/org/AGENTS.md", "/memories/AGENTS.md"]`; and `ORG_WRITE_DENY` is prepended to the permissions. |
 | Prompt hash | The returned graph is `agent.with_config(metadata={"prompt_hash": prompt_hash(system_prompt)})`, so every run and trace inherits it. |
@@ -1352,8 +1354,10 @@ cases.
 | Exit | Meaning | Line |
 |---|---|---|
 | 0 | gate passed (or baseline written) | `gate: PASS` / `gate: baseline written to <path>` |
-| 1 | regression | one `gate: FAIL <metric>: <detail>` per failure |
-| 2 | no baseline, mismatch, or errored cases on `--write-baseline` | `gate: no baseline at ...`, `gate: baseline mismatch: ...`, `gate: refusing to write baseline, cases errored: [...]` |
+| 1 | regression (including NaN scores, and baseline cases missing from or errored in the run) | one `gate: FAIL <metric>: <detail>` per failure |
+| 2 | no baseline, unreadable baseline, mismatch, or errored cases on `--write-baseline` | `gate: no baseline at ...`, `gate: unreadable baseline ...`, `gate: baseline mismatch: ...`, `gate: refusing to write baseline, cases errored: [...]` |
+
+Every `gate:` line except `PASS` and `baseline written` goes to stderr.
 
 ```bash
 uv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/golden.jsonl \
@@ -1392,7 +1396,7 @@ flow = load_flow(REVIEW_FLOW, settings=Settings(), checkpointer=InMemorySaver())
 | To add | Do this |
 |---|---|
 | **A tool** | Factory `(ctx: BuildContext, **params) -> BaseTool`, registered under `[project.entry-points."agentkit.tools"]`; name it in YAML (section 6). Read secrets from `ctx.settings`; return errors as text. |
-| **A middleware** | Factory `(ctx: BuildContext, **params) -> AgentMiddleware` under `agentkit.middleware` (see `agentkit_middleware.factories.call_limit`). Use it as `middleware: [{type: name, params: {...}}]`. The name `selection` is reserved. Built in (`agentkit_middleware.factories`): `call_limit`, `tool_call_limit`, `model_fallback`, `model_retry`, `tool_retry`, `pii`; these are placed in the canonical order (section 4) wherever they appear in the YAML. Also built in: `require_output {path, max_nudges: 2}`, which has no canonical slot and so follows them. |
+| **A middleware** | Factory `(ctx: BuildContext, **params) -> AgentMiddleware` under `agentkit.middleware` (see `agentkit_middleware.factories.call_limit`). Use it as `middleware: [{type: name, params: {...}}]`. The name `selection` is reserved. Built in (`agentkit_middleware.factories`): `call_limit`, `tool_call_limit`, `model_fallback`, `model_retry`, `tool_retry`, `require_output {path, max_nudges: 2}`, `pii`; these are placed in the canonical order (section 4) wherever they appear in the YAML. |
 | **A skill** | A directory `libraries/skills/<name>/SKILL.md` whose front matter `name` equals `<name>`. List the tools it needs in `allowed-tools` (space-separated) or `metadata.include_tools`, so validation can check the owner has them. Add it to an agent's or subagent's `skills:`. |
 | **A prompt** | A Markdown file under `libraries/prompts/`, named by its relative path without `.md`. Optional front matter is stripped. Only `{{agent_name}}` and `{{date}}` are allowed. For Decisions agents, name the tools and when to use them. |
 | **A subagent** | `libraries/subagents/<name>.yaml` with `kind: SubAgent`, or inline in an agent's `subagents:`. Give it its own `tools` (they replace the parent's). Add a `response_schema` (a `agentkit.schemas` entry point) to clear the warning. |

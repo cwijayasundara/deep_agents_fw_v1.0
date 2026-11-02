@@ -9,7 +9,7 @@ ONE-case dataset, judged by `fireworks-glm`.
 
 - `eval-run` runs every dataset case and writes `eval_results.md` and `eval_results.json`.
 - `eval-scores` per case `has_citation`, `citation_validity`, `sources_section`, `source_count_ok`, `tool_recall`, `groundedness`, `completeness`; aggregate `completed`, `mean_latency_s`, `mean_total_tokens`; per case `latency_s` and `tool_calls`.
-- `eval-gate` `--gate <gates.yaml>` compares the run with the committed baseline: `gate: PASS` exit 0, `gate: FAIL <metric>: ...` exit 1, `gate: baseline mismatch: ...` or `gate: no baseline at ...` exit 2. `--write-baseline` (needs `--gate`) records the run, refusing (exit 2) if any case errored.
+- `eval-gate` `--gate <gates.yaml>` compares the run with the committed baseline: `gate: PASS` exit 0 (stdout), `gate: FAIL <metric>: ...` exit 1 (stderr), `gate: baseline mismatch: ...`, `gate: unreadable baseline ...` or `gate: no baseline at ...` exit 2 (stderr). `--write-baseline` (needs `--gate`) records the run, refusing (exit 2) if any case errored.
 - `eval-user` a persisted eval runs as a fresh `eval-<hex>` user (printed `eval user: eval-<hex>`).
 - `eval-trace-usage` each case records its `trace_id` and `usage`, and a ledger row under `--persist`.
 - `eval-tenant-check` a tenant other than the deployment's is refused up front (`ConfigError: TenantMismatch`, exit 2).

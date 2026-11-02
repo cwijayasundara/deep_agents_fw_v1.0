@@ -55,7 +55,7 @@ reference: `docs/architecture.md` section 13.
 The agent runs a standard middleware stack, placed in a fixed order whatever the YAML order: model fallback
 to `fireworks-glm:strong`, two retries per model, a 60 model-call budget and 20 searches and 25 fetches for the orchestrator (each researcher delegation gets its own 30 calls and 25 tools; the report write is never budgeted), and PII
 redaction (e-mail) and masking (card numbers), and `require_output`, which sends a run that stops before
-saving `/report.md` back to the model (at most twice). Details: `docs/architecture.md` sections 3.1 and 4.
+saving `/report.md` back to the model (at most twice per run; the report must be written in that run). Details: `docs/architecture.md` sections 3.1 and 4.
 
 ## Test it manually
 
@@ -190,7 +190,7 @@ uv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/g
 	--judge anthropic --gate apps/research_agent/evals/gates.yaml --out eval_results.md
 ```
 
-Exit 0 is `gate: PASS`, 1 a regression (`gate: FAIL <metric>: ...`), 2 a missing or mismatched baseline. It
+Exit 0 is `gate: PASS`, 1 a regression (`gate: FAIL <metric>: ...` on stderr), 2 a missing, unreadable or mismatched baseline. It
 runs 25 cases, 6 at a time by default (`--concurrency N`). While debugging, run a subset with
 `--case <id>` or `--tag <tag>` (both repeatable; not allowed with `--gate`, which needs the full set). Still open from the roadmap's Phase 1: a pytest plugin, single-step
 evals, connectors, a prompt registry and `@platform_tool`.

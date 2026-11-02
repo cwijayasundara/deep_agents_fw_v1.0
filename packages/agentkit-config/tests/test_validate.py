@@ -10,11 +10,15 @@ from agentkit_config.registry import Registry
 from agentkit_config.spec import AgentSpec, SubAgentSpec
 from agentkit_config.validate import NO_CALL_LIMIT, validate_agent, validate_subagent
 from agentkit_core import ModelRegistry
+from agentkit_tools import ToolMeta
 
 MODELS = ModelRegistry({"m1": {"provider": "openai", "fast": "a", "default": "b", "strong": "c"}})
 
 
 def _tool(ctx: Any, *, limit: int = 1) -> Any: ...
+
+
+_tool.__agentkit_tool__ = ToolMeta(owner="platform", version="1.0.0", side_effects="read")  # type: ignore[attr-defined]
 
 
 def _mw(ctx: Any, *, n: int = 1) -> Any: ...

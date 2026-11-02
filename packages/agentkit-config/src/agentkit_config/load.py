@@ -69,7 +69,7 @@ def load_agent(
     spec = parse_agent(path)
     if overrides:
         spec = apply_overrides(spec, overrides)
-    problems = validate_agent(spec, lib, models, file=str(path))
+    problems = validate_agent(spec, lib, models, file=str(path), tenant=settings.deployment_tenant)
     for w in (p for p in problems if p.severity == "warning"):
         log.warning("%s", w)
     SpecErrors(problems).raise_if_errors()

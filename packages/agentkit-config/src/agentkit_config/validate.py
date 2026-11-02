@@ -8,7 +8,7 @@ from agentkit_middleware.selection import BUILTIN_TOOLS
 
 from agentkit_config.errors import SpecError
 from agentkit_config.library import Library
-from agentkit_config.pools.code import check_params
+from agentkit_config.pools.code import check_params, factory_meta
 from agentkit_config.pools.prompts import ALLOWED_VARS, variables
 from agentkit_config.registry import Registry
 from agentkit_config.spec import AgentSpec, MiddlewareRef, SubAgentSpec, ToolRef
@@ -74,7 +74,7 @@ def _params_error(
     return [c.err(path, f"bad params for {name!r}: {msg}")] if msg else []
 
 
-def _tool_errors(c: _Ctx, path: str, tools: list[ToolRef]) -> list[SpecError]:
+def _tool_errors(c: _Ctx, path: str, tools: list[ToolRef], tenant: str | None) -> list[SpecError]:
     out: list[SpecError] = []
     seen: set[str] = set()
     for i, t in enumerate(tools):
@@ -89,7 +89,19 @@ def _tool_errors(c: _Ctx, path: str, tools: list[ToolRef]) -> list[SpecError]:
         else:
             factory = c.lib.code.tools.get(t.name, file=c.file, path=p)
             out.extend(_params_error(c, p, factory, t.params, t.name))
+            out.extend(_policy_errors(c, p, factory, t.name, tenant))
     return out
+
+
+def _policy_errors(
+    c: _Ctx, path: str, factory: Callable[..., Any], name: str, tenant: str | None
+) -> list[SpecError]:
+    meta = factory_meta(factory)
+    if meta is None:
+        return [c.err(path, f"tool {name!r} has no @platform_tool metadata", "warning")]
+    if tenant is not None and meta.tenants is not None and tenant not in meta.tenants:
+        return [c.err(path, f"tool {name!r} is not available to tenant {tenant!r}")]
+    return []
 
 
 def _middleware_errors(c: _Ctx, path: str, mws: list[MiddlewareRef]) -> list[SpecError]:
@@ -142,13 +154,21 @@ def _skill_errors(c: _Ctx, path: str, skills: list[str], tools: list[ToolRef]) -
 
 
 def validate_subagent(
-    spec: SubAgentSpec, lib: Library, models: ModelRegistry, *, file: str, path: str = ""
+    spec: SubAgentSpec,
+    lib: Library,
+    models: ModelRegistry,
+    *,
+    file: str,
+    path: str = "",
+    tenant: str | None = None,
 ) -> list[SpecError]:
-    """Collect every cross-reference problem in one subagent; never raises."""
+    """Collect every cross-reference problem in one subagent; never raises.
+
+    With `tenant`, tools restricted to other tenants are errors."""
     c = _Ctx(lib, models, file)
     out = _model_errors(c, path, spec.model, spec.tier)
     out += _prompt_errors(c, path, spec.prompt)
-    out += _tool_errors(c, path, spec.tools)
+    out += _tool_errors(c, path, spec.tools, tenant)
     out += _skill_errors(c, path, spec.skills, spec.tools)
     out += _middleware_errors(c, path, spec.middleware)
     out += _schema_errors(c, path, "response_schema", spec.response_schema)
@@ -157,7 +177,7 @@ def validate_subagent(
     return out
 
 
-def _subagent_errors(c: _Ctx, spec: AgentSpec) -> list[SpecError]:
+def _subagent_errors(c: _Ctx, spec: AgentSpec, tenant: str | None) -> list[SpecError]:
     out: list[SpecError] = []
     seen: set[str] = set()
     for i, entry in enumerate(spec.subagents):
@@ -172,23 +192,25 @@ def _subagent_errors(c: _Ctx, spec: AgentSpec) -> list[SpecError]:
         if entry.name in seen:
             out.append(c.err(p, f"duplicate subagent {entry.name!r}"))
         seen.add(entry.name)
-        out.extend(validate_subagent(entry, c.lib, c.models, file=c.file, path=p))
+        out.extend(validate_subagent(entry, c.lib, c.models, file=c.file, path=p, tenant=tenant))
     return out
 
 
 def validate_agent(
-    spec: AgentSpec, lib: Library, models: ModelRegistry, *, file: str
+    spec: AgentSpec, lib: Library, models: ModelRegistry, *, file: str, tenant: str | None = None
 ) -> list[SpecError]:
-    """Collect every cross-reference problem in an agent; never raises."""
+    """Collect every cross-reference problem in an agent; never raises.
+
+    With `tenant`, tools restricted to other tenants are errors."""
     c = _Ctx(lib, models, file)
     out = _model_errors(c, "", spec.model, spec.tier)
     out += _prompt_errors(c, "", spec.prompt)
-    out += _tool_errors(c, "", spec.tools)
+    out += _tool_errors(c, "", spec.tools, tenant)
     out += _skill_errors(c, "", spec.skills, spec.tools)
     out += _middleware_errors(c, "", spec.middleware)
     if spec.output is not None and not spec.output.startswith("/"):
         out.append(c.err("output", "output must be an absolute file path like /report.md"))
     if not any(m.type == "call_limit" and m.enabled for m in spec.middleware):
         out.append(c.err("", NO_CALL_LIMIT, "warning"))
-    out += _subagent_errors(c, spec)
+    out += _subagent_errors(c, spec, tenant)
     return out

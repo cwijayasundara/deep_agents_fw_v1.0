@@ -1,6 +1,6 @@
 export UV_CONSTRAINT = constraints.txt
 SYNC = uv sync --python 3.12
-.PHONY: sync test lint stamp unstamp contract phase0-exit tenant-required
+.PHONY: tool-schemas sync test lint stamp unstamp contract phase0-exit tenant-required
 sync:
 	$(SYNC)
 	@# macOS can mark .pth files hidden; Python >=3.12.11 then skips them and editable installs vanish.
@@ -25,3 +25,7 @@ contract: tenant-required sync
 	scripts/tenant_env.sh $(TENANT) sh -c 'AGENTKIT_TEST_DATABASE_URL="$$DATABASE_URL" exec uv run --no-sync pytest contracts'
 phase0-exit: sync
 	scripts/phase0_exit.sh
+
+# Regenerate packages/agentkit-tools/tool_schemas.json after a tool schema or version change.
+tool-schemas: sync
+	uv run --no-sync agentkit tools snapshot

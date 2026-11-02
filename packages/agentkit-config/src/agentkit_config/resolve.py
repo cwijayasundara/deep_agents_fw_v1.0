@@ -18,6 +18,7 @@ from langchain_core.tools import BaseTool
 
 from agentkit_config.errors import SpecError, SpecErrors
 from agentkit_config.library import Library
+from agentkit_config.pools.code import factory_meta, meta_dict
 from agentkit_config.pools.prompts import render
 from agentkit_config.selection import decisions_middleware
 from agentkit_config.spec import AgentSpec, MiddlewareRef, SubAgentSpec, ToolRef
@@ -37,7 +38,15 @@ def _code(lib: Library) -> Any:
 
 def _tools(refs: list[ToolRef], lib: Library, ctx: BuildContext) -> list[BaseTool]:
     pool = _code(lib).tools
-    return [pool.get(r.name, file=_FILE, path=r.name)(ctx, **r.params) for r in refs]
+    out: list[BaseTool] = []
+    for r in refs:
+        factory = pool.get(r.name, file=_FILE, path=r.name)
+        tool = factory(ctx, **r.params)
+        meta = factory_meta(factory)
+        if meta is not None:
+            tool.metadata = {**(tool.metadata or {}), "agentkit": meta_dict(meta)}
+        out.append(tool)
+    return out
 
 
 def _middleware(

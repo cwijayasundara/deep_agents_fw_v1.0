@@ -48,6 +48,23 @@ class CodePools:
         return replace(self, **{k: getattr(self, k).replaced(v) for k, v in pools.items()})
 
 
+def factory_meta(factory: Callable[..., Any]) -> Any | None:
+    """The `@platform_tool` metadata of a pool factory, or None.
+
+    Read duck-typed (`__agentkit_tool__`, a pydantic model) because agentkit-config does not
+    depend on agentkit-tools."""
+    meta = getattr(factory, "__agentkit_tool__", None)
+    return meta if hasattr(meta, "model_dump") else None
+
+
+def meta_dict(meta: Any) -> dict[str, Any]:
+    """JSON-ready metadata with `tenants` sorted, so output is stable."""
+    d: dict[str, Any] = meta.model_dump(mode="json")
+    if d.get("tenants") is not None:
+        d["tenants"] = sorted(d["tenants"])
+    return d
+
+
 def check_params(factory: Callable[..., Any], params: Mapping[str, Any]) -> str | None:
     """Return the TypeError message if `factory(ctx, **params)` can't bind, else None."""
     try:
@@ -57,4 +74,11 @@ def check_params(factory: Callable[..., Any], params: Mapping[str, Any]) -> str 
     return None
 
 
-__all__ = ["CodePools", "MiddlewareFactory", "ToolFactory", "check_params"]
+__all__ = [
+    "CodePools",
+    "MiddlewareFactory",
+    "ToolFactory",
+    "check_params",
+    "factory_meta",
+    "meta_dict",
+]

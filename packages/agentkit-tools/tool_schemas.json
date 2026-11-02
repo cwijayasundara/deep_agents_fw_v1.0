@@ -1,0 +1,46 @@
+{
+  "fetch_url": {
+    "schema": {
+      "description": "Fetch a web page and return its readable text (truncated if long).\n\nUse to read a specific page, typically a URL from web_search results.\nDo not use to discover pages (use web_search) or for non-http(s) URLs.",
+      "properties": {
+        "url": {
+          "description": "Absolute http(s) URL of the page to read.",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "fetch_url",
+      "type": "object"
+    },
+    "version": "1.0.0"
+  },
+  "web_search": {
+    "schema": {
+      "description": "Search the web. Returns numbered results with URL, title and snippet.\n\nUse to find candidate sources or current facts you do not already have.\nDo not use to read a page you already have a URL for (use fetch_url), or\nfor questions you can answer from the conversation.",
+      "properties": {
+        "k": {
+          "default": 5,
+          "description": "How many results to return (1-10).",
+          "maximum": 10,
+          "minimum": 1,
+          "title": "K",
+          "type": "integer"
+        },
+        "query": {
+          "description": "What to search for, phrased as a focused web search query.",
+          "title": "Query",
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "web_search",
+      "type": "object"
+    },
+    "version": "1.0.0"
+  }
+}

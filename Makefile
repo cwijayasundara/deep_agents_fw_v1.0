@@ -1,6 +1,6 @@
 export UV_CONSTRAINT = constraints.txt
 SYNC = uv sync --python 3.12
-.PHONY: tool-schemas sync test lint stamp unstamp contract phase0-exit tenant-required
+.PHONY: kb-ingest tool-schemas sync test lint stamp unstamp contract phase0-exit tenant-required
 sync:
 	$(SYNC)
 	@# macOS can mark .pth files hidden; Python >=3.12.11 then skips them and editable installs vanish.
@@ -29,3 +29,11 @@ phase0-exit: sync
 # Regenerate packages/agentkit-tools/tool_schemas.json after a tool schema or version change.
 tool-schemas: sync
 	uv run --no-sync agentkit tools snapshot
+
+# Ingest the corpus of the pilot kb_agent (this repo's own docs) into the kb-docs connector.
+# KB_ADMIN_DATABASE_URL is the admin DSN (the login that ran `agentkit-kb setup`); it is used here only.
+kb-ingest: sync
+	@test -n "$(KB_ADMIN_DATABASE_URL)" || { echo "set KB_ADMIN_DATABASE_URL to the admin DSN used for agentkit-kb setup" >&2; exit 2; }
+	KB_DATABASE_URL="$(KB_ADMIN_DATABASE_URL)" uv run --no-sync agentkit-kb ingest --connector kb-docs \
+		README.md docs/architecture.md docs/phase*-results.md \
+		--source-base https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main

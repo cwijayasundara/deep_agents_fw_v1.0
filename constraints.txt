@@ -8,3 +8,4 @@ langchain-openai==1.7.3
 langchain-anthropic==1.7.7
 langchain-google-genai==4.4.2
 langchain-fireworks==1.7.1
+ddgs==9.16.1

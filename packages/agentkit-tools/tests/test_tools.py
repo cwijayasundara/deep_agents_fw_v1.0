@@ -1,7 +1,7 @@
 import httpx
 import pytest
 import respx
-from agentkit_tools import HttpFetch, TavilySearch, ToolError, make_research_tools
+from agentkit_tools import HttpFetch, TavilySearch, ToolError, make_fetch_tool, make_web_search_tool
 
 
 @respx.mock
@@ -62,6 +62,7 @@ async def test_fetch_blocks_unsafe_urls(url):
 @respx.mock
 async def test_langchain_tools_return_errors_as_text():
     respx.post("https://api.tavily.com/search").mock(return_value=httpx.Response(500))
-    search_tool, fetch_tool = make_research_tools(TavilySearch("k"), HttpFetch())
+    search_tool = make_web_search_tool(TavilySearch("k"))
+    fetch_tool = make_fetch_tool(HttpFetch())
     assert (await search_tool.ainvoke({"query": "q"})).startswith("ERROR")
     assert (await fetch_tool.ainvoke({"url": "http://localhost/"})).startswith("ERROR")

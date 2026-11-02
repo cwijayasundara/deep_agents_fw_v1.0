@@ -4,10 +4,10 @@ import os
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from agentkit_config.pools import (
     AgentFileRegistry,
+    CodePools,
     Prompt,
     PromptRegistry,
     Skill,
@@ -25,10 +25,10 @@ class Library:
     skills: Registry[Skill]
     subagents: Registry[SubAgentSpec]
     agents: Registry[Path]
-    code: Any | None = None  # CodePools, set by Task 4
+    code: CodePools | None = None
 
     @classmethod
-    def from_roots(cls, roots: Sequence[Path], code: Any | None = None) -> Library:
+    def from_roots(cls, roots: Sequence[Path], code: CodePools | None = None) -> Library:
         rs = tuple(roots)
         return cls(
             rs,
@@ -40,7 +40,7 @@ class Library:
         )
 
     @classmethod
-    def for_file(cls, path: Path, code: Any | None = None) -> Library:
+    def for_file(cls, path: Path, code: CodePools | None = None) -> Library:
         """Roots: the file's directory, nearest `libraries/` ancestor, AGENTKIT_LIBRARY_PATH."""
         here = path.resolve().parent
         candidates = [here]

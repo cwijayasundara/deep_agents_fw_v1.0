@@ -8,7 +8,14 @@ import yaml
 from agentkit_core import ConfigError, ModelRegistry, Provider, Settings, get_model
 from agentkit_deep import build_deep_agent
 from agentkit_middleware import DecisionsClient, DecisionsSelector, SelectionMiddleware
-from agentkit_tools import FetchTool, HttpFetch, SearchTool, TavilySearch, make_research_tools
+from agentkit_tools import (
+    FetchTool,
+    HttpFetch,
+    SearchTool,
+    TavilySearch,
+    make_fetch_tool,
+    make_web_search_tool,
+)
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
 
@@ -40,7 +47,7 @@ def build_research_agent(
     """Provider is chosen purely by `config['model']` (a registry entry name)."""
     if search is None:
         search = TavilySearch(_require(settings))
-    tools = make_research_tools(search, fetch or HttpFetch())
+    tools = [make_web_search_tool(search), make_fetch_tool(fetch or HttpFetch())]
     researcher = {
         "name": "researcher",
         "description": "Read-only researcher for one sub-question; returns sourced findings.",

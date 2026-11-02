@@ -1,0 +1,4 @@
+FAILED apps/research_agent/tests/test_eval_steps.py::test_first_step[after-plan]
+FAILED apps/research_agent/tests/test_eval_steps.py::test_first_step[fetch-official]
+FAILED apps/research_agent/tests/test_eval_steps.py::test_first_step[fetch-primary-paper]
+============================== 12 failed in 0.93s ==============================

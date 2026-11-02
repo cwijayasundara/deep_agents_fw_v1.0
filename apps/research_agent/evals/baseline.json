@@ -3,15 +3,15 @@
   "model_id": "accounts/fireworks/models/glm-5p3-flash",
   "judge_model_id": "claude-opus-5-5",
   "aggregate": {
-    "citation_validity": 0.959935064935065,
-    "completeness": 0.9744,
-    "groundedness": 0.6748,
+    "citation_validity": 0.9643636363636363,
+    "completeness": 0.9823999999999999,
+    "groundedness": 0.6152,
     "has_citation": 1.0,
     "source_count_ok": 1.0,
     "sources_section": 1.0,
     "tool_recall": 1.0,
-    "mean_latency_s": 101.94916777167236,
-    "mean_total_tokens": 223437.16,
+    "mean_latency_s": 90.18373578327709,
+    "mean_total_tokens": 296563.0,
     "completed": 1.0
   },
   "completed_cases": [

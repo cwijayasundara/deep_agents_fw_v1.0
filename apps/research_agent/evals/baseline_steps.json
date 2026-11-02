@@ -1,0 +1,24 @@
+{
+  "dataset_sha256": "2f4d424a86a34636b1fb772005116e8c4784efb18dbf8594f0753c43ae5b7b1b",
+  "model_id": "accounts/fireworks/models/glm-5p3-flash",
+  "judge_model_id": "claude-opus-5-5",
+  "aggregate": {
+    "step_pass": 0.8333333333333334,
+    "completed": 1.0
+  },
+  "completed_cases": [
+    "first-factual",
+    "first-comparison",
+    "first-recent",
+    "after-plan",
+    "fetch-official",
+    "fetch-primary-paper",
+    "search-after-dead-link",
+    "write-after-enough-sources",
+    "write-on-call-limit",
+    "report-has-citations",
+    "follow-up-needs-new-facts",
+    "first-multi-part"
+  ],
+  "recorded": "2026-11-02"
+}

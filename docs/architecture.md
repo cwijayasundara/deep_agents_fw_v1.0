@@ -60,15 +60,17 @@ mypy strict, ruff with line length 100.
 | Path | Responsibility | Key modules and APIs | Depends on (workspace) |
 |---|---|---|---|
 | `packages/agentkit-core` | Settings and secrets, the model registry, the run context | `Settings`, `ConfigError`, `Provider`, `ModelRegistry`, `ModelSpec`, `TIERS`, `get_model`, `PlatformContext`, `Label`, `check_label`, `check_user_id`, `store_namespace`, `BuildContext`; `models.yaml` | none |
-| `packages/agentkit-tools` | Read-only research tools and their pool factories | `web_search` and `fetch_url` factories (`factories.py`), `DuckDuckGoSearch`, `TavilySearch`, `HttpFetch`, `make_web_search_tool`, `make_fetch_tool`, `ToolError` | core |
+| `packages/agentkit-tools` | Read-only research tools, their pool factories and tool governance | `web_search` and `fetch_url` factories (`factories.py`), `DuckDuckGoSearch`, `TavilySearch`, `HttpFetch`, `make_web_search_tool`, `make_fetch_tool`, `ToolError`; `platform_tool`, `ToolMeta`, `tool_meta`, `check_tool_contract`; `tool_schemas.json` | core |
+| `packages/agentkit-connectors` | Connector specs, secret refs, embeddings, pooled engines and the curated KB tools | `load_connector`, `EnvSecrets`, `get_embeddings`, `get_engine`; `kb_search` and `sql_query` factories (`tools.py`); script `agentkit-kb` (`setup`, `ingest`) | core, tools |
 | `packages/agentkit-middleware` | Tenant guard, Decisions-based selection, resilience | `TenantGuardMiddleware`, `TenantMismatch`, `MissingPlatformContext`, `SelectionMiddleware`, `Selector`, `Selection`, `ToolCard`, `DecisionsClient`, `DecisionsSelector`, `CircuitBreaker`, `call_with_retry`, `call_limit` factory | core |
 | `packages/agentkit-persistence` | Encrypted Postgres checkpoints and store, thread locks, pruning | `PersistenceSettings`, `open_persistence`, `Persistence`, `EncryptedStore`, `StoreEncryptionError`, `thread_lock`, `prune`; script `agentkit-prune` | core |
 | `packages/agentkit-deep` | The factory, skills mount, memory tiers, test doubles | `build_deep_agent`, `prompt_hash`, `agent_prompt_hash`; `memory.memory_backend`; `skills_mount.skills_mount`, `skills_routes`, `skills_source`; `testing.ScriptedChatModel`, `MeteredChatModel`, `ctx`, `memory_persistence` | core, middleware, persistence |
 | `packages/agentkit-config` | The declarative layer: YAML specs, pools, validation, resolution, flows | `load_agent`, `LoadedAgent`, `Library`, `CodePools`, `SpecError`, `SpecErrors`, `read_output`; `flow.load_flow`, `flow.validate_flow`; script `agentkit` | core, deep, middleware, persistence (tools only as a dev dependency) |
 | `packages/agentkit-telemetry` | Tenant-tagged tracing and the per-run usage ledger | `TelemetrySettings`, `configure_tracing`, `flush_tracing`, `shutdown_tracing`, `run_config`, `trace_id`, `CostLedger`, `UsageRow`, `setup`, `TENANT_ATTR` | core, middleware, persistence |
-| `packages/agentkit-evals` | Minimal eval runner on openevals | `EvalCase`, `load_dataset`, `LLMJudge`, `Judge`, `citation_scores`, `extract_urls`, `run_eval`, `aggregate`, `to_markdown`, `RunResult`, `CaseResult` | core |
+| `packages/agentkit-evals` | Eval runner on openevals, gates, single-step evals and the pytest plugin | `EvalCase`, `load_dataset`, `LLMJudge`, `Judge`, `citation_scores`, `extract_urls`, `run_eval`, `aggregate`, `to_markdown`, `RunResult`, `CaseResult`, `load_gates`, `check_gates`; `single_step`, `step_pass`, `tool_call_ratio`, `collect_run`; `pytest_plugin` (`agentkit_eval` marker) | core, config |
 | `apps/research_agent` | The sample deep-research agent and its CLIs | `agent.yaml`, `flows/research_with_review.yaml`, `cli.py` (`research`), `eval_cli.py` (`research-eval`), `persist.py`, `telemetry.py`, `progress.py`, `flow_nodes.py`, `evals/smoke.jsonl` | all eight packages |
-| `libraries/` | Shared file-based pools | `prompts/research/orchestrator.md`, `prompts/research/researcher.md`, `subagents/researcher.yaml` (no skills ship yet) | n/a |
+| `apps/kb_agent` | The pilot knowledge-base agent (YAML only, no Python package) | `agent.yaml`, `evals/golden.jsonl`, `evals/gates.yaml`, `evals/baseline.json` | connectors (through the tool pool) |
+| `libraries/` | Shared file-based pools | `prompts/<name>/v<x.y.z>.md` (research orchestrator and researcher, kb answerer), `prompts/labels.yaml`, `connectors/kb-docs.yaml`, `connectors/kb-sql.yaml`, `subagents/researcher.yaml` (no skills ship yet) | n/a |
 | `contracts/` | Upstream contract suite | `test_deepagents_contract.py`, `test_langchain_contract.py`, `test_langgraph_contract.py`, `test_postgres_contract.py` | n/a |
 | `deploy/` | Dev stack and per-tenant stamp | `compose.dev.yaml`, `compose.yaml`, `otel-collector.dev.yaml`, `otel-collector.yaml`, `tenants/example.env`, `README.md` | n/a |
 | `scripts/` | Operations and smoke runs | `stamp_tenant.sh`, `tenant_env.sh`, `tenant_setup.py`, `phase0_exit.sh`, `smoke.py` | n/a |
@@ -397,6 +399,29 @@ usual library roots. Invoke it with `context=PlatformContext(...)`; resume an in
 `apps/research_agent/tests/test_review_flow.py` only. `load_flow` takes a `checkpointer` but no
 `Persistence`, so agent nodes in a flow do not get memory tiers.
 
+### 3.7 The prompt registry
+
+Prompts live under the library roots' `prompts/` directory (`libraries/prompts/` for the shipped
+agents), owned by `agentkit_config.pools.prompts.PromptRegistry`.
+
+- **Layout.** A versioned prompt is a directory of files `prompts/<name>/v<MAJOR.MINOR.PATCH>.md`, each
+  with front matter (`owner`, `description`, optional `eval_suite`). A flat `prompts/<name>.md` is an
+  unversioned prompt with version `0.0.0`. One name cannot have both forms.
+- **References** (the `prompt:` field of an agent or subagent): `name` (highest version), `name@1`
+  (highest `1.x.y`), `name@1.2.0` (exact), `name@<label>` (from `prompts/labels.yaml`, for example
+  `research/orchestrator: {production: 1.0.0}`). An unknown version or label is a `SpecError` that
+  lists the versions that exist. A bare name such as `prompt: research/orchestrator` keeps working.
+- **Fragments.** `{{> other/name}}` includes another prompt (its highest version), at most 5 levels deep
+  (`MAX_FRAGMENT_DEPTH`). A cycle, a missing fragment or a deeper chain is a `SpecError` at validate time,
+  never a `RecursionError` at run time.
+- **Variables.** Only `{{agent_name}}` and `{{date}}` are substituted (no Jinja), as before.
+- **Prompt id.** The resolved prompt's `name@version` travels from `build_deep_agent` to
+  `run_config(prompt_id=...)`, so traces and checkpoint metadata record which prompt version ran next to
+  the prompt hash.
+
+The shipped prompts are `research/orchestrator`, `research/researcher` and `kb/answerer`, each at
+`v1.0.0` with a `production` label. Langfuse prompt sync is a Phase 2 item.
+
 ---
 
 ## 4. The factory: `build_deep_agent`
@@ -568,8 +593,8 @@ which tools to use and when. A minimum-tools guard is not implemented (candidate
 
 ## 6. Tools
 
-Both shipped tools are read-only. Errors are returned to the model as text starting with `ERROR:`, so
-the agent can recover instead of crashing.
+The two web tools below and the two knowledge-base tools (section 6.2) are read-only. Errors are
+returned to the model as text starting with `ERROR:`, so the agent can recover instead of crashing.
 
 | Tool | Factory | Params | Behaviour |
 |---|---|---|---|
@@ -603,6 +628,9 @@ Subagent tools replace the parent's, so set the backend on each subagent too.
 
    `BuildContext` carries `settings`, the resolved `model` (`ModelSpec`), `agent_name`, and
    `platform` (always `None` today; reserved).
+   Decorate it with `@platform_tool(owner=..., version="1.0.0", side_effects="read")` (section 6.1)
+   and run `make tool-schemas` to record its argument schema; a factory without metadata loads with a
+   warning.
 2. Register it in your package's `pyproject.toml`:
 
    ```toml
@@ -612,6 +640,102 @@ Subagent tools replace the parent's, so set the backend on each subagent too.
 
 3. Name it in YAML: `tools: [my_tool]` or `tools: [{my_tool: {limit: 5}}]`. Params are checked against
    the factory signature at load time.
+
+### 6.1 Tool governance: `@platform_tool` and tenant policy
+
+Every pool tool factory carries governance metadata, attached with
+`agentkit_tools.platform_tool(...)` (a `ToolMeta`):
+
+| Field | Meaning |
+|---|---|
+| `owner` | owning team |
+| `version` | `MAJOR.MINOR.PATCH`; the major version must change when the tool's argument schema changes |
+| `tenants` | tenants allowed to use the tool; `None` (the default) means every tenant |
+| `side_effects` | `read`, `write` or `external` |
+| `identity` | `service` (default) or `user` |
+| `classification` | `public`, `internal` (default) or `confidential` |
+| `examples` | optional example calls |
+
+The decorator goes on the *factory*, not the built tool, so `agentkit validate` can check policy without
+building tools or needing keys. `resolve` copies the metadata onto `tool.metadata["agentkit"]` at build.
+`check_tool_contract(tool)` lists what a built tool lacks (a description, typed arguments, no runtime
+identity arguments such as `tenant` or `user_id`).
+
+- **Tenant policy.** An agent or subagent that names a tool whose `tenants` excludes the deployment
+  tenant (`AGENTKIT_TENANT`, default `default`) fails `agentkit validate` and `load_agent` with a
+  `SpecError` at `tools[N]` naming the tool and the tenant, before any key check. Policy is checked at
+  build and validate time, not per call: one deployment serves one tenant and `TenantGuardMiddleware`
+  rejects every other tenant's run. A factory without metadata loads with a warning.
+- **Recorded, not enforced yet.** `side_effects`, `identity` and `classification` are listed but not
+  enforced; no shipped tool writes. HITL for `side_effects: write` is a Phase 2 item.
+- **`agentkit tools list [--tenant T]`** prints one line per tool the tenant may use:
+  `name version side_effects classification owner tenants` (`*` = every tenant).
+- **`agentkit tools snapshot [--check] [--file PATH]`** (`make tool-schemas`) writes or checks
+  `packages/agentkit-tools/tool_schemas.json`, `{name: {version, schema}}`. A test fails when a tool's
+  argument schema changes without a major version bump.
+
+The shipped tools:
+
+```text
+$ uv run --no-sync agentkit tools list
+fetch_url 1.0.0 external public platform *
+kb_search 1.0.0 read internal platform *
+sql_query 1.0.0 read confidential platform *
+web_search 1.0.0 external public platform *
+```
+
+`web_search` and `fetch_url` have pydantic argument schemas (`query`, `k` 1-10, default 5; `url`) and
+descriptions that say when to use the tool and when not to.
+
+### 6.2 Connectors and the curated knowledge-base tools
+
+`packages/agentkit-connectors` owns data-source access. Agents never get a raw SQL toolkit or a
+connection; they reach Postgres only through two curated tools.
+
+- **Connector specs** are YAML files `libraries/connectors/<name>.yaml`, a union on `kind`:
+  `pgvector` (`dsn`, `collection`, `embeddings`) and `postgres` (`dsn`, `schemas`, plus limits such as
+  `max_rows` and the statement timeout). `load_connector` takes the first match over the library roots;
+  an unknown name is a `ConfigError` that lists the known ones.
+- **Secrets.** `dsn` is a secret reference. Only `env://VAR` is implemented (`EnvSecrets`, behind a
+  `SecretsProvider` protocol so Vault or a cloud secret manager can be added later). An unset variable is
+  a `ConfigError` naming the variable, never its value.
+- **Embeddings** are a new `embeddings:` section in `models.yaml` (`fireworks-nomic`,
+  `nomic-ai/nomic-embed-text-v1.5`, 768 dimensions; `openai-small`, `text-embedding-3-small`, 1536),
+  built by `get_embeddings(entry, settings)`.
+- **Engines.** One pooled `PGEngine` per DSN per process (`get_engine`; `postgresql://` is rewritten to
+  `postgresql+asyncpg://`).
+
+| Tool | Connector | Metadata | Behaviour |
+|---|---|---|---|
+| `kb_search(query, k=None)` | `pgvector` | `1.0.0`, read, internal | Similarity search over the collection (`k` 1-10, default the factory's `k`, 5). Each hit renders as `[n] title`, `source_url`, chunk. The vector store is opened on the first call, so building an agent never touches the database. A missing table or an embedding-dimension mismatch returns `ERROR: ...`. |
+| `sql_query(sql)` | `postgres` | `1.0.0`, read, confidential | One read-only statement; returns a Markdown table, `[truncated at N rows]`, `(0 rows)` or `OK (no rows)`. |
+
+`sql_query`'s safety is layered, and the database role is the real wall:
+
+1. On first use it refuses to run (`ERROR: sql_query connector must log in as a read-only role ...`)
+   when the login is a superuser, bypasses RLS, is a member of a role that does, is in one of the
+   `pg_read_server_files`-style built-in roles, or can CREATE in a configured schema.
+2. Anything after a `;` is refused (one statement only, conservatively, even inside a literal).
+3. Each call runs in a `READ ONLY` transaction with `SET LOCAL statement_timeout` and `search_path` set to
+   the connector's `schemas`, through asyncpg `prepare` (one command), fetching at most `max_rows + 1`
+   rows, then rolls back. A statement that ends the transaction is refused.
+4. Cells are capped at 2,000 characters, column names at 200, the whole output at 50,000. Server error
+   text is shown only when it carries a SQLSTATE, so it cannot leak a DSN.
+
+**`agentkit-kb`** sets a knowledge base up and fills it (details: `deploy/README.md`):
+
+- `agentkit-kb setup --connector <pgvector connector> --reader-password-env VAR` (admin DSN) creates
+  schema `kb` and role `kb_reader` (LOGIN, no superuser, createdb, createrole, replication or bypassrls,
+  `default_transaction_read_only=on`, USAGE and SELECT on `kb` including future tables). The password is
+  read from `VAR` and sent as a SCRAM verifier.
+- `agentkit-kb ingest --connector <c> FILE... --source-base URL` (same admin DSN) splits Markdown on
+  headings and then into ~1,500-character chunks and upserts them with `{title, source_url}`;
+  re-ingesting a file replaces its chunks. `make kb-ingest KB_ADMIN_DATABASE_URL=...` ingests the kb
+  pilot's corpus (README, `docs/architecture.md`, `docs/phase*-results.md`).
+
+At agent run time both connectors log in as `kb_reader`: `KB_DATABASE_URL` (kb_search) and
+`KB_READER_DATABASE_URL` (sql_query) are both kb_reader DSNs. The admin DSN is used only by `setup` and
+`ingest`.
 
 ---
 
@@ -1093,6 +1217,10 @@ Deployment-only (compose and scripts): `AGENTKIT_PG_PORT`, `AGENTKIT_OTLP_PORT`,
 `STAMP_OTLP_PORT` (`stamp_tenant.sh`); `AGENTKIT_OTEL_OUT`, `AGENTKIT_OTLP_HTTP_PORT`,
 `AGENTKIT_OTLP_GRPC_PORT` (`compose.dev.yaml`).
 
+Connectors (section 6.2): `KB_DATABASE_URL` (`kb-docs`, kb_search) and `KB_READER_DATABASE_URL`
+(`kb-sql`, sql_query), both the kb_reader DSN at run time; `KB_ADMIN_DATABASE_URL` (`make kb-ingest`
+only); the `--reader-password-env` variable of `agentkit-kb setup` (`KB_READER_PASSWORD` in the docs).
+
 Keep `AGENTKIT_TENANT`, `DATABASE_URL` and `LANGGRAPH_AES_KEY` commented out in `.env` when using
 stamps; see `.env.example`.
 
@@ -1135,6 +1263,17 @@ its report.
 offline. Exit 0 when there are no errors (warnings allowed), 1 on errors, 2 on bad usage. Unmatched
 shell globs are skipped.
 
+`agentkit tools list [--tenant T]` and `agentkit tools snapshot [--check] [--file PATH]`: the governed
+tool listing and the tool schema snapshot (section 6.1). `snapshot --check` exits 1 when a schema
+differs from `tool_schemas.json`.
+
+`agentkit-kb setup --connector C --reader-password-env VAR` and `agentkit-kb ingest --connector C FILE...
+--source-base URL`: knowledge-base schema, read-only role and Markdown ingest (section 6.2).
+
+`research-eval` also takes `--case ID` / `--tag TAG` (repeatable subsets, not with `--gate`),
+`--concurrency N` (default 6), `--gate PATH` and `--write-baseline` (section 14.5). The pytest plugin
+adds `--agentkit-live` and `--agentkit-model ENTRY` (section 14.8).
+
 `agentkit-prune --older-than AGE`: `AGE` is `<n>d`, `<n>h` or `<n>m`. Needs `DATABASE_URL` and
 `LANGGRAPH_AES_KEY`. Exit 0 with `pruned N threads`, 2 on bad input or configuration.
 
@@ -1168,6 +1307,8 @@ Exit codes: 0 ok, 1 refused (`TenantMismatch`), 2 bad context or persistence con
 | `make unstamp TENANT=<t>` | `docker compose -p agentkit-<t> -f deploy/compose.yaml down -v` |
 | `make contract TENANT=<t>` | `pytest contracts` with `AGENTKIT_TEST_DATABASE_URL` set to the tenant's `DATABASE_URL` |
 | `make phase0-exit` | sync, then `scripts/phase0_exit.sh` |
+| `make tool-schemas` | sync, then `agentkit tools snapshot` (rewrite `tool_schemas.json`) |
+| `make kb-ingest KB_ADMIN_DATABASE_URL=<dsn>` | sync, then `agentkit-kb ingest --connector kb-docs` on README, `docs/architecture.md` and `docs/phase*-results.md` with GitHub source URLs |
 
 ---
 
@@ -1364,11 +1505,13 @@ uv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/g
   --judge anthropic --gate apps/research_agent/evals/gates.yaml [--write-baseline] --out <file.md>
 ```
 
-The committed baseline (`evals/baseline.json`, recorded 2026-11-02 on the final Phase 1 agent, with the
-`## Sources` prompt and `require_output`, 25/25 cases, agent `accounts/fireworks/models/glm-5p3-flash`,
-judge `claude-opus-5-5`): citation validity 0.96, completeness 0.97, groundedness 0.68, has_citation
-1.00, source_count_ok 1.00, sources_section 1.00, tool_recall 1.00, mean latency 102 s, mean 223k total
-tokens per case. Means move a few points between runs, so read these as one sample. A run with a weakened prompt
+The committed baseline (`evals/baseline.json`, re-recorded 2026-11-02 after the Phase 1 tool-description
+change, 25/25 cases, agent `accounts/fireworks/models/glm-5p3-flash`, judge `claude-opus-5-5`): citation
+validity 0.96, completeness 0.98, groundedness 0.62, has_citation 1.00, source_count_ok 1.00,
+sources_section 1.00, tool_recall 1.00, mean latency 90 s, mean 297k total tokens per case. The previous
+baseline (223k tokens) failed only `mean_total_tokens` (+32.7%), traced to a few outlier cases, not the
+tool descriptions (`docs/phase1b-results.md`). Means move a few points between runs, so read these as one
+sample. A run with a weakened prompt
 (no citations) fails the gate with exit 1 on six metrics. Details, the four failed recording attempts
 and the fixes they led to: `docs/phase1-results.md`. The Phase 0 `smoke.jsonl` baseline was completed
 1.00, citation validity 0.96, completeness 0.97, groundedness 0.64.
@@ -1388,6 +1531,95 @@ from research_agent.flow_nodes import REVIEW_FLOW
 
 flow = load_flow(REVIEW_FLOW, settings=Settings(), checkpointer=InMemorySaver())
 ```
+
+### 14.7 Single-step evals
+
+A single-step case checks one decision instead of a whole run: given a conversation, is the agent's
+next tool call the right one? `agentkit_evals.single_step` streams the agent (`stream_mode="updates"`,
+subgraphs on) and stops at the first top-level model reply. No tool executes and no checkpointer is
+needed, so a case costs one model call.
+
+```json
+{"id": "first-factual", "question": "What is the Model Context Protocol and what problem does it solve?",
+ "kind": "single_step", "tags": ["step", "first"],
+ "expect_call": {"name": "^(write_todos|web_search|task)$", "args": {}}}
+```
+
+- `kind: single_step` needs `expect_call`: `name` is a regex on the tool name, `args` maps argument names
+  to regexes (`re.search`). A non-empty `messages` list is the whole conversation (for example a tool
+  turn followed by its result, to set up a later decision); otherwise `question` is the user turn.
+- **`step_pass`** is 1 when any of the reply's (possibly parallel) tool calls matches name and args. A
+  text-only reply scores 0 with reason `no tool call`; a miss gives `called <names>, expected <regex>`
+  or `<name> called with args not matching ...`. Reasons show in the Markdown table's error column.
+  Subagent replies (non-empty namespaces) are ignored. Nudging middleware cannot grant a second try:
+  the first top-level reply is the one scored.
+- **`tool_call_ratio`** (full cases with `ideal_tool_calls`): tool calls made / ideal, for spotting
+  runs that loop.
+- Datasets can mix full and single-step cases; the aggregate averages each metric over the cases that
+  have it. Single-step cases skip the judge and the citation metrics and record no latency.
+
+`apps/research_agent/evals/steps.jsonl` holds 12 cases (first move on four question shapes, the step
+after a plan, fetching an official or primary source, searching again after a dead link, writing
+after enough sources or on a call limit, a cited report, a follow-up that needs new facts). Its gate is
+`gates_steps.yaml` (`step_pass` min 0.80, `completed` min 1.0, `min_cases` 12) against
+`baseline_steps.json`:
+
+```bash
+uv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/steps.jsonl \
+  --judge anthropic --gate apps/research_agent/evals/gates_steps.yaml
+```
+
+### 14.8 The pytest plugin
+
+`agentkit-evals` ships a pytest plugin (`pytest11` entry point `agentkit`), so a team can keep agent
+evals next to its unit tests:
+
+```python
+import pytest
+from agentkit_evals.pytest_plugin import assert_case
+
+@pytest.mark.agentkit_eval(dataset="../evals/steps.jsonl", agent="../agent.yaml", kind="single_step")
+def test_first_step(case, agentkit_run):
+    assert_case(agentkit_run(case), step_pass=1.0)
+```
+
+- One test per dataset line, with the case id as the test id. `kind` on the marker overrides each
+  line's own kind; without it each line keeps its kind. Paths resolve as absolute, then relative to the
+  test file, then to the rootdir.
+- Every marked test is skipped unless `--agentkit-live` is given (`live eval; pass --agentkit-live`),
+  because it calls a real model. `--agentkit-model` picks the registry entry (default `fireworks-glm`).
+- `agentkit_run(case)` loads the agent without persistence, runs the case under the deployment tenant
+  as a fresh `eval-<hex>` user, and scores it with the same metrics as `research-eval` (full cases use
+  the `anthropic` strong-tier judge and collect tool output from subagents too). It is synchronous, so
+  it also works in async tests.
+- `assert_case(result, **floors)` fails with the case id, its scores and the reason or error.
+- The repo's root `conftest.py` gives `live` and `agentkit_eval` tests the real `.env` (the API keys);
+  all other tests run without it.
+
+```bash
+uv run --no-sync pytest apps/research_agent/tests/test_eval_steps.py --agentkit-live
+```
+
+No VCR cassettes (recorded LLM calls risk leaking keys in a public repo), judge caching or judge
+calibration yet.
+
+### 14.9 The knowledge-base pilot (`apps/kb_agent`)
+
+The second agent proves the platform beyond web research. `apps/kb_agent/agent.yaml` answers questions
+from this repo's own docs, ingested into a tenant's Postgres:
+
+- `prompt: kb/answerer` (answer only from `kb_search` results, cite `[n]`, end with `## Sources`);
+  tools `kb_search` (connector `kb-docs`) and `sql_query` (connector `kb-sql`); output `/report.md`.
+- The research middleware stack minus selection: fallback to `fireworks-glm:strong`, retry, 30 model
+  calls, `kb_search` at most 15 calls and `sql_query` 5 per run, PII (email redacted, credit cards
+  masked), `require_output`.
+- Each chunk carries its document's public GitHub URL as `source_url`, so the citation metrics work
+  unchanged. It runs through `research-eval --agent apps/kb_agent/agent.yaml`.
+
+`apps/kb_agent/evals/golden.jsonl` has 20 cases (definitions, configuration, how-tos, operations), each
+with 2-3 `must_cover` points taken from the ingested docs and `expect_tools: [kb_search]`. Its gate is
+`apps/kb_agent/evals/gates.yaml` against `baseline.json`; the recorded scores and floors are in
+`docs/phase1b-results.md`. Quickstart: README ("Knowledge-base agent").
 
 ---
 
@@ -1424,7 +1656,9 @@ agent, flow and subagent. When you rely on a new upstream behaviour, pin it with
 - **At rest:** AES encryption of checkpoint blobs and writes and of store values (section 9.5).
 - **In traces:** prompt, completion and error text masked by default (section 10.2).
 - **Tools:** read-only; `fetch_url` blocks non-http(s) schemes, `localhost`, `.internal` hosts and
-  non-global IP literals, and caps size.
+  non-global IP literals, and caps size. Each tool carries `@platform_tool` metadata; a tool not allowed
+  for the deployment tenant fails validate and load (section 6.1). `sql_query` runs one statement in a
+  rolled-back read-only transaction as `kb_reader` and refuses a privileged login (section 6.2).
 - **Secrets:** only in `.env` (git-ignored) and `deploy/tenants/<t>.env` (git-ignored, mode 600). The
   CLIs log key names, never values. `.env` and the root `report.md` are never committed.
 
@@ -1445,8 +1679,11 @@ agent, flow and subagent. When you rely on a new upstream behaviour, pin it with
 | Fallback needs a Fireworks key | The shipped research agent's `model_fallback` target (`fireworks-glm:strong`) is built at load, so `FIREWORKS_API_KEY` is required for every `--model`, not only Fireworks entries. Drop the `model_fallback` entry (or point it at the run's own provider) to run without it. |
 | Fallback hides the primary's failure | When the primary model fails, the fallback answers silently: the CLI's model line still names the primary, and only the ledger row's `model` (every model id the run called, comma-joined) shows the switch. |
 | Eval gate scope | The gate compares means over one live run; a single golden run has run-to-run noise (DuckDuckGo results, model sampling), so floors and `max_drop` are set loosely (`docs/phase1-results.md`). The judge is one model (`anthropic`, strong tier); judges are not calibrated yet (Phase 2). The gate checks only after all cases ran, so a mismatched run still costs its cases. |
-| Phase 1 still open | No pytest plugin for evals, no single-step (node-level) evals, no connectors, no git prompt registry, no `@platform_tool` decorator. |
-| Not built yet | No hosted server (FastAPI or Agent Server), no authentication or identity (OAuth, on-behalf-of), no channels (Slack), no sandboxed code execution or secret proxy, no scheduler, no MCP gateway, no connectors, no layered or tenant-filtered pools, no online evals. |
+| Tool governance recorded, not enforced | `side_effects`, `identity` and `classification` are listed by `agentkit tools list` but not enforced; tenant policy is checked at build and validate time only (section 6.1). HITL for write tools is Phase 2. |
+| Secrets providers | Connector secrets resolve only `env://VAR`; Vault and cloud secret managers are Phase 2. Only pgvector and Postgres connectors exist (no Qdrant, Weaviate or Pinecone). |
+| `sql_query` one-statement check | Any `;` other than one trailing is refused, even inside a string literal (conservative). The `kb_reader` role is the real wall; never point `KB_READER_DATABASE_URL` at an admin login (it is refused on first use). |
+| Single-step and gate sampling | Live eval cases are single samples (no pass^k): two single-step cases failed in the recorded baseline and passed in the plugin run minutes later; `mean_total_tokens` is heavy-tailed (`docs/phase1b-results.md`). No VCR replay, judge caching or judge calibration yet. |
+| Not built yet | No hosted server (FastAPI or Agent Server), no authentication or identity (OAuth, on-behalf-of), no channels (Slack), no sandboxed code execution or secret proxy, no scheduler, no MCP gateway, no Langfuse prompt sync, no layered or tenant-filtered pools, no online evals. |
 
 ---
 
@@ -1458,25 +1695,29 @@ foundations to ambient agents"):
 | Phase | Theme |
 |---|---|
 | 0 | Foundations (done: this document) |
-| 1 | (partly done: middleware stack, golden set and eval gates) Factory v0 with a fixed middleware order and memory tiers; tools registry; connectors; git prompt registry; eval core with trajectory metrics |
+| 1 | (done) Factory v0 with a fixed middleware order and memory tiers; tools registry (`@platform_tool`, tenant policy); connectors; git prompt registry; eval core with trajectory and single-step metrics, gates and a pytest plugin; KB pilot |
 | 2 | Libraries: MCP gateway, skills library with CI, subagent specs with mandatory response schemas, a LangGraph builder, calibrated judges |
 | 3 | Tool surface (`ToolSurfaceMiddleware`) and repo uplift; architecture A/B tooling |
 | 4 | Company-harness glue: Slack adapter, OAuth vault and on-behalf-of policy, sandbox and egress secret proxy, scheduler, async subagents |
 | 5 | Online evals and platform 1.0 |
 
-Phase 1 so far delivered the standard middleware stack (section 3.1, section 4) and the golden-set
-regression gate (section 14.5); results in `docs/phase1-results.md`.
+Phase 1 delivered the standard middleware stack (section 3.1, section 4) and the golden-set regression
+gate (section 14.5; `docs/phase1-results.md`), then tool governance (6.1), the prompt registry (3.7),
+connectors and the curated KB tools (6.2), single-step evals and the pytest plugin (14.7, 14.8), and the
+knowledge-base pilot gated by its own golden set (14.9; `docs/phase1b-results.md`).
 
 Documents:
 
 - Results and evidence: `docs/phase0-results.md` (T9 live results, Decisions risk, eval scores, Phase 0b
-  close-out), `evidence/`.
+  close-out), `docs/phase1-results.md`, `docs/phase1b-results.md`, `evidence/`.
 - Specs: `docs/superpowers/specs/2026-11-01-agentkit-phase0-design.md`,
   `docs/superpowers/specs/2026-11-01-agentkit-declarative-agents-design.md`.
 - Plans: `docs/superpowers/plans/2026-11-01-agentkit-phase0-plan.md`,
   `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md`,
   `docs/superpowers/plans/2026-11-02-agentkit-phase0b-execution.md`,
-  `docs/superpowers/plans/2026-11-02-agentkit-declarative-agents-plan.md`.
+  `docs/superpowers/plans/2026-11-02-agentkit-declarative-agents-plan.md`,
+  `docs/superpowers/plans/2026-11-02-agentkit-phase1-plan.md`,
+  `docs/superpowers/plans/2026-11-02-agentkit-phase1-rest-plan.md`.
 - Decisions API schema: `docs/reference/openai-decisions-api.md`.
 - Operations: `deploy/README.md`; persistence details: `packages/agentkit-persistence/README.md`.
 - Research: `reports/Reusable agent platform components.md` and `research_notes/`.

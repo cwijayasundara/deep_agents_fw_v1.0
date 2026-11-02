@@ -13,15 +13,20 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   tiers, telemetry + cost ledger, per-tenant stamps): `docs/superpowers/plans/2026-11-01-agentkit-phase0b-plan.md`.
   Delivered and live-verified (2026-11-02; `docs/phase0-results.md`). **Phase 0 is complete.** Per-tenant
   stamps: `make stamp TENANT=<t>` (`deploy/README.md`).
-- **Phase 1: partly done** (merged to main 2026-11-02; plan
-  `docs/superpowers/plans/2026-11-02-agentkit-phase1-plan.md`, results `docs/phase1-results.md`): middleware
-  stack (fallback, retry, call limits, PII, canonical order) and eval gates (golden set, trajectory/source
-  metrics, `research-eval --gate/--write-baseline` against `apps/research_agent/evals/baseline.json`).
-  Still open from the roadmap's Phase 1: pytest plugin, single-step evals, connectors, prompt registry,
-  `@platform_tool`. The shipped research agent needs `FIREWORKS_API_KEY` for any `--model` (fallback).
+- **Phase 1: complete** (branch `phase1-rest`). Part 1 (plan `docs/superpowers/plans/2026-11-02-agentkit-phase1-plan.md`,
+  results `docs/phase1-results.md`): middleware stack (fallback, retry, call limits, PII, canonical order) and eval
+  gates. Part 2 (plan `docs/superpowers/plans/2026-11-02-agentkit-phase1-rest-plan.md`, results
+  `docs/phase1b-results.md`): `@platform_tool` + tenant tool policy (`agentkit tools list|snapshot`), versioned
+  prompt registry (`libraries/prompts/<name>/v<x.y.z>.md`, `labels.yaml`), `agentkit-connectors`
+  (`kb_search`, `sql_query`, `agentkit-kb setup|ingest`), single-step evals (`steps.jsonl`, `baseline_steps.json`),
+  the pytest plugin (`--agentkit-live`), and the KB pilot `apps/kb_agent` (20-case gate passes; baseline
+  `apps/kb_agent/evals/baseline.json`). Research golden baseline re-recorded 2026-11-02 (token variance).
+  KB runs: both `KB_DATABASE_URL` and `KB_READER_DATABASE_URL` are kb_reader DSNs; admin DSN only for setup/ingest.
+  The shipped research agent needs `FIREWORKS_API_KEY` for any `--model` (fallback).
   Open items: P10 thread-to-user binding, P3 primitive state plaintext, AES key rotation/backup;
   `eval-<hex>` users' store items are never pruned (prune deletes threads only); prune needs a
-  tenant filter if DBs are ever shared.
+  tenant filter if DBs are ever shared; tool side effects recorded not enforced (HITL is Phase 2); only `env://`
+  secrets. Next: Phase 2 (roadmap in `reports/Reusable agent platform components.md`).
 - Web search defaults to DuckDuckGo (no key); Tavily is opt-in via `web_search: {backend: tavily}`.
 - Providers to support: OpenAI, Gemini, Anthropic, Fireworks (deepseek-v4p1-flash-1017,
   glm-5p3-flash, minimax-m3p1-flash). Model/tool selection via OpenAI Decisions API (`gpt-6-luna`).

@@ -137,12 +137,14 @@ A model whose keys are missing is skipped. Record each result in `docs/phase0-re
 | `packages/agentkit-config` | declarative layer: `load_agent`, pools, `Library`, validation, flows (`load_flow`), `agentkit validate` |
 | `packages/agentkit-deep` | `build_deep_agent` factory, skills mount, memory tiers, scripted test models |
 | `packages/agentkit-middleware` | `TenantGuardMiddleware`, per-thread `SelectionMiddleware` + Decisions client, retry and circuit breaker |
-| `packages/agentkit-tools` | `web_search` (DuckDuckGo default, Tavily optional) and `fetch_url` tool factories |
+| `packages/agentkit-tools` | `web_search` (DuckDuckGo default, Tavily optional) and `fetch_url` tool factories, `@platform_tool`, `tool_schemas.json` |
+| `packages/agentkit-connectors` | connector specs (`env://` secrets), embeddings, pooled engines, `kb_search` / `sql_query`, `agentkit-kb` |
 | `packages/agentkit-persistence` | encrypted Postgres checkpoints and store (`open_persistence`), `thread_lock`, `agentkit-prune` |
 | `packages/agentkit-telemetry` | tenant-tagged OTel tracing with masking, `run_config`, `CostLedger` (`agentkit_usage`) |
-| `packages/agentkit-evals` | dataset, citation metrics, openevals LLM judge, runner |
+| `packages/agentkit-evals` | dataset, citation metrics, openevals LLM judge, runner, gates, single-step evals, pytest plugin |
 | `apps/research_agent` | `agent.yaml`, `research` and `research-eval` CLIs, the `research_with_review` flow |
-| `libraries/` | shared prompts and subagents (skills go in `libraries/skills/`) |
+| `apps/kb_agent` | pilot knowledge-base agent (`agent.yaml`) and its 20-case golden set |
+| `libraries/` | versioned prompts (`prompts/<name>/v<x.y.z>.md`, `labels.yaml`), connectors, subagents (skills go in `libraries/skills/`) |
 | `contracts/` | upstream contract suite (`-m contract`, `-m pg`) |
 | `deploy/` | dev Postgres + collector (`compose.dev.yaml`), per-tenant stamp (`compose.yaml`, `tenants/`) |
 | `scripts/` | tenant stamp and env helpers, Phase 0 exit check, offline `smoke.py` |
@@ -163,6 +165,51 @@ make unstamp TENANT=tenant-a      # stop it and delete its database (keeps the e
 Langfuse forwarding and what stays plaintext at rest: `deploy/README.md` and `docs/architecture.md`
 sections 9 to 11.
 
+## Knowledge-base agent
+
+`apps/kb_agent` answers questions from this repo's docs, stored in a tenant's Postgres (pgvector), with
+cited answers. It reaches the data only through `kb_search` and the read-only `sql_query`. Needs
+`FIREWORKS_API_KEY` (agent and `fireworks-nomic` embeddings); details in `deploy/README.md`.
+
+```bash
+make stamp TENANT=kb-demo
+export KB_READER_PASSWORD=...     # pick one; read from this variable, never printed
+# once: schema kb and the read-only role kb_reader, then ingest README + docs (admin DSN only here)
+scripts/tenant_env.sh kb-demo sh -c 'KB_DATABASE_URL="$DATABASE_URL" uv run agentkit-kb setup \
+	--connector kb-docs --reader-password-env KB_READER_PASSWORD'
+scripts/tenant_env.sh kb-demo sh -c 'make kb-ingest KB_ADMIN_DATABASE_URL="$DATABASE_URL"'
+# agent runs: both connectors log in as kb_reader (port: the stamp's Postgres port)
+export KB_READER_DATABASE_URL="postgresql://kb_reader:$KB_READER_PASSWORD@127.0.0.1:<pg port>/agentkit"
+export KB_DATABASE_URL="$KB_READER_DATABASE_URL"
+scripts/tenant_env.sh kb-demo uv run research "How do I give a tenant its own deployment?" \
+	--agent apps/kb_agent/agent.yaml --model fireworks-glm --tenant kb-demo --out kb_report.md
+# its golden gate (20 cases)
+scripts/tenant_env.sh kb-demo uv run research-eval --agent apps/kb_agent/agent.yaml --model fireworks-glm \
+	--tenant kb-demo --dataset apps/kb_agent/evals/golden.jsonl --judge anthropic \
+	--gate apps/kb_agent/evals/gates.yaml --out kb_eval.md
+make unstamp TENANT=kb-demo
+```
+
+## Tools, prompts and agent evals
+
+```bash
+uv run agentkit tools list [--tenant T]          # name version side_effects classification owner tenants
+uv run agentkit tools snapshot --check           # tool argument schemas vs tool_schemas.json (make tool-schemas writes it)
+uv run agentkit-kb setup|ingest --help           # knowledge-base schema, read-only role, Markdown ingest
+uv run pytest apps/research_agent/tests/test_eval_steps.py --agentkit-live   # dataset-driven evals in pytest
+```
+
+- Every pool tool carries `@platform_tool` metadata (owner, version, tenants, side effects,
+  classification). An agent that names a tool not allowed for the deployment tenant fails
+  `agentkit validate` and load.
+- Prompts are versioned files (`libraries/prompts/<name>/v1.0.0.md`) referenced as `name`, `name@1`,
+  `name@1.0.0` or `name@production` (`labels.yaml`), with `{{> other/prompt}}` fragments.
+- Single-step evals score the agent's next tool call (`kind: single_step` cases,
+  `apps/research_agent/evals/steps.jsonl`). The pytest plugin's `agentkit_eval` tests are skipped
+  unless `--agentkit-live` is given.
+
+Reference: `docs/architecture.md` sections 3.7, 6.1, 6.2 and 14.7 to 14.9.
+
 ## Extending
 
 Add tools and middleware as entry-point factories `(ctx: BuildContext, **params)`, prompts and subagents
@@ -182,8 +229,11 @@ backup, never-pruned store items of `eval-<hex>` users, and a prune tenant filte
 database (`docs/architecture.md` section 16). Verify changes end to end with the `verify-agentkit` skill
 (`.claude/skills/verify-agentkit/`).
 
-Phase 1 is partly done (`docs/phase1-results.md`): the standard middleware stack (fallback, retry, call and
-tool budgets, PII, `require_output`) and eval gates. Gate a change against the committed golden baseline:
+Phase 1 is complete (`docs/phase1-results.md`, `docs/phase1b-results.md`): the standard middleware
+stack (fallback, retry, call and tool budgets, PII, `require_output`), eval gates, `@platform_tool` and
+tenant tool policy, the versioned prompt registry, connectors with `kb_search` / `sql_query`, single-step
+evals, the pytest plugin, and the knowledge-base pilot, whose 20-case gate passes. Gate a change against
+the committed golden baseline:
 
 ```bash
 uv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/golden.jsonl \
@@ -192,8 +242,9 @@ uv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/g
 
 Exit 0 is `gate: PASS`, 1 a regression (`gate: FAIL <metric>: ...` on stderr), 2 a missing, unreadable or mismatched baseline. It
 runs 25 cases, 6 at a time by default (`--concurrency N`). While debugging, run a subset with
-`--case <id>` or `--tag <tag>` (both repeatable; not allowed with `--gate`, which needs the full set). Still open from the roadmap's Phase 1: a pytest plugin, single-step
-evals, connectors, a prompt registry and `@platform_tool`.
+`--case <id>` or `--tag <tag>` (both repeatable; not allowed with `--gate`, which needs the full set).
+The single-step set has its own gate (`--dataset apps/research_agent/evals/steps.jsonl --gate
+apps/research_agent/evals/gates_steps.yaml`), and the kb agent's is in "Knowledge-base agent" above.
 
 Design and plans: `docs/superpowers/specs/` and `docs/superpowers/plans/`; research and roadmap:
 `reports/Reusable agent platform components.md`.

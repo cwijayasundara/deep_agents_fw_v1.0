@@ -1,0 +1,664 @@
+{
+  "agent": "apps/kb_agent/agent.yaml",
+  "overrides": {
+    "model": "fireworks-glm"
+  },
+  "model": "fireworks-glm",
+  "tier": "default",
+  "selection": null,
+  "judge": "anthropic",
+  "model_id": "accounts/fireworks/models/glm-5p3-flash",
+  "judge_model_id": "claude-opus-5-5",
+  "dataset": "apps/kb_agent/evals/golden.jsonl",
+  "persist": false,
+  "aggregate": {
+    "citation_validity": 0.9,
+    "completeness": 0.997,
+    "groundedness": 0.886,
+    "has_citation": 0.9,
+    "source_count_ok": 0.9,
+    "sources_section": 0.9,
+    "tool_recall": 1.0,
+    "mean_latency_s": 11.077117927151267,
+    "mean_total_tokens": 22100.25,
+    "completed": 1.0
+  },
+  "cases": [
+    {
+      "case_id": "what-is-agentkit",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.95,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "c9a55d66-d28e-4568-b958-e844db030343",
+      "trace_id": "df30c2789e04afb57baeb557bbb78315",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 15424,
+        "output_tokens": 1270,
+        "cached_input_tokens": 6144,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 13.064447209006175,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# What is agentkit and what is it built on?\n\n## What agentkit is\n\nagentkit is a **shared, self-hosted, multi-tenant agent platform** for organizations with many product teams, serving several tenants [1][2]. It lets teams build agents the same way without a managed agent runtime [1]. The project describes itself as a **\"thin policy layer over DeepAgents, not a fork\"** [2].\n\nRather than writing code, teams describe an agent declaratively in an `agent.yaml` file, picking a model, prompt, tools, skills, subagents, and middleware by name from shared pools [2]. `agentkit-config` validates every name at load time and resolves the file into kwargs for `build_deep_agent` \u2014 the one place that calls DeepAgents' `create_deep_agent` [2]. The factory always adds the `PlatformContext` schema, puts `TenantGuardMiddleware` first, and wires encrypted Postgres persistence and memory tiers when asked [2]. Each tenant gets its own stamped deployment (database, AES key, collector, ports) [2].\n\nAs of Phase 0 (complete), a deep-research agent built through the factory and defined in YAML runs end to end on any of six registry models, with OpenAI Decisions choosing its tools and model tier. Its threads and memory persist in encrypted Postgres, each run is traced to its tenant and metered, and each tenant gets its own stamped deployment [1].\n\n## What it is built on\n\nagentkit is built on three core frameworks:\n\n- **DeepAgents** (`deepagents==0.7.32`) [1]\n- **LangChain v1** (`langchain==1.4.7`) [1]\n- **LangGraph** (`langgraph==1.2.19`) [1]\n\nThe repository is organized into packages layered on top of that stack [3]:\n\n| Package | Purpose |\n|---|---|\n| `agentkit-core` | `Settings`, model registry (`models.yaml`), `get_model`, `PlatformContext`, `BuildContext` |\n| `agentkit-config` | Declarative layer: `load_agent`, pools, `Library`, validation, flows (`load_flow`), `agentkit validate` |\n| `agentkit-deep` | `build_deep_agent` factory, skills mount, memory tiers, scripted test models |\n| `agentkit-middleware` | `TenantGuardMiddleware`, per-thread `SelectionMiddleware` + Decisions client, retry and circuit breaker |\n| `agentkit-tools` | `web_search` (DuckDuckGo default, Tavily optional) and `fetch_url` tool factories |\n| `agentkit-persistence` | Encrypted Postgres checkpoints and store (`open_persistence`), `thread_lock`, `agentkit-prune` |\n| `agentkit-telemetry` | Tenant-tagged OTel tracing with masking, `run_config`, `CostLedger` (`agentkit_usage`) |\n| `agentkit-evals` | Dataset, citation metrics, openevals LLM judge, runner |\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/README.md\n"
+    },
+    {
+      "case_id": "build-deep-agent",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.92,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "8d88b0f1-5411-4387-8413-a78cf436cf66",
+      "trace_id": "9ca731f8f7c11e2720c87bef11775b11",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 38536,
+        "output_tokens": 2427,
+        "cached_input_tokens": 26768,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 16.31040670897346,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# `build_deep_agent`: what it does and why it's the single entry point\n\n## What it is\n\n`build_deep_agent` is the factory function (in `packages/agentkit-deep/src/agentkit_deep/factory.py`) that turns a set of arguments into a compiled LangGraph agent. Its signature is [1]:\n\n```python\nbuild_deep_agent(\n    *, model, system_prompt, tools=(), subagents=(), middleware=(), settings=None,\n    checkpointer=None, name=None, skills=None, backend=None, permissions=None,\n    store=None, persistence=None,\n) -> compiled graph\n```\n\nIt is the only caller of the DeepAgents SDK function `create_deep_agent` [1]. In practice, teams define an agent declaratively in `agent.yaml` (naming a model, prompt, tools, skills, subagents and middleware from shared pools); `agentkit-config` validates every name at load time and resolves the file into kwargs for `build_deep_agent` [2].\n\n## What it guarantees, whatever the caller passes\n\nBecause every agent in the platform is built through this one function, it can enforce platform-wide policy on every graph it returns. The knowledge base documents these guaranteed behaviors [1][2]:\n\n- **Context schema** \u2014 the factory always attaches the `PlatformContext` schema, so every run is invoked with `context=PlatformContext` [1][2].\n- **Tenant guard first** \u2014 `TenantGuardMiddleware` is always placed first in the middleware stack. In `before_agent` it rejects a run with `MissingPlatformContext` if no `PlatformContext` was supplied, or `TenantMismatch` if the run's tenant differs from the deployment tenant (`AGENTKIT_TENANT`, default `default`) [2].\n- **User-middleware slot** \u2014 caller-supplied middleware goes into the SDK's user-middleware slot, with duplicates dropped (repeats of `call_limit`, repeats of `pii` of the same type, repeats of `tool_call_limit` for the same tool name); an agent without an enabled `call_limit` gets a warning. DeepAgents then wraps its own stack around that slot [1].\n- **Skills pass-through** \u2014 `skills` are skill *sources* (`skills_source(owner)`), passed through with `backend` and `permissions` [1].\n- **Persistence and memory tiers** \u2014 when `persistence` is given, its encrypted `saver` and `store` become the checkpointer and store (passing `checkpointer` or `store` too raises `ValueError`); the backend becomes `memory_backend()` unless the caller passed one built by `memory_backend(...)` (any other backend raises `ValueError`); memory is set to `[\"/org/AGENTS.md\", \"/memories/AGENTS.md\"]`; and `ORG_WRITE_DENY` is prepended to the permissions [1]. The memory backend is one `CompositeBackend` routed by path prefix: `/memories/` (per-user, writable), `/org/` (tenant-wide, writes denied), `/skills/<owner>/` (read-only), and everything else to a thread-scoped `StateBackend` [1].\n- **Prompt hash** \u2014 the returned graph is wrapped as `agent.with_config(metadata={\"prompt_hash\": prompt_hash(system_prompt)})`, so every run and trace inherits the SHA-256 hash of the configured prompt text (it does not cover DeepAgents' base prompt or run-time `AGENTS.md` memory; `agent_prompt_hash(graph)` reads it back, returning `\"\"` for a graph not built by the factory) [1].\n\n## Why it is the single entry point\n\nThe design principle is that agentkit is \"a thin, opinionated policy layer over DeepAgents, not a fork\" [1]. `build_deep_agent` is the one place that calls `deepagents.create_deep_agent`, and it adds all policy \u2014 tenant guard, context schema, memory routes, permissions, prompt hash \u2014 through the SDK's own extension points (`context_schema`, the user-middleware slot, `CompositeBackend` routes and `FilesystemPermission`). No upstream code is patched or vendored [1][2].\n\nConcentrating the `create_deep_agent` call in one factory means no caller can bypass the platform's guarantees: every graph built anywhere in agentkit necessarily has the tenant guard first, the `PlatformContext` schema, correct persistence/memory wiring when persistence is requested, and a traceable prompt hash \u2014 regardless of what the caller passes in [1][2]. This is also why the documentation warns that any code invoking a persistent graph or flow directly must still pre-check the tenant itself (as `require_tenant` does), since the in-graph guard runs only after LangGraph has checkpointed the input [1].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/README.md\n"
+    },
+    {
+      "case_id": "agent-yaml",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.3,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "60b964e7-53df-4931-9d80-97ad0ea7c943",
+      "trace_id": "86f658b0c9cc38870fc355481bc5eb8d",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 29589,
+        "output_tokens": 2741,
+        "cached_input_tokens": 18060,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 16.70266645803349,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# What goes in an `agent.yaml`, and where the names come from\n\nIn agentkit, teams describe an agent in `agent.yaml`, picking a model, prompt, tools, skills, subagents and middleware **by name from shared pools**; `agentkit-config` validates every name at load time and resolves the file into kwargs for `build_deep_agent` [1]. The specs are pydantic models with `extra=\"forbid\"`, so an unknown key is a load error [2].\n\n## What a team can put in `agent.yaml`\n\nThe full field list (with types/defaults) is:\n\n| Field | Type, default | Meaning |\n|---|---|---|\n| `apiVersion` | `\"agentkit/v1\"` (required) | Format version [3] |\n| `kind` | `\"Agent\"` (required) | (Other kinds, `SubAgent` and `Flow`, live in their own files) [2] |\n| `name` | str (required) | Agent name; becomes `PlatformContext.agent_name`, so in practice it must be a valid label [3] |\n| `description` | str, `\"\"` | [3] |\n| `version` | str, `\"0.1.0\"` | Becomes `PlatformContext.agent_version` [3] |\n| `tags` | list of str, `[]` | [3] |\n| `model` | str (required) | Entry name in `models.yaml` [3] |\n| `tier` | str, `\"default\"` | `fast`, `default` or `strong` [3] |\n| `selection` | `decisions` or null | Decisions picks the visible tools and the tier [3] |\n| `prompt` | str (required) | Prompt pool name, e.g. `research/orchestrator` [3] |\n| `tools` | list of tool refs, `[]` | `web_search`, or `{fetch_url: {max_chars: 20000}}`, or `{name: ..., params: {...}}` [3] |\n| `skills` | list of str, `[]` | Skill pool names [3] |\n| `subagents` | list, `[]` | Each entry is a subagent pool name or an inline `SubAgentSpec` [3] |\n| `middleware` | list of `{type, params, enabled}`, `[]` | Middleware pool entries; `enabled: false` skips one [3] |\n| `output` | str or null | Absolute path of the file holding the agent's answer (e.g. `/report.md`); null means the last AI message [3] |\n\nA shipped example, `apps/research_agent/agent.yaml`, uses `model: fireworks-glm`, `tier: default`, `selection: decisions`, `prompt: research/orchestrator`, `tools: [web_search, fetch_url]`, `subagents: [researcher]` plus an inline `critic`, and a middleware stack (`model_fallback`, `model_retry`, `call_limit`, `tool_call_limit`, `pii`, `require_output`) [4].\n\nAnything not in that schema fails: validation flags unknown keys anywhere, a wrong `kind`/`apiVersion`, YAML syntax errors, unknown model entry or tier (the error lists the known names), unknown prompts/tools/skills/subagents/middleware types, bad params, duplicate tools or subagents, and an `output` that is not an absolute path [5]. Missing API keys are *not* validation errors, so `agentkit validate` runs in CI without secrets [6].\n\n## Where the names come from\n\nNames are resolved by pools. **File pools** come from library roots; **code pools** come from entry points [7]:\n\n| Pool | Source | Where the name comes from |\n|---|---|---|\n| prompts | `<root>/prompts/**/*.md` | Path under `prompts/` without `.md`, e.g. `research/orchestrator` [7] |\n| skills | `<root>/skills/*/SKILL.md` | The directory name, which must equal the front matter `name` [7] |\n| subagents | `<root>/subagents/*.yaml` | The file's `name` field [7] |\n| agents | `<root>/agents/*.yaml` and `<root>/agent.yaml` | The file's `name` field [7] |\n| tools | entry point group `agentkit.tools` | Entry point name [7] |\n| middleware | entry point group `agentkit.middleware` | Entry point name [7] |\n| nodes | entry point group `agentkit.nodes` | Entry point name (flow nodes/routers) [7] |\n| schemas | entry point group `agentkit.schemas` | Entry point name (flow state or subagent response schema types) [7] |\n| models | `agentkit_core/models.yaml` | Entry name, e.g. `openai`, `anthropic`, `fireworks-glm` [7][8] |\n\nThe **library roots** searched for file pools are, in order: the YAML file's own directory, the nearest ancestor directory named `libraries/`, then each directory in `AGENTKIT_LIBRARY_PATH` (roots that don't exist are dropped). A name defined in two roots is a hard error \u2014 there is no shadowing or layering yet [9].\n\nFor **models** specifically, `packages/agentkit-core/src/agentkit_core/models.yaml` maps logical entries to provider model ids per tier; `model:` in the YAML names one of those entries (`openai`, `google_genai`, `anthropic`, `fireworks-deepseek`, `fireworks-glm`, `fireworks-minimax` in the shipped registry), and `tier` selects `fast`/`default`/`strong` within it [8].\n\nBecause every one of these names is checked at load time \u2014 before any key lookup or network call \u2014 a typo like an unknown prompt, tool, or middleware type is caught by `agentkit validate` (used in `make lint` over `apps/*/agent.yaml`, `apps/*/flows/*.yaml` and `libraries/subagents/*.yaml`) rather than at runtime [5][6].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/README.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a73 The declarative layer)\n[3] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a73.1 `agent.yaml` field table)\n[4] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a73.1 shipped example)\n[5] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a73.4 Validation rules)\n[6] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a73.4 `make lint` / CI note)\n[7] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a73.3 Pools and the `Library`)\n[8] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a75.1 The registry)\n[9] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a73.3 `Library.for_file` root resolution)\n"
+    },
+    {
+      "case_id": "validate-yaml",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.95,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "dea2b454-7060-4187-88c6-df249a9ff082",
+      "trace_id": "e2076bffc939c58c964ebf864d9d7bb5",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 14995,
+        "output_tokens": 1478,
+        "cached_input_tokens": 8384,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 9.613124167022761,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# How to check agent YAML files before running them\n\n## The main tool: `agentkit validate`\n\nThe framework ships a dedicated checker. Run it against any YAML files you want to verify:\n\n```bash\nuv run agentkit validate <files>\n```\n\nThe README's \"Extending\" section states simply: \"Check YAML with `uv run agentkit validate <files>`\" [1], and the architecture docs repeat the rule: \"Before committing any YAML, run `uv run agentkit validate <files>`\" [2].\n\n## What a run looks like\n\n`make lint` shows a canonical invocation covering every shipped file [3]:\n\n```bash\nuv run agentkit validate apps/*/agent.yaml apps/*/flows/*.yaml libraries/subagents/*.yaml\n```\n\nThe validator prints each problem, then a summary line \u2014 `checked N file(s): E error(s), W warning(s)` \u2014 and exits with code 1 if any error remains [3].\n\n## What it checks\n\nValidation happens at load time, before any key lookup or network call, and `validate_agent`, `validate_subagent` and `validate_flow` never raise: they return every `SpecError(file, path, message, severity)` they find, with paths in YAML notation such as `subagents[0].tools[1]` [3]. The checks include [3]:\n\n- Unknown keys anywhere, a wrong `kind` or `apiVersion`, YAML syntax errors, empty files, non-UTF-8 files.\n- Unknown model entry or tier (errors list the known names).\n- Unknown prompt, or a prompt using a variable other than `agent_name` and `date`.\n- Unknown tool, a duplicate tool in one list, or params the factory signature does not accept (checked via `inspect.signature(factory).bind(None, **params)`).\n- Unknown skill, or a skill whose `SKILL.md` names tools the owning agent or subagent lacks (DeepAgents built-in tools always count as owned).\n- Unknown middleware type or bad params; `type: selection` is rejected in favour of top-level `selection:`.\n- Unknown subagent, a duplicate subagent, or a subagent named like its parent.\n- Unknown `response_schema` (a subagent without one gets the warning \"no response_schema; completion contract recommended\").\n- An `output` value that is not an absolute path.\n\nThis is possible because specs are pydantic models with `extra=\"forbid\"`, so any unknown key is a load error; the three file kinds all declare `apiVersion: agentkit/v1` \u2014 `kind: Agent`, `kind: SubAgent` and `kind: Flow` [4].\n\n## Caveats\n\n- **Missing API keys are not validation errors**, so `agentkit validate` runs in CI without secrets; a missing key fails later at build time with a `ConfigError` naming the variable [3].\n- Bad persistence or tenant configuration is caught separately: it exits with a one-line message and code 2 before the agent runs [5].\n- When you rely on a new upstream behaviour, pin it with a contract test in `contracts/` [2].\n\n## Bottom line\n\nRun `uv run agentkit validate <files>` on your agent, flow and subagent YAML before running them (or use `make lint` for the whole repo); fix every reported error \u2014 the validator exits 1 on errors \u2014 and note that API-key problems only surface later at build time [1][2][3].\n"
+    },
+    {
+      "case_id": "missing-keys",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.93,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "38853970-a956-4211-8072-a632ff720691",
+      "trace_id": "340668c2b8c125b410ff51a3062f1391",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 21202,
+        "output_tokens": 1005,
+        "cached_input_tokens": 14272,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 8.562823125044815,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# Missing API keys: when they fail, and whether `agentkit validate` catches them\n\n## When does a missing API key cause a failure?\n\nA missing API key fails **at build time, not at load/validate time**. It raises a `ConfigError` that names the missing environment variable [1].\n\nThis is by design: validation is deliberately checked \"at load time, before any key lookup or network call\" [2], so the validator never touches secrets. Separately, some keys are only required conditionally \u2014 for example, `DATABASE_URL` and `LANGGRAPH_AES_KEY` are required only for `--persist`, and a missing one raises `ConfigError` when persistence is opened [3].\n\n## Does `agentkit validate` catch it?\n\n**No.** \"Missing API keys are not validation errors, so `agentkit validate` runs in CI without secrets. They fail later, at build, with `ConfigError` naming the variable\" [1]. The validation rules cover things like unknown keys, wrong `kind`/`apiVersion`, YAML syntax errors, unknown model entries, unknown prompts/tools/skills/subagents, and non-absolute `output` paths \u2014 key lookup is not among them [2].\n\n## Related behavior\n\n- `agentkit validate` prints each problem, then a summary line (`checked N file(s): E error(s), W warning(s)`), and exits 1 on any error [1].\n- In the live-provider test suite (`pytest -m live packages/agentkit-core/tests/test_live_providers.py`), a registry entry whose API key is missing is **skipped, not failed** [4].\n\n## Sources\n\n1. https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n2. https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a73.4 Validation rules)\n3. https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a79.1 Opening persistence)\n4. https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/README.md\n"
+    },
+    {
+      "case_id": "run-research",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.97,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "b361445b-ed75-4c10-9ea6-14c607fd8ef0",
+      "trace_id": "227cc2b6f8a562b931ad2ad1244ad564",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 25687,
+        "output_tokens": 2029,
+        "cached_input_tokens": 16072,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 13.722118249977939,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# Running the research agent and switching its model provider\n\n## 1. Run it\n\nSetup, then run the `research` CLI from the repo root (the CLIs read `.env` from the current directory):\n\n```bash\ncp .env.example .env        # fill in keys; .env is git-ignored, never commit it\nmake test                   # uv sync (pinned via constraints.txt) + offline tests\nmake lint                   # ruff, mypy, agentkit validate\n\nUV_CONSTRAINT=constraints.txt uv run research \"your question\"\n```\n\nKeys you need:\n\n- The shipped `apps/research_agent/agent.yaml` sets `selection: decisions`, so you need `OPENAI_API_KEY`, the chosen provider's own key, and `FIREWORKS_API_KEY` (its fallback model `fireworks-glm:strong` is built at load, so that key is required for **every** `--model`, not just Fireworks entries). To try a provider without an OpenAI key, pass `--no-selection` (a Fireworks key is still needed).\n- Web search uses DuckDuckGo and needs no key; set `TAVILY_API_KEY` (and `tools: [{web_search: {backend: tavily}}, fetch_url]` on the agent and each subagent) to use Tavily instead.\n- Keys come from the nearest `.env` (searched upward from the current directory); `.env` values win over shell exports.\n\nUseful `research` options: `--thread ID` (resume a persisted thread; requires `--persist`), `--out PATH` (default `report.md`), `--persist` (encrypted Postgres threads and memory, needs `DATABASE_URL` and `LANGGRAPH_AES_KEY`), `--tenant LABEL` (must match `AGENTKIT_TENANT`), `--user LABEL`, and `-v`/`-q` for logging verbosity. There is also a second CLI, `research-eval` (e.g. `UV_CONSTRAINT=constraints.txt uv run research-eval --judge anthropic`).\n\nBoth CLIs log progress to stderr (resolved model, key names set, the Decisions selection, every delegation, search, fetch and file write, run time); `-v` adds tool output and token counts, `-q` keeps warnings only.\n\n## 2. Switch the model provider\n\nSwitching provider is purely a config change \u2014 either pass `--model <registry entry>` on the CLI or edit `model:` in the YAML (the shipped agent's `apps/research_agent/agent.yaml` has `model: fireworks-glm, tier: default`). `--tier {fast,default,strong}` and `--no-selection` override the other two agent keys, and `--agent <file>` runs a different agent file.\n\nThe registry (`packages/agentkit-core/src/agentkit_core/models.yaml`) maps these logical entries to provider model ids:\n\n| Entry | Provider | Model id (fast/default) | Strong tier | API key |\n|---|---|---|---|---|\n| `openai` | `openai` | `gpt-6-luna` | none chosen yet | `OPENAI_API_KEY` |\n| `google_genai` | `google_genai` | `gemini-3.8-flash` | none chosen yet | `GOOGLE_API_KEY` |\n| `anthropic` | `anthropic` | `claude-haiku-5-5` | `claude-opus-5-5` | `ANTHROPIC_API_KEY` |\n| `fireworks-deepseek` | `fireworks` | `accounts/fireworks/models/deepseek-v4p1-flash-1017` | same model on every tier | `FIREWORKS_API_KEY` |\n| `fireworks-glm` (default) | `fireworks` | `accounts/fireworks/models/glm-5p3-flash` | `glm-5p3` | `FIREWORKS_API_KEY` |\n| `fireworks-minimax` | `fireworks` | `accounts/fireworks/models/minimax-m3p1-flash` | `minimax-m3` | `FIREWORKS_API_KEY` |\n\nInternally, `ModelRegistry.resolve(name, tier)` returns a `ModelSpec(provider, model_id, kwargs)` and `get_model` calls `langchain.chat_models.init_chat_model(...)`.\n\nCaveats when switching:\n\n- The `fast` and `default` tiers deliberately stay on the cheap model; only `strong` differs, and `openai`, `google_genai` and `fireworks-deepseek` have no strong model, so tier switching changes nothing on those entries.\n- Because the shipped agent's `model_fallback` target (`fireworks-glm:strong`) is built at load, `FIREWORKS_API_KEY` is required for every `--model`. Drop the `model_fallback` entry (or point it at the run's own provider) to run without it.\n- If the primary model fails, the fallback answers silently: the CLI's model line still names the primary, and only the ledger row's `model` shows the switch.\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/README.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n"
+    },
+    {
+      "case_id": "middleware-order",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.9,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "47a3d6af-522c-444e-9476-df3c994522f9",
+      "trace_id": "8bdf06c2ba58dc19b1c5920b252ac432",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 27833,
+        "output_tokens": 1601,
+        "cached_input_tokens": 17588,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 10.942251749977004,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# Middleware stack order in agentkit (agent.yaml)\n\n## Short answer\n\nThe YAML order does **not** matter. The `middleware` list in `agent.yaml` is sorted into a fixed\ncanonical order at load time (`agentkit_config/stack.py`, `STACK_ORDER`), so \"file order no longer\nmatters\" [1]. The stack is \"applied in the canonical order (section 4) whatever the file order\" [2],\nand the README confirms it is \"placed in a fixed order whatever the YAML order\" [3].\n\n## The applied order\n\n1. **`TenantGuardMiddleware` first, always.** The factory `build_deep_agent` prepends the tenant\n   guard to the caller's middleware, producing the list `[guard, *middleware]`. Passing your own\n   `TenantGuardMiddleware` raises `ValueError` [1].\n2. Then the YAML middleware, sorted into the canonical order (`STACK_ORDER`) [1]:\n   - `selection` (only when `selection: decisions`)\n   - `model_fallback`\n   - `model_retry`\n   - `tool_retry`\n   - `require_output`\n   - `call_limit`\n   - `tool_call_limit`\n   - `pii`\n   - then any other middleware from the entry-point pool, in file order [1]\n\nAfter this user-middleware slot, DeepAgents wraps its own stack around it [1].\n\n## Why the order is fixed (the first entry is the outermost wrapper) [1]\n\n- `SelectionMiddleware` (Decisions selection) overrides the request's model, so `model_fallback`\n  sits inside it and can swap the model on failure.\n- `model_retry` sits inside `model_fallback`, so each model is retried before the next is tried.\n- `require_output` sits outside `call_limit`, so the model calls its nudges cause are counted\n  against the budget.\n\n## Related constraints\n\n- Validation rejects a second enabled `selection`, `model_fallback`, `model_retry`, `tool_retry`,\n  `require_output`, or `call_limit`, as well as repeats of `pii` (same `type`) or `tool_call_limit`\n  (same `tool_name`); an agent without an enabled `call_limit` gets a warning [1].\n- Custom middleware (added via the `agentkit.middleware` entry-point pool) is also placed in the\n  canonical order \"wherever they appear in the YAML\"; the name `selection` is reserved [4].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (section 4, \"The factory: build_deep_agent\")\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (section 3.1, \"agent.yaml\")\n[3] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/README.md (Quickstart)\n[4] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (section 15, \"Extending the platform\")\n"
+    },
+    {
+      "case_id": "require-output",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 1.0,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "a84192dc-da37-4ea3-bd17-dac519689954",
+      "trace_id": "52c5916c797995de82586f162dd3d27c",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 15132,
+        "output_tokens": 841,
+        "cached_input_tokens": 8192,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 8.32683120801812,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# What does the `require_output` middleware do?\n\n`require_output` is part of the standard middleware stack applied to YAML-defined agents. It ensures a run actually produces its output artifact (`/report.md`) instead of ending prematurely:\n\n- **What it does:** When the model replies with a plain final answer and no tool call before `/report.md` has been written **in that run**, `require_output` sends the run back to the model as a user nudge [1][2].\n- **Limit:** At most two nudges per run. Each nudge is logged as `/report.md missing after a final reply; nudging (n/2)` [1].\n- **\"Written in this run\" rule:** A report left over from an earlier turn of a resumed thread does not count; the report must be written in the current run. However, a run resumed from an interrupt accepts any existing report [1].\n- **Why it exists:** Live `fireworks-glm` runs sometimes ended with text like \"Let me delegate ...\" and no tool call, producing no report [1].\n- **Ordering:** In the canonical middleware order, `require_output` sits outside `call_limit`, so the extra model calls caused by its nudges count against the run's call budget [3].\n- **Uniqueness:** Validation rejects a second enabled `require_output` middleware in a stack [3].\n\nDetails are in `docs/architecture.md` sections 3.1 and 4.\n\n## Sources\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/README.md\n[3] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (section 4, factory table)\n"
+    },
+    {
+      "case_id": "tool-budgets",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.93,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "6beb63f1-5a44-4249-b1ef-64bcf0194399",
+      "trace_id": "0bd5971bf5fde16b920ba742c8d6731c",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 27075,
+        "output_tokens": 1434,
+        "cached_input_tokens": 16384,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 17.588191875023767,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# Research agent: call and tool limits\n\n## The limits\n\nThe shipped research agent (`apps/research_agent/agent.yaml`) sets its budget through middleware:\n\n- **Model-call limit:** a `call_limit` middleware with `max_model_calls: 60`, capping total model calls per run [1].\n- **Per-tool call limits:** two `tool_call_limit` middleware entries \u2014 `web_search` with a `run_limit` of 20 and `fetch_url` with a `run_limit` of 25 [1]. These deliberately budget only the research tools, \"not every tool\" [1].\n\nThe YAML comment states the design intent directly: \"Budget the research tools, not every tool: a run that spends it must still write /report.md\" [1]. The factory also warns if an agent is built without an enabled `call_limit` [2].\n\n## Why `write_file` is not budgeted\n\nDuring Phase 1 testing, an earlier configuration applied an all-tools `tool_call_limit` with `run_limit: 40`. In two runs, that limit blocked the final `write_file` call after 40 search/fetch calls had been consumed, producing empty reports [3]. The fix (commit `c232712`) was to budget only `web_search` (20) and `fetch_url` (25) and \"never `write_file`\" [3].\n\nThe rationale: `write_file` is the output step that saves the report to `/report.md` \u2014 it is not part of the research/gathering work the budget is meant to constrain. If it shared the budget, a run that exhausted its search/fetch allowance could no longer save its report, defeating the run's purpose. Keeping it unbudgeted guarantees the agent can always write its final output, even at the limit [1][3].\n\n## Related backstop\n\nThe per-run budget is enforced by the middleware limits, not the graph recursion limit. Early runs hit `GraphRecursionError` because the recursion limit was 100 while every middleware hook counts as a graph step (about 9 per model call), killing runs after roughly 11 model calls; the recursion limit was raised to 1000 purely as a backstop, with the call limits serving as the real budget [3].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[3] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/phase1-results.md\n"
+    },
+    {
+      "case_id": "platform-context",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.9,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "6302afdf-a7c2-4df5-9c22-af4bfb83ca3d",
+      "trace_id": "a8ac9ac9e00a9964e00a4ec0e7637b2e",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 23469,
+        "output_tokens": 1621,
+        "cached_input_tokens": 15304,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 11.270158999948762,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# What is `PlatformContext` and how is it passed to a run?\n\n## What it is\n\n`PlatformContext` is the immutable run-context object of the agentkit platform: every run carries a *frozen* `PlatformContext`, defined in `agentkit_core/context.py` in the `packages/agentkit-core` package (which is responsible for \"Settings and secrets, the model registry, the run context\") [1][3]. It identifies who and what a run belongs to \u2014 the tenant, product, team, user, thread, and agent identity [1].\n\nIts fields (with the Research CLI values as an example) are [1]:\n\n| Field | Type | Research CLI value |\n|---|---|---|\n| `tenant` | `Label` | `--tenant` (default `default`) |\n| `product` | `Label` | `agentkit` (`PRODUCT`) |\n| `team` | `Label` | `platform` (`TEAM`) |\n| `user_id` | `Label`, not `global` | `--user` (default `local`) |\n| `thread_id` | str | `--thread`, or a fresh uuid4 |\n| `agent_name` | `Label` | the spec's `name` |\n| `agent_version` | str | the spec's `version` |\n\nTwo of these come from the agent's `agent.yaml`: the `name` field becomes `PlatformContext.agent_name` and `version` becomes `PlatformContext.agent_version` [2].\n\n**Label constraints.** `Label` is `^[a-z0-9][a-z0-9_-]{0,62}$` \u2014 lowercase, no dots (Postgres store namespaces reject dots, and labels become namespace parts), at most 63 characters. `check_label(value, what)` and `check_user_id(value)` raise `ValueError`; the CLIs use them as argparse types, so a bad value exits with code 2 before anything runs. `user_id` also may not be `global` (`RESERVED_USER_IDS = {\"global\"}`), because `store_namespace` puts `\"global\"` in the owner slot for tenant-wide items, so a user named `global` would alias the tenant's namespace [1].\n\nThe context also drives storage namespacing: `store_namespace(ctx, scope, kind)` returns `(tenant, product, team, user_id if scope == \"user\" else \"global\", kind)` [1].\n\n## How it is passed to a run\n\nThe context is supplied at invocation time as LangGraph's run context [1]:\n\n- `ainvoke(..., context=ctx)` for non-streaming runs [1]\n- `astream(..., context=ctx)` for streaming runs [1]\n- For flows, `load_flow` compiles the graph with `context_schema=PlatformContext`, and the flow is invoked with `context=PlatformContext(...)` (interrupts resume via `Command(resume={...})`) [4]\n\nIf it is omitted, enforcement is centralized in `TenantGuardMiddleware(deployment_tenant)`, which runs in `before_agent`: a run with no `PlatformContext` fails with `MissingPlatformContext` (\"agent runs need context=PlatformContext(...) on invoke/stream; got nothing\"), and a run whose tenant differs from the deployment's tenant (from `AGENTKIT_TENANT`, default `default`) fails with `TenantMismatch` [5].\n\n## Known gap\n\n`AgentSpec.name` is a plain string at validation time, so a name that is not a valid label passes `agentkit validate` and only fails later, when the CLI builds the `PlatformContext` [1].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n"
+    },
+    {
+      "case_id": "tenant-guard",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.95,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "d2769515-e027-4652-bf26-8ff04fd9f550",
+      "trace_id": "92d299ecc58625f2bde295867f10a83a",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 14491,
+        "output_tokens": 790,
+        "cached_input_tokens": 8460,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 6.236975000007078,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "## What TenantGuardMiddleware checks\n\nEach deployment serves exactly one tenant: the deployment tenant is `Settings.deployment_tenant`, read from the `AGENTKIT_TENANT` environment variable with a default of `default` [1]. `TenantGuardMiddleware(deployment_tenant)` runs in the `before_agent` hook and rejects a run in two cases [1]:\n\n1. **Missing context** \u2013 the run carries no `PlatformContext`, raising `MissingPlatformContext` (\"agent runs need context=PlatformContext(...) on invoke/stream; got nothing\") [1].\n2. **Tenant mismatch** \u2013 the run's tenant differs from the deployment tenant, raising `TenantMismatch` (\"run tenant 'x' != deployment tenant 'y'\") [1].\n\nIt works alongside a CLI pre-check: because the guard runs inside the graph (after LangGraph has checkpointed the run's input), a mismatched run could write another tenant's text into a thread's history before being refused, so the CLIs call `research_agent.persist.require_tenant(tenant, settings)` before any graph call [3].\n\n## Is it what isolates tenants?\n\n**No.** The documentation is explicit: \"The guard catches misrouted runs; the isolation itself is the separate deployment\" [1]. Actual tenant isolation comes from per-tenant deployments \u2014 each tenant gets its own Docker Compose project (`agentkit-<tenant>`) with its own Postgres database and volume, AES key, database password, OTEL collector, host ports, and network; nothing is shared except the code and the model provider keys in the repo `.env` [2][3][4]. `TenantGuardMiddleware` (plus the CLI pre-check) is a safety net that refuses runs intended for another tenant, and traces carry the `agentkit.tenant` resource attribute so they go only to that tenant's collector [2].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[3] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[4] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/README.md\n"
+    },
+    {
+      "case_id": "stamp-tenant",
+      "scores": {
+        "has_citation": 0.0,
+        "citation_validity": 0.0,
+        "sources_section": 0.0,
+        "source_count_ok": 0.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.95,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "870cbd86-9e03-43a3-862d-283cfa4e5add",
+      "trace_id": "3234b08f67ef5e3ce127c1e3cdd4056a",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 25922,
+        "output_tokens": 1973,
+        "cached_input_tokens": 16320,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 23.879981749982107,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# Giving a tenant its own deployment\n\nThe pattern is called \"stamping\" a tenant: each tenant gets its own Docker Compose deployment, and nothing is shared between tenants except the code and the model provider keys in the repo `.env` [1][4]. Docker is required [1].\n\n## How to do it\n\n**1. Stamp the tenant** [1][2]:\n\n```bash\nmake stamp TENANT=tenant-a\n```\n\n`make stamp` runs `scripts/stamp_tenant.sh <tenant>`, which [2]:\n\n1. Validates the tenant as a label and refuses the name `example`.\n2. On first use writes `deploy/tenants/<tenant>.env` (mode 600, git-ignored) containing a fresh 32-character `LANGGRAPH_AES_KEY`, a fresh database password, `DATABASE_URL`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and two free host ports from 55500 upward (never 15432 or 16379, and never a port another tenant file already holds; `STAMP_PG_PORT` and `STAMP_OTLP_PORT` can pick them explicitly). Later stamps reuse the file unchanged.\n3. If the file sets `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`, configures the collector's exporters as `[file, otlp_http/langfuse]`; otherwise just `[file]`.\n4. Runs `docker compose -p agentkit-<tenant> --env-file deploy/tenants/<tenant>.env -f deploy/compose.yaml up -d --wait`.\n5. Runs `scripts/tenant_setup.py`, which applies the checkpoint and store migrations and creates `agentkit_usage` (printing `setup: no new migrations; ...` on a re-stamp).\n\n**2. Run workloads through the tenant's environment** [1][3]:\n\n```bash\nscripts/tenant_env.sh tenant-a uv run research \"your question\" --tenant tenant-a --persist\n```\n\n`tenant_env.sh` exports `AGENTKIT_TENANT`, `DATABASE_URL`, `LANGGRAPH_AES_KEY` and `OTEL_EXPORTER_OTLP_ENDPOINT` from the tenant file over the shell's values, then runs the command. It refuses to run if the repo `.env` sets `AGENTKIT_TENANT`, because `Settings` prefers `.env` over the process environment, which would override every stamp [3].\n\n**3. Verify** [1]:\n\n- `make contract TENANT=tenant-a` \u2014 runs the contract suite against the tenant's database.\n- `make phase0-exit` \u2014 stamps `tenant-a` and `tenant-b`, checks they share no port or key, runs contracts plus a scripted, persisted, traced smoke turn for each, then asserts each collector file contains only its own tenant's spans (via the `agentkit.tenant` resource attribute) and each database's rows belong only to its tenant.\n\n**4. Tear down (optional)** [1][2]:\n\n```bash\nmake unstamp TENANT=tenant-a   # docker compose down -v: deletes the database, keeps the env file and key\n```\n\n## What the tenant gets\n\nEach stamped tenant gets a fully isolated stack \u2014 the Compose project `agentkit-<tenant>` (`name: agentkit-${AGENTKIT_TENANT}`) with its own [1][4]:\n\n- **Postgres** (`pgvector/pgvector:pg16`) with its own named volume `pgdata`, a generated database password, and its own host port (`127.0.0.1:${AGENTKIT_PG_PORT}`).\n- **AES encryption key** \u2014 a fresh 32-character `LANGGRAPH_AES_KEY`, unique per tenant [2].\n- **OTel collector**, always on (unlike the optional dev-stack collector), on the tenant's own port (`127.0.0.1:${AGENTKIT_OTLP_PORT}`), writing to `deploy/otel-out/<tenant>/spans.jsonl`, with the Langfuse exporter added when that tenant's keys are set [4][2].\n- **Two free host ports** allocated from 55500 up, never colliding with other tenants [2].\n- **Database schema**: migrations applied for checkpoints and the store, plus the `agentkit_usage` table [2].\n- **Containers and network** of its own; traces carry the `agentkit.tenant` resource attribute and go only to that tenant's collector [4][5].\n\n## How isolation is enforced\n\n- The deployment itself is the isolation: one Compose project, volume, key, password, collector and ports per tenant [5].\n- `TenantGuardMiddleware(deployment_tenant)` runs in `before_agent`: each deployment serves one tenant (`Settings.deployment_tenant`, read from `AGENTKIT_TENANT`, default `default`). It raises `MissingPlatformContext` for a run with no `PlatformContext` and `TenantMismatch` for a run whose tenant differs from the deployment tenant [6]. The CLI pre-check also refuses runs for another tenant [5].\n- `make phase0-exit` proves the separation end to end [4].\n\n## Caveats\n\n- The tenant env file is the only copy of the tenant's AES key \u2014 back it up [3].\n- Known gap: only the database, key, collector and ports are stamped. Model provider keys still come from the shared repo `.env`, and the per-tenant roadmap lists items not yet stamped (MCP gateway, secret paths/OAuth vault, model gateway keys and budgets, per-tenant eval datasets) [4].\n"
+    },
+    {
+      "case_id": "encrypted-at-rest",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 1.0,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "991c7035-e357-402f-9454-1fc9ebbfd9ee",
+      "trace_id": "5e342ac6357568b0b66007154af90254",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 15848,
+        "output_tokens": 1168,
+        "cached_input_tokens": 8896,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 7.675920084002428,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# agentkit: what is encrypted at rest in Postgres vs. what stays plaintext\n\nagentkit persists threads and memory in encrypted Postgres, with each tenant getting its own stamped deployment (database, AES key, collector, ports) [2][3]. Encryption uses the tenant's `LANGGRAPH_AES_KEY` and a msgpack+aes serializer [1][4].\n\n## Encrypted at rest\n\n| Location | Details |\n|---|---|\n| `checkpoint_blobs` | Container state channels (`messages`, `files` \u2014 including `/report.md`, `selection`, `todos`, lists, dicts), stored as blobs via `msgpack+aes` [1][4] |\n| `checkpoint_writes` | Pending writes, also `msgpack+aes` [1] |\n| `store.value` | Memory item values, encrypted by `EncryptedStore` into `{\"__enc\": \"<type>+aes\", \"ct\": \"<base64>\"}` envelopes, using the same serializer and key as the checkpoints; decrypted on get and search [1][4] |\n\nA Postgres contract test verifies that the encrypted round trip leaves no plaintext in the blobs [5].\n\n## Stays plaintext\n\n| Location | Details |\n|---|---|\n| `checkpoints.checkpoint` | Primitive top-level state channels (`str`, `int`, `float`, `bool`) stored as inline JSONB \u2014 **not** encrypted [1] |\n| `checkpoints.metadata` | Run metadata as plaintext JSONB (tenant, `user_id`, `thread_id`, agent, `prompt_hash`, step); LangGraph copies string run metadata here [1] |\n| `store.prefix`, key, timestamps, TTLs | Kept plaintext so prefix search, `list_namespaces` and the TTL sweeper still work [1][4] |\n| `agentkit_usage` | Identifiers and token counts only (per-run usage ledger) [1] |\n| `checkpoint_migrations`, `store_migrations` | Migration tables, plaintext [1] |\n\n## Related enforcement (EncryptedStore)\n\n`EncryptedStore` raises `StoreEncryptionError` for a search with a value `filter`, for an inner store with a vector index, and for any stored value that is not a valid envelope \u2014 a plaintext value is never returned [4].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (Section 9.5 \"What is encrypted at rest\")\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (Section 1 \"Purpose and design principles\")\n[3] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/README.md (Architecture)\n[4] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (Section 9.2 \"`EncryptedStore`\")\n[5] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (Section 12 \"Testing strategy\")\n"
+    },
+    {
+      "case_id": "thread-lock",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.65,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "b98d46bf-9f53-43f9-a332-fc3814e776d7",
+      "trace_id": "d50e1ea8a95eb0bf3338556bf0a6c905",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 22773,
+        "output_tokens": 901,
+        "cached_input_tokens": 12288,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 11.07360541599337,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# Why agentkit wraps a turn in `thread_lock`\n\nAgentkit holds a Postgres advisory lock for the duration of one agent turn:\n\n```python\nasync with thread_lock(p, thread_id):\n    ...  # one turn\n```\n\nMechanically, `thread_lock` acquires `pg_advisory_lock(hashtext(thread_id))` on a connection taken from a dedicated lock pool and holds it for the whole turn [1].\n\n## The reason: preventing checkpoint-chain forking\n\nTwo concurrent runs on the same thread would otherwise **fork the checkpoint chain and lose an update** \u2014 a Postgres contract pins both the failure and the fix [1]. In other words, the lock serializes turns per thread so that each turn's checkpoints build on the previous turn's state instead of racing it (this is what makes resuming a thread work correctly \u2014 the second turn sees the first turn's messages and stored selection [2]).\n\n## Design details\n\n- **Separate lock pool:** the lock pool is distinct from the saver pool so that a run waiting on a lock cannot starve the checkpointer (saver) of connections [1].\n- **`hashtext` collisions:** because `hashtext` is 32-bit, two *different* threads can rarely map to the same advisory lock; the only consequence is that those two threads get serialized with each other [1].\n- **Scope:** the lock exists only with persistence. Without `--persist` there is no database, no lock, and no resume (`--thread` is rejected) [3]. The lock and pools are released when the turn ends, before the CLI prints its final output [4].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a714.3 Resuming a thread)\n[3] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a714.4 Without `--persist`)\n[4] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (\u00a714.2 One persisted run, step by step)\n"
+    },
+    {
+      "case_id": "prune-threads",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.95,
+        "completeness": 0.97
+      },
+      "error": null,
+      "run_id": "a28596c7-3d63-47bf-8caa-1e23a0e5cc24",
+      "trace_id": "5f54fbb872b70d4ae76662e293d1e4bf",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 14633,
+        "output_tokens": 726,
+        "cached_input_tokens": 8584,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 5.895457250007894,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# Pruning old threads and what pruning leaves behind\n\n## How to prune\n\nRun the prune CLI with an age cutoff [1]:\n\n```bash\nuv run agentkit-prune --older-than 30d     # also 12h, 45m\n```\n\nUnder the hood, `prune(persistence, older_than)` selects threads whose newest checkpoint `ts` is older than the cutoff and deletes each one with `saver.adelete_thread` \u2014 removing the thread's checkpoints, blobs and writes [1]. It prints `pruned N threads` on success; a bad age or configuration prints one line and exits with status 2 [1].\n\nNote that prune has no tenant filter \u2014 this is safe today because each tenant has its own database, but a tenant filter would be needed if tenants ever share a database [1][3].\n\n## What pruning leaves behind\n\nPruning deletes threads only. It does **not** touch:\n\n- **Store items** \u2014 including the encrypted store items of `eval-<hex>` users created by `research-eval --persist`, which are never pruned [1][2][3].\n- **`agentkit_usage` rows** \u2014 usage records survive even though their thread is gone [1].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/phase0-results.md\n"
+    },
+    {
+      "case_id": "cost-ledger",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 1.0,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "0384ca59-438a-407d-bb80-0bb495d11ed6",
+      "trace_id": "d152253d7048125d04f5baf4508ba6ce",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 14744,
+        "output_tokens": 974,
+        "cached_input_tokens": 8508,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 6.821984042006079,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# What the CostLedger records \u2014 and whether it stores prices\n\n## What it records\n\nThe `CostLedger(persistence=None)` is an async callback handler in the agentkit platform. It:\n\n- Maps every callback run id to its root run, and sums `usage_metadata` from `on_llm_end` \u2014 input tokens, output tokens, and cached input (from `input_token_details.cache_read`). [1]\n- Records model names from `ls_model_name`. [1]\n- Adds Decisions tokens from the `agentkit.decisions_usage` custom event. [1]\n- When the root run ends, appends one `UsageRow` with the fields: `tenant`, `thread_id`, `run_id`, `model`, `input_tokens`, `output_tokens`, `cached_input_tokens`, `decisions_input_tokens`, `decisions_output_tokens`. [1]\n\nA run with no model call and no selection (for example, one the guard refused) writes no row. [1] The `summary()` method gives the CLIs' one-line `usage:` total. [1]\n\n## Persistence\n\nWith persistence enabled, each row is also inserted into the `agentkit_usage` table (`on conflict (run_id) do nothing`). `setup(persistence)` creates the table and a `(tenant, created_at)` index idempotently, inside one transaction under an advisory lock (concurrent first-time setups would otherwise collide). A failed insert only logs a warning and never fails the run. [1]\n\n## Does it store prices?\n\n**No.** The documentation explicitly calls this out as a gap: *\"Despite its name, the ledger stores tokens only; there is no price table or money amount.\"* [1] It tracks token counts (input, output, cached, and Decisions tokens) but records no monetary cost for those tokens.\n\n## Sources\n\n1. https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n"
+    },
+    {
+      "case_id": "tracing-masking",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.97,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "4fcd4f14-c03a-4e68-925c-99be399d3349",
+      "trace_id": "26af02cdce3c2ca04d4d329c2ba06a20",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 17055,
+        "output_tokens": 1259,
+        "cached_input_tokens": 9472,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 8.093374874966685,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# When is tracing on, and what is masked in spans by default?\n\n## When tracing is on\n\nTracing is **off** unless the environment variable `OTEL_EXPORTER_OTLP_ENDPOINT` is set; its default is unset, which means tracing stays off [1][2]. When it is on:\n\n- `configure_tracing` builds an `OTLPSpanExporter` posting to `<endpoint>/v1/traces` (OTLP over HTTP, 2 s export timeout by default), creates its own `TracerProvider` (not the global one) with resource attributes `service.name` (default `agentkit`) and `agentkit.tenant`, and creates a `Langfuse` client bound to that provider \u2014 its API address is a dead local address that is never contacted, since spans go only to the collector (which may forward to Langfuse) [1].\n- The exporter is wrapped in `QuietExporter`: the first export failure logs one warning, then batches are dropped for 30 s instead of retried, so a dead collector never stalls a run or its shutdown [1].\n- `LANGSMITH_TRACING` is never set, because LangSmith's OTel path stamps every `LANGSMITH_*` variable into spans and has no masking hook [1].\n- At run time, the CLI enters `research_agent.telemetry.tracing(Settings())`, which calls `configure_tracing` with the deployment tenant, and it \"stays off without `OTEL_EXPORTER_OTLP_ENDPOINT`\" [3]. `shutdown_tracing()` performs a bounded flush outside the event loop [1].\n\n## What is masked in spans by default\n\nMasking is the default behavior; setting `AGENTKIT_TRACE_PAYLOADS=1` turns it off [4]. The default masking rules are [4]:\n\n| What | Rule |\n|---|---|\n| Prompt and completion attributes | `mask_payloads` deletes `langfuse.observation.input`, `langfuse.observation.output`, `langfuse.trace.input`, `langfuse.trace.output`, and every attribute starting with `gen_ai.prompt`, `gen_ai.completion`, `gen_ai.input.messages`, `gen_ai.output.messages` or `gen_ai.system_instructions`; a masked span gets `agentkit.payload.masked = true`. |\n| Error status message attribute | `langfuse.observation.status_message` is kept only if it fully matches `[A-Z][A-Za-z0-9]*(Error\\|Exception\\|Exit\\|Interrupt\\|Cancelled\\|Mismatch)`; anything else (for example an error tool message's content) becomes `redacted`. |\n| Langfuse error hook | `MaskingCallbackHandler` records an error as `type(error).__name__` instead of `str(error)`. |\n| Span status description and exception events | `redact_errors` (in the exporter) keeps the status description only if it is an exception type name recorded in the span's `exception.type` events or shaped like one, else falls back to a type-shaped status attribute, else `redacted`; exception events lose `exception.message`, `exception.stacktrace` and `exception.escaped` and keep `exception.type`. |\n\nIn short: by default, all prompt/completion payloads and trace/observation inputs and outputs are stripped (with a `agentkit.payload.masked = true` marker), and error details are reduced to exception type names or the literal `redacted` [4].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[3] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[4] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n"
+    },
+    {
+      "case_id": "eval-gate",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.85,
+        "completeness": 0.97
+      },
+      "error": null,
+      "run_id": "44332d1f-11a4-472c-af40-00f4cdc79579",
+      "trace_id": "eddde36b7e1ddc985a4ca7d00dca846e",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 17038,
+        "output_tokens": 1772,
+        "cached_input_tokens": 9344,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 10.988839042023756,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# Gating a change against the golden baseline\n\n## How to gate\n\nRun `research-eval` with the `--gate` flag pointing at the gates file, which names the committed baseline (`apps/research_agent/evals/baseline.json`, relative to the gates file) and the thresholds. The command compares the run against the committed baseline (`agentkit_evals.gates`) [1]:\n\n```bash\nuv run research-eval --model fireworks-glm --dataset apps/research_agent/evals/golden.jsonl \\\n\t--judge anthropic --gate apps/research_agent/evals/gates.yaml --out eval_results.md\n```\n\n[2] (the README shows the same command, optionally with `--write-baseline`)\n\nKey points about gating [1][3]:\n\n- The gates file (`gates.yaml`) names the baseline path, `min_cases`, and per-metric thresholds: `min`, `max`, `max_drop` (absolute drop from baseline) and `max_rise` (relative rise, e.g. `0.30` = +30%) [1].\n- The baseline records the dataset's SHA-256, the agent and judge `model_id`s, the aggregate, the ids of cases that completed, and the date [1].\n- A gate run fails when a metric breaks its bounds, a metric is missing, there are fewer than `min_cases` cases, or a case that completed in the baseline now errors [1].\n- It refuses to compare (\"mismatch\") when the dataset bytes, agent model id, or judge model id differ from the baseline \u2014 in that case, re-record instead [1].\n- The comparison happens after the run, so even a mismatched gate run still costs its cases [1].\n- `--case`/`--tag` subsets are not allowed with `--gate`, which needs the full set [3].\n- To (re)record the baseline, add `--write-baseline` (requires `--gate`); it refuses if any case errored [1].\n\nFor reference, the current golden baseline gates: `completed` min 0.96, `has_citation` min 0.96, `sources_section` min 0.90, `citation_validity` min 0.85 / max_drop 0.05, `completeness` min 0.85 / max_drop 0.05, `groundedness` min 0.55 / max_drop 0.10, `tool_recall` min 0.90, `mean_total_tokens` max_rise 0.30 (`source_count_ok` and `mean_latency_s` are not gated) [4].\n\n## Exit codes\n\nFor the `research-eval` gate run [1][2][3]:\n\n| Exit | Meaning | Output line |\n|---|---|---|\n| 0 | Gate passed (or baseline written) | `gate: PASS` / `gate: baseline written to <path>` |\n| 1 | Regression \u2014 including NaN scores, and baseline cases missing from or errored in the run | one `gate: FAIL <metric>: <detail>` per failure |\n| 2 | No baseline, unreadable baseline, mismatch, or errored cases on `--write-baseline` | `gate: no baseline at ...`, `gate: unreadable baseline ...`, `gate: baseline mismatch: ...`, `gate: refusing to write baseline, cases errored: [...]` |\n\nEvery `gate:` line except `PASS` and `baseline written` goes to stderr [1]. (Note: separately, argparse errors, `SpecErrors`, and `ConfigError` for the CLI exit 2, and `TenantMismatch` or an agent that finished without writing its report exits 1 \u2014 distinct from the gate semantics above [5].)\n\n## Examples of the gate in action\n\n- **Pass:** offline `check_gates` on the recorded summaries vs. the committed baseline: attempt 4 `gate: PASS` [6].\n- **Regression (exit 1):** a weakened prompt run with `--gate` exited 1 with `gate: FAIL` on has_citation (0.00), sources_section (0.00), citation_validity (0.00), groundedness (0.03) and tool_recall (0.00) [6].\n- **Mismatch (exit 2):** a dataset judged by a different judge model with `--gate` printed `gate: baseline mismatch: baseline dataset_sha256 mismatch: ...; re-record the baseline`, exited 2, and left `baseline.json` unchanged [6].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/README.md\n[3] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/README.md (Status section)\n[4] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/phase1-results.md\n[5] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md (13.2 CLIs)\n[6] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/phase1-results.md (Gate checks)\n"
+    },
+    {
+      "case_id": "recursion-limit",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.7,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "ac4f90b1-3740-48de-8396-8544f2900a39",
+      "trace_id": "c14fbcac2bac9faebfe72fdfcf268796",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 16664,
+        "output_tokens": 852,
+        "cached_input_tokens": 9488,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 6.935318541014567,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# Why the first Phase 1 baseline attempt failed with GraphRecursionError \u2014 and how it was fixed\n\n## What happened\n\nAttempt 1 of the Phase 1 baseline recording produced **11 `GraphRecursionError`s and 1 empty report** across the 25-case eval \u2014 it was the first of four failed recording attempts before the baseline landed [1].\n\n## Root cause\n\n- The `run_config` set a **recursion limit of 100** [1].\n- In this deep-agents graph, **every middleware hook counts as a graph step** \u2014 roughly **9 graph steps per model call** [1].\n- Multiplying those together, a run blew through the limit of 100 after only about **11 model calls**, so LangGraph raised `GraphRecursionError` and the run died before the agent could finish (and in one case, before it could write any report at all) [1].\n\nIn other words, the recursion limit \u2014 intended as a runaway safeguard \u2014 was set an order of magnitude too low for a graph where middleware hooks inflate the step count ~9x per model turn.\n\n## The fix\n\n- The recursion limit in `run_config` was raised from 100 to **1000**, but explicitly demoted to a **backstop** only [1].\n- The actual work budget is enforced by the **call limits** (e.g. per-tool `tool_call_limit` budgets), not the recursion limit [1]. The fix landed in commit `7d33de5` [1].\n\nThis rebalancing mattered: a later attempt (attempt 2) showed the opposite failure mode, where the all-tools `tool_call_limit {run_limit: 40}` blocked the final `write_file` \u2014 so the budget was moved to per-tool limits (`web_search` 20, `fetch_url` 25, never `write_file`) [1].\n\n## Outcome\n\nAfter this fix (plus subsequent fixes for empty-report failures in attempts 2\u20133 and a `Sources`-heading issue in attempts 4\u20135), attempt 6 recorded a clean **25/25 baseline** (`evals/baseline.json`) with all gate metrics at or above their floors [1][2].\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/phase1-results.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n"
+    },
+    {
+      "case_id": "decisions-risk",
+      "scores": {
+        "has_citation": 1.0,
+        "citation_validity": 1.0,
+        "sources_section": 1.0,
+        "source_count_ok": 1.0,
+        "tool_recall": 1.0,
+        "groundedness": 0.95,
+        "completeness": 1.0
+      },
+      "error": null,
+      "run_id": "df2001fc-1c07-4bf4-9cb4-11e8ce81c005",
+      "trace_id": "c6aaf7d6ed214847415eb56b7cd30397",
+      "usage": {
+        "model": "accounts/fireworks/models/glm-5p3-flash",
+        "input_tokens": 15922,
+        "output_tokens": 1111,
+        "cached_input_tokens": 9024,
+        "decisions_input_tokens": 0,
+        "decisions_output_tokens": 0
+      },
+      "latency_s": 7.837882791995071,
+      "tool_calls": [
+        "kb_search",
+        "kb_search",
+        "write_file"
+      ],
+      "reason": null,
+      "report": "# The Decisions-selection risk T9 found with a vague system prompt\n\nDuring Phase 0 testing, T9 surfaced a risk with Decisions-based tool selection: **with a vague system prompt, Decisions hides every tool and the agent can't search** [1].\n\n## What happened\n\nTwo real `/v1/decisions` responses (model `gpt-6-luna`, HTTP 200) were recorded as test fixtures in `packages/agentkit-middleware/tests/fixtures/` (`decisions_live_orchestrator.json` and `decisions_live_short_prompt.json`) [1][2]. The comparison showed the tool-selection scores collapsed under a one-line prompt [1][2]:\n\n| System prompt | web_search | fetch_url | sql (irrelevant) | Tier answer | Tier used |\n|---|---|---|---|---|---|\n| Real orchestrator prompt | 1.00 | 1.00 | 0.00 | fast, confidence 0.27 | default (below 0.5 floor) |\n| One-line \"You are a deep-research agent.\" | 0.03 | 0.01 | 0.00 | fast, confidence 0.97 | fast |\n\nIn other words, with the real orchestrator prompt `web_search` and `fetch_url` scored 1.00, but with the one-line prompt \"You are a deep-research agent.\" they scored 0.03 and 0.01 \u2014 so the agent would have lost search entirely [2]. The tier answer flipped too: the vague prompt produced a high-confidence (0.97) \"fast\" tier pick, whereas the real prompt's low-confidence answer (0.27) fell below the 0.5 confidence floor and kept the default tier [1].\n\n## The takeaway and mitigation\n\n- Agents that use `selection: decisions` need a system prompt that says which tools to use and when [1][2].\n- A **\"minimum tools\" guard** is a candidate for the ToolSurface work in Phase 3; it is **not implemented** yet [1][2].\n\nNote: T9 itself passed on 2026-11-02 \u2014 the research agent ran end to end live, through the factory, with Decisions selection and Tavily search [3]. The vague-prompt behavior was the risk documented along with those results.\n\n## Sources\n\n[1] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/phase0-results.md\n[2] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/architecture.md\n[3] https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main/docs/phase0-results.md\n"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 """Offline tests for the pilot kb_agent: builds, curated tools, golden set, gates."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -101,5 +102,8 @@ def test_gates_use_their_own_baseline_path():
     spec = load_gates(EVALS / "gates.yaml")
     assert spec.baseline == EVALS / "baseline.json"
     assert spec.min_cases == 20
-    assert spec.metrics["citation_validity"].min == 0.85
-    assert spec.metrics["tool_recall"].min == 0.95
+    # Floors come from the recorded live baseline and never sit above it.
+    baseline = json.loads(spec.baseline.read_text())["aggregate"]
+    for name, gate in spec.metrics.items():
+        if gate.min is not None:
+            assert gate.min <= baseline[name], name

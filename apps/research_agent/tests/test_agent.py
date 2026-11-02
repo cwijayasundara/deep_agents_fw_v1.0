@@ -441,18 +441,21 @@ async def test_persist_resumes_a_thread_and_sees_turn_one(
     monkeypatch.delenv("AGENTKIT_TENANT", raising=False)
     p, locks = fake_persistence
     report = "# R\nX [1]\n\n## Sources\n[1] https://a.example/x"
+    report2 = "# R2\nY [1]\n\n## Sources\n[1] https://a.example/y"
     loaded = _scripted_cli(
         monkeypatch,
         scripted(
             tool_call("write_file", {"file_path": "/report.md", "content": report}, "1"),
             AIMessage(content="done"),
+            # turn 2 must write its own report: require_output ignores turn one's /report.md
+            tool_call("write_file", {"file_path": "/report.md", "content": report2}, "2"),
             AIMessage(content="follow-up answered"),
         ),
     )
     assert await cli.run("turn one", str(DEFAULT_AGENT), {}, thread="th-r", persist=True) == report
     first = capsys.readouterr().out
     assert "resumed thread" not in first
-    assert await cli.run("turn two", str(DEFAULT_AGENT), {}, thread="th-r", persist=True) == report
+    assert await cli.run("turn two", str(DEFAULT_AGENT), {}, thread="th-r", persist=True) == report2
     out = capsys.readouterr().out
     assert "resumed thread th-r at step " in out
     n = int(out.split("resumed thread th-r at step ")[1].split()[0])

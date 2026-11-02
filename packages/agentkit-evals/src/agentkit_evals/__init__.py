@@ -1,5 +1,6 @@
 """agentkit-evals: minimal eval runner on openevals."""
 
+from .collect import CollectedRun, collect_run
 from .dataset import EvalCase, ExpectCall, load_dataset, select_cases
 from .gates import (
     Baseline,
@@ -26,6 +27,8 @@ from .runner import CaseResult, RunResult, StepRunner, aggregate, run_eval, to_m
 from .single_step import StepResult, single_step, to_messages
 
 __all__ = [
+    "CollectedRun",
+    "collect_run",
     "Baseline",
     "BaselineMismatch",
     "GateFailure",

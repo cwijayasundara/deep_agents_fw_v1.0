@@ -16,19 +16,21 @@ import uuid
 from collections.abc import Callable, Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from .dataset import EvalCase, load_dataset
-from .judge import LLMJudge
-from .runner import CaseResult, RunResult, run_eval
-from .single_step import StepResult, single_step
+
+if TYPE_CHECKING:  # the plugin loads in every pytest session: keep openevals etc. lazy
+    from .runner import CaseResult
 
 MARKER = "agentkit_eval"
 SKIP_REASON = "live eval; pass --agentkit-live"
 DEFAULT_MODEL = "fireworks-glm"
 JUDGE_ENTRY = "anthropic"
+# Mirrors agentkit_telemetry.run_config.DEFAULT_RECURSION_LIMIT (not imported: no telemetry dep).
+RECURSION_LIMIT = 1_000
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -56,7 +58,7 @@ def _marker_args(metafunc_or_item: Any) -> dict[str, Any] | None:
     m = metafunc_or_item.definition.get_closest_marker(MARKER)
     if m is None:
         return None
-    return {"kind": "full", **m.kwargs}
+    return dict(m.kwargs)
 
 
 def _resolve(path: str, test_file: Path, rootdir: Path) -> Path:
@@ -69,6 +71,13 @@ def _resolve(path: str, test_file: Path, rootdir: Path) -> Path:
     return test_file.parent / p
 
 
+def _with_kind(case: EvalCase, args: dict[str, Any]) -> EvalCase:
+    """The marker's `kind` when given, else the dataset line's own."""
+    if "kind" not in args:
+        return case
+    return EvalCase.model_validate({**case.model_dump(), "kind": args["kind"]})
+
+
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     args = _marker_args(metafunc)
     if args is None or "case" not in metafunc.fixturenames:
@@ -76,7 +85,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     if "dataset" not in args:
         raise pytest.UsageError(f"{metafunc.function.__name__}: {MARKER} needs dataset=")
     path = _resolve(args["dataset"], Path(str(metafunc.definition.path)), metafunc.config.rootpath)
-    cases = [c.model_copy(update={"kind": args["kind"]}) for c in load_dataset(path)]
+    cases = [_with_kind(c, args) for c in load_dataset(path)]
     metafunc.parametrize("case", cases, ids=[c.id for c in cases])
 
 
@@ -107,6 +116,8 @@ def load_graph(agent: str | Path, model: str) -> tuple[Any, Any]:
 def load_judge() -> Any:
     from agentkit_core import ModelRegistry, Settings, get_model
 
+    from .judge import LLMJudge
+
     settings = Settings()
     spec = ModelRegistry.default().resolve(JUDGE_ENTRY, "strong")
     return LLMJudge(get_model(spec, settings))
@@ -126,30 +137,37 @@ def _context(spec: Any) -> Any:
     )
 
 
+def _prepare(agent: str | Path, model: str) -> tuple[Any, Any, Any, dict[str, Any]]:
+    """A freshly loaded agent on a fresh thread: `(graph, spec, ctx, config)`."""
+    graph, spec = load_graph(agent, model)
+    ctx = _context(spec)
+    config = {"recursion_limit": RECURSION_LIMIT, "configurable": {"thread_id": ctx.thread_id}}
+    return graph, spec, ctx, config
+
+
 async def _run_case(case: EvalCase, agent: str | Path, model: str) -> CaseResult:
     """One case on a freshly loaded agent and a fresh thread (no persistence)."""
     from agentkit_config import read_output
     from langchain_core.messages import HumanMessage
 
+    from .collect import collect_run
+    from .runner import RunResult, run_eval
+    from .single_step import StepResult, single_step
+
     async def run_step(c: EvalCase) -> StepResult:
-        graph, spec = load_graph(agent, model)
-        ctx = _context(spec)
-        config = {"recursion_limit": 1_000, "configurable": {"thread_id": ctx.thread_id}}
+        graph, _, ctx, config = _prepare(agent, model)
         return await single_step(graph, c, config=config, context=ctx)
 
     async def run_agent(question: str) -> RunResult:
-        graph, spec = load_graph(agent, model)
-        ctx = _context(spec)
-        config = {"recursion_limit": 1_000, "configurable": {"thread_id": ctx.thread_id}}
-        res = await graph.ainvoke(
-            {"messages": [HumanMessage(question)]}, config=config, context=ctx
+        graph, spec, ctx, config = _prepare(agent, model)
+        run = await collect_run(
+            graph, {"messages": [HumanMessage(question)]}, config=config, context=ctx
         )
-        calls = [
-            tc["name"] for m in res["messages"] if m.type == "ai" for tc in (m.tool_calls or [])
-        ]
-        retrieved = "\n".join(str(m.content) for m in res["messages"] if m.type == "tool")
         return RunResult(
-            report=read_output(res, spec.output), retrieved=retrieved, tool_calls=calls
+            report=read_output(run.final, spec.output),
+            retrieved="\n".join(run.tool_outputs),
+            tool_calls=run.tool_calls,
+            latency_s=run.latency_s,
         )
 
     judge = load_judge() if case.kind == "full" else None
@@ -162,14 +180,14 @@ def agentkit_run(request: pytest.FixtureRequest) -> Callable[[EvalCase], CaseRes
     """`agentkit_run(case) -> CaseResult`: load the marked agent (on `--agentkit-model`), run the
     case on a fresh thread as the marker's `kind`, and return the scored result."""
     marker = request.node.get_closest_marker(MARKER)
-    args = {"kind": "full", **(marker.kwargs if marker else {})}
+    args = dict(marker.kwargs) if marker else {}
     if "agent" not in args:
         raise pytest.UsageError(f"{request.node.name}: {MARKER} needs agent=")
     agent = _resolve(args["agent"], Path(str(request.node.path)), request.config.rootpath)
     model = request.config.getoption("--agentkit-model")
 
     def run(case: EvalCase) -> CaseResult:
-        return _run_sync(_run_case(case.model_copy(update={"kind": args["kind"]}), agent, model))
+        return _run_sync(_run_case(_with_kind(case, args), agent, model))
 
     return run
 

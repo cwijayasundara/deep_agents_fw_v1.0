@@ -9,7 +9,11 @@ from agentkit_core import Settings
 from agentkit_deep import build_deep_agent
 from agentkit_deep.testing import ScriptedChatModel, ctx, scripted, tool_call
 from agentkit_middleware import BUILTIN_TOOLS, platform_guards
-from langchain.agents.middleware import ToolCallLimitMiddleware
+from langchain.agents.middleware import (
+    AgentMiddleware,
+    ToolCallLimitMiddleware,
+    ToolRetryMiddleware,
+)
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import BaseTool, tool
 from pydantic import Field
@@ -51,6 +55,38 @@ async def test_main_agent_call_to_other_tenants_tool_is_refused() -> None:
     assert calls == []
     (refusal,) = _refusals(out["messages"])
     assert "refused by tenant_tool_policy" in str(refusal.content)
+
+
+class _DynamicTools(AgentMiddleware):
+    """LangChain v1 dynamic tools: offer a tool in the model call, bind it in the tool call."""
+
+    name = "dynamic_tools"
+
+    def __init__(self, dynamic: BaseTool) -> None:
+        super().__init__()
+        self.dynamic = dynamic
+
+    async def awrap_model_call(self, request: Any, handler: Any) -> Any:
+        return await handler(request.override(tools=[*request.tools, self.dynamic]))
+
+    async def awrap_tool_call(self, request: Any, handler: Any) -> Any:
+        if request.tool is None and request.tool_call["name"] == self.dynamic.name:
+            request = request.override(tool=self.dynamic)
+        return await handler(request)
+
+
+async def test_dynamic_tool_bound_inside_the_guards_is_refused() -> None:
+    """The guards see no tool for a dynamically bound call, so they refuse it as unregistered."""
+    restricted, calls = _restricted()
+    model = scripted(tool_call("restricted", {"q": "x"}, "c1"), AIMessage(content="done"))
+    agent = build_deep_agent(model=model, system_prompt="p", middleware=[_DynamicTools(restricted)])
+    out = await agent.ainvoke({"messages": [HumanMessage("go")]}, context=ctx())
+    assert "restricted" in model.bound[0]  # the dynamic tool was offered
+    assert calls == []
+    (refusal,) = _refusals(out["messages"])
+    assert str(refusal.content) == (
+        "Tool call refused by tenant_tool_policy: unregistered tool 'restricted'"
+    )
 
 
 async def test_general_purpose_subagent_call_is_refused() -> None:
@@ -117,6 +153,17 @@ async def test_denied_call_counts_against_tool_call_limit() -> None:
     assert "refused by" not in str(by_id["c2"].content)
 
 
+async def test_denied_call_is_not_retried_by_tool_retry() -> None:
+    restricted, calls = _restricted()
+    model = scripted(tool_call("restricted", {"q": "x"}, "c1"), AIMessage(content="done"))
+    retry = ToolRetryMiddleware(max_retries=3, initial_delay=0)
+    agent = build_deep_agent(model=model, system_prompt="p", tools=[restricted], middleware=[retry])
+    out = await agent.ainvoke({"messages": [HumanMessage("go")]}, context=ctx())
+    assert calls == []
+    (refusal,) = _refusals(out["messages"])
+    assert "refused by tenant_tool_policy" in str(refusal.content)
+
+
 async def test_every_built_tool_is_builtin_or_registered() -> None:
     from agentkit_config import load_agent
 
@@ -140,6 +187,32 @@ def test_passing_guard_middleware_is_rejected() -> None:
     sub = {"name": "r", "description": "d", "system_prompt": "s", "middleware": [guards]}
     with pytest.raises(ValueError, match="adds GuardMiddleware itself; do not pass one"):
         build_deep_agent(model=scripted(), system_prompt="p", subagents=[sub])
+
+
+def test_middleware_named_like_the_guards_is_rejected() -> None:
+    class Impostor(AgentMiddleware):
+        name = "agentkit_guards"
+
+    with pytest.raises(ValueError, match="adds GuardMiddleware itself; do not pass one"):
+        build_deep_agent(model=scripted(), system_prompt="p", middleware=[Impostor()])
+    sub = {"name": "r", "description": "d", "system_prompt": "s", "middleware": [Impostor()]}
+    with pytest.raises(ValueError, match="adds GuardMiddleware itself; do not pass one"):
+        build_deep_agent(model=scripted(), system_prompt="p", subagents=[sub])
+
+
+def test_non_basetool_tools_are_rejected() -> None:
+    def plain(q: str) -> str:
+        """A plain callable."""
+        return q
+
+    native = {"type": "web_search_20250305", "name": "web_search"}
+    for bad, kind in ((plain, "function"), (native, "dict")):
+        msg = f"build_deep_agent tools must be BaseTool instances; got {kind}"
+        with pytest.raises(TypeError, match=msg):
+            build_deep_agent(model=scripted(), system_prompt="p", tools=[bad])  # type: ignore[list-item]
+        sub = {"name": "r", "description": "d", "system_prompt": "s", "tools": [bad]}
+        with pytest.raises(TypeError, match=msg):
+            build_deep_agent(model=scripted(), system_prompt="p", subagents=[sub])
 
 
 def test_tool_shadowing_a_builtin_name_is_rejected() -> None:

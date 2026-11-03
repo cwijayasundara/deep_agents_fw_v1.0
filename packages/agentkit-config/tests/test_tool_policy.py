@@ -96,15 +96,17 @@ def test_allowed_tenant_loads_with_metadata(
     assert resolve_mod  # imported for symmetry with the spy test
 
 
-def test_undecorated_tool_warns(tmp_path: Path) -> None:
+def test_undecorated_tool_is_an_error(tmp_path: Path) -> None:
+    """At runtime the guards refuse every call to it, so validate must not pass it."""
     p = _agent_file(tmp_path)
     lib = Library.from_roots([tmp_path], _pools(x=_build))
     errs = validate_agent(
         parse_agent(p), lib, ModelRegistry.default(), file="a.yaml", tenant="tenant-b"
     )
-    warns = [e.message for e in errs if e.severity == "warning" and e.path == "tools[0]"]
-    assert warns == ["tool 'x' has no @platform_tool metadata"]
-    assert not [e for e in errs if e.severity == "error"]
+    assert [e.message for e in errs if e.severity == "error"] == [
+        "tool 'x' has no @platform_tool metadata; its calls would be refused as unregistered"
+    ]
+    assert [e.path for e in errs if e.severity == "error"] == ["tools[0]"]
 
 
 def test_tools_list_filters_by_tenant(

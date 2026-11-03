@@ -2,8 +2,8 @@ import logging
 
 from agentkit_config import CodePools, Library, load_agent, read_output
 from agentkit_core import Settings
-from agentkit_deep.testing import ctx, registered, scripted, tool_call
-from agentkit_tools import Page, Source, make_fetch_tool, make_web_search_tool
+from agentkit_deep.testing import ctx, scripted, tool_call
+from agentkit_tools import Page, Source, make_fetch_tool, make_web_search_tool, platform_tool
 from langchain_core.messages import AIMessage, HumanMessage
 from research_agent import DEFAULT_AGENT
 from research_agent.progress import run_with_progress
@@ -19,15 +19,16 @@ class FakeFetch:
         return Page(url, "A", "body")
 
 
+def _external(factory):
+    """Register a fake factory the way the real search and fetch factories are."""
+    return platform_tool(owner="platform", version="1.0.0", side_effects="external")(factory)
+
+
 def build_agent(model):
     pools = CodePools.from_entry_points().override(
         tools={
-            "web_search": lambda ctx, **kw: registered(
-                make_web_search_tool(FakeSearch()), side_effects="external"
-            ),
-            "fetch_url": lambda ctx, **kw: registered(
-                make_fetch_tool(FakeFetch()), side_effects="external"
-            ),
+            "web_search": _external(lambda ctx, **kw: make_web_search_tool(FakeSearch())),
+            "fetch_url": _external(lambda ctx, **kw: make_fetch_tool(FakeFetch())),
         }
     )
     return load_agent(

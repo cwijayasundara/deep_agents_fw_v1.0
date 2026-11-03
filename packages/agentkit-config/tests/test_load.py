@@ -11,6 +11,7 @@ from agentkit_config.resolve import resolve_agent
 from agentkit_config.spec import parse_agent
 from agentkit_core import ConfigError, ModelRegistry, Settings
 from agentkit_deep.testing import ctx, scripted, tool_call
+from agentkit_tools import platform_tool
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import tool
@@ -18,6 +19,7 @@ from langchain_core.tools import tool
 SETTINGS = Settings(_env_file=None, deployment_tenant="default")  # built at import: pin tenant
 
 
+@platform_tool(owner="platform", version="1.0.0", side_effects="external")
 def _search(ctx: Any, **_: Any) -> Any:
     @tool
     def web_search(query: str) -> str:
@@ -27,6 +29,7 @@ def _search(ctx: Any, **_: Any) -> Any:
     return web_search
 
 
+@platform_tool(owner="platform", version="1.0.0", side_effects="read")
 def _other(ctx: Any, **_: Any) -> Any:
     @tool
     def other(query: str) -> str:

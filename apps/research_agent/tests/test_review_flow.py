@@ -8,7 +8,7 @@ from agentkit_config.flow.compile import flow_library, load_flow
 from agentkit_core import Settings
 from agentkit_deep.testing import ScriptedChatModel, ctx, tool_call
 from agentkit_middleware import MissingPlatformContext
-from agentkit_tools import Page, Source, make_fetch_tool, make_web_search_tool
+from agentkit_tools import Page, Source, make_fetch_tool, make_web_search_tool, platform_tool
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import AIMessage, BaseMessage
 from langgraph.checkpoint.memory import InMemorySaver
@@ -30,11 +30,16 @@ class FakeFetch:
         return Page(url, "A", "body")
 
 
+def _external(factory):
+    """Register a fake factory the way the real search and fetch factories are."""
+    return platform_tool(owner="platform", version="1.0.0", side_effects="external")(factory)
+
+
 def fake_pools() -> CodePools:
     return CodePools.from_entry_points().override(
         tools={
-            "web_search": lambda ctx, **kw: make_web_search_tool(FakeSearch()),
-            "fetch_url": lambda ctx, **kw: make_fetch_tool(FakeFetch()),
+            "web_search": _external(lambda ctx, **kw: make_web_search_tool(FakeSearch())),
+            "fetch_url": _external(lambda ctx, **kw: make_fetch_tool(FakeFetch())),
         }
     )
 

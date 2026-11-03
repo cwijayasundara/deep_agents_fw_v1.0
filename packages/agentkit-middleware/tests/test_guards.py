@@ -151,14 +151,30 @@ def test_settings_parse_comma_list_and_reject_unknown(monkeypatch: pytest.Monkey
     monkeypatch.setenv("AGENTKIT_ALLOWED_SIDE_EFFECTS", " read , write ")
     assert Settings(_env_file=None).allowed_side_effects == frozenset({"read", "write"})
     monkeypatch.setenv("AGENTKIT_ALLOWED_SIDE_EFFECTS", "read, writ")
-    with pytest.raises(ValidationError, match="writ"):
+    with pytest.raises(ValidationError, match="input_value='writ'"):
         Settings(_env_file=None)
 
 
-def test_guards_abstain_without_a_tool() -> None:
+def test_call_without_a_tool_is_denied_by_policy_unless_builtin() -> None:
+    """A tool bound by a middleware inside the guards reaches them as `tool=None`."""
     call = {"name": "x", "args": {}, "id": "1", "type": "tool_call"}
-    assert TenantToolPolicyGuard("acme").check(call, None) is None  # type: ignore[arg-type]
+    assert TenantToolPolicyGuard("acme").check(call, None) == Deny(  # type: ignore[arg-type]
+        "tenant_tool_policy", "unregistered tool 'x'"
+    )
     assert SideEffectsGuard(frozenset({"read"})).check(call, None) is None  # type: ignore[arg-type]
+    ls = {"name": "ls", "args": {}, "id": "1", "type": "tool_call"}
+    assert TenantToolPolicyGuard("acme").check(ls, None) is None  # type: ignore[arg-type]
+
+
+async def test_refusal_of_a_call_without_an_id_does_not_crash() -> None:
+    call = {"name": "rogue", "args": {"q": "x"}, "id": None, "type": "tool_call"}
+    req = ToolCallRequest(tool_call=call, tool=make_tool("rogue", None), state={}, runtime=None)  # type: ignore[arg-type]
+    handler = Recorder()
+    out = await guards().awrap_tool_call(req, handler)
+    assert isinstance(out, ToolMessage) and out.status == "error"
+    assert out.tool_call_id == ""
+    assert out.content == "Tool call refused by tenant_tool_policy: unregistered tool 'rogue'"
+    assert handler.calls == []
 
 
 async def test_metadata_missing_a_key_fails_closed() -> None:

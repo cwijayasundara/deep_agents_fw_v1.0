@@ -37,14 +37,20 @@ def _process_settings() -> Settings:
 
 
 def _check_tool_names(tools: Sequence[BaseTool]) -> None:
-    """Guards skip built-ins by name, so a caller tool must not borrow a built-in's name."""
+    """Only `BaseTool`s: dict (provider-native) tools run at the provider, out of the guards'
+    reach. Guards skip built-ins by name, so a caller tool must not borrow a built-in's name."""
     for t in tools:
+        if not isinstance(t, BaseTool):
+            raise TypeError(
+                f"build_deep_agent tools must be BaseTool instances; got {type(t).__name__}"
+            )
         if t.name in BUILTIN_TOOLS:
             raise ValueError(f"tool name {t.name!r} is reserved for deepagents built-ins")
 
 
 def _no_guard_passed(middleware: Sequence[AgentMiddleware]) -> None:
-    if any(isinstance(m, GuardMiddleware) for m in middleware):
+    # deepagents merges middleware by name, so a same-named impostor could replace the guards.
+    if any(isinstance(m, GuardMiddleware) or m.name == GuardMiddleware.name for m in middleware):
         raise ValueError("build_deep_agent adds GuardMiddleware itself; do not pass one")
 
 
@@ -121,7 +127,14 @@ def build_deep_agent(
     general-purpose subagent is always declared explicitly (inheriting the parent's tools,
     model and skills) unless the caller declares one. Callers cannot pass `GuardMiddleware`,
     give a tool a built-in's name (guards skip built-ins by name), or pass compiled or remote
-    subagents (their tool calls would bypass the guards).
+    subagents (their tool calls would bypass the guards). Tools must be `BaseTool` instances;
+    a middleware named like `GuardMiddleware` is refused too. A call whose tool a middleware
+    binds dynamically reaches the guards with no tool and is refused as unregistered.
+
+    The explicit general-purpose subagent is deepagents' `GENERAL_PURPOSE_SUBAGENT` spec as is:
+    it does not apply deepagents' general_purpose_subagent profile overrides (description,
+    system_prompt, `enabled=False`) or the `_gp_inheritable` slot replacements, and it
+    inherits the main agent's skills only through `skills=`.
 
     The returned agent's `config["metadata"]["prompt_hash"]` is the SHA-256 of `system_prompt`
     as configured, before memory or harness text is added (see `prompt_hash`); every run and

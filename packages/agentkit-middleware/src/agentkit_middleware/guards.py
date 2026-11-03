@@ -49,9 +49,11 @@ class TenantToolPolicyGuard:
         self.tenant = tenant
 
     def check(self, call: ToolCall, tool: BaseTool | None) -> Deny | None:
-        if tool is None or call["name"] in BUILTIN_TOOLS:
+        if call["name"] in BUILTIN_TOOLS:
             return None
-        meta = _agentkit_meta(tool)
+        # No tool: one a middleware inside the guards binds dynamically. Never seen here, so
+        # never registered: refuse it.
+        meta = None if tool is None else _agentkit_meta(tool)
         if not isinstance(meta, dict):
             return Deny(self.name, f"unregistered tool {call['name']!r}")
         tenants = meta["tenants"]
@@ -72,7 +74,7 @@ class SideEffectsGuard:
 
     def check(self, call: ToolCall, tool: BaseTool | None) -> Deny | None:
         if tool is None or call["name"] in BUILTIN_TOOLS:
-            return None
+            return None  # TenantToolPolicyGuard refuses a call with no tool
         meta = _agentkit_meta(tool)
         if not isinstance(meta, dict):
             return None  # TenantToolPolicyGuard refuses unregistered tools
@@ -105,7 +107,7 @@ class GuardMiddleware(AgentMiddleware):
                 log.warning("tool call %r refused by %s: %s", call["name"], deny.guard, deny.reason)
                 return ToolMessage(
                     content=f"Tool call refused by {deny.guard}: {deny.reason}",
-                    tool_call_id=call["id"],
+                    tool_call_id=call.get("id") or "",
                     name=call["name"],
                     status="error",
                 )

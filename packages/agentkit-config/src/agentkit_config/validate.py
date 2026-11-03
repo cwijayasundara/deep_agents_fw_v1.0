@@ -123,7 +123,13 @@ def _policy_errors(
 ) -> list[SpecError]:
     meta = factory_meta(factory)
     if meta is None:
-        return [c.err(path, f"tool {name!r} has no @platform_tool metadata", "warning")]
+        return [
+            c.err(
+                path,
+                f"tool {name!r} has no @platform_tool metadata; "
+                "its calls would be refused as unregistered",
+            )
+        ]
     if tenant is not None and meta.tenants is not None and tenant not in meta.tenants:
         return [c.err(path, f"tool {name!r} is not available to tenant {tenant!r}")]
     return []

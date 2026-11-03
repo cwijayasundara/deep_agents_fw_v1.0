@@ -6,7 +6,7 @@ import agentkit_config.load as load_mod
 from agentkit_config import CodePools, Library, load_agent
 from agentkit_core import Settings
 from agentkit_deep.testing import describe_build
-from agentkit_tools import Page, Source, make_fetch_tool, make_web_search_tool
+from agentkit_tools import Page, Source, make_fetch_tool, make_web_search_tool, platform_tool
 from research_agent import DEFAULT_AGENT
 
 FIXTURE = Path(__file__).parent / "fixtures" / "python_build_snapshot.json"
@@ -22,6 +22,11 @@ class FakeFetch:
         return Page(url, "A", "body")
 
 
+def _external(factory):
+    """Register a fake factory the way the real search and fetch factories are."""
+    return platform_tool(owner="platform", version="1.0.0", side_effects="external")(factory)
+
+
 def test_yaml_build_matches_python_snapshot(monkeypatch):
     recorded: dict = {}
 
@@ -32,8 +37,8 @@ def test_yaml_build_matches_python_snapshot(monkeypatch):
     monkeypatch.setattr(load_mod, "build_deep_agent", recorder)
     pools = CodePools.from_entry_points().override(
         tools={
-            "web_search": lambda ctx, **kw: make_web_search_tool(FakeSearch()),
-            "fetch_url": lambda ctx, **kw: make_fetch_tool(FakeFetch()),
+            "web_search": _external(lambda ctx, **kw: make_web_search_tool(FakeSearch())),
+            "fetch_url": _external(lambda ctx, **kw: make_fetch_tool(FakeFetch())),
         }
     )
     load_agent(

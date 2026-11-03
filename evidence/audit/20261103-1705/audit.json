@@ -1,0 +1,119 @@
+{
+  "thread": "8d77ea13-b00b-48c7-95b6-6bc83933b466",
+  "prompt_hash": "093300afb324663dac4f9d62eec41a8f1b572d78d6b78a099fcac8d82841c8c3",
+  "usage_models": [
+    "accounts/fireworks/models/glm-5p3-flash"
+  ],
+  "main_captures": 8,
+  "subagent_captures": 0,
+  "task_tool_calls_in_final_state": 0,
+  "subagent_note": "not in parent checkpoints",
+  "captures": [
+    {
+      "step": 8,
+      "detail": {},
+      "messages": "match",
+      "tools": "not-recorded",
+      "model": "match",
+      "system": "differs"
+    },
+    {
+      "step": 19,
+      "detail": {
+        "tools_only_sent": [],
+        "tools_only_recorded": [
+          "execute",
+          "write_todos"
+        ]
+      },
+      "messages": "match",
+      "tools": "differs",
+      "model": "match",
+      "system": "differs"
+    },
+    {
+      "step": 30,
+      "detail": {
+        "tools_only_sent": [],
+        "tools_only_recorded": [
+          "execute",
+          "write_todos"
+        ]
+      },
+      "messages": "match",
+      "tools": "differs",
+      "model": "match",
+      "system": "differs"
+    },
+    {
+      "step": 41,
+      "detail": {
+        "tools_only_sent": [],
+        "tools_only_recorded": [
+          "execute",
+          "write_todos"
+        ]
+      },
+      "messages": "match",
+      "tools": "differs",
+      "model": "match",
+      "system": "differs"
+    },
+    {
+      "step": 52,
+      "detail": {
+        "tools_only_sent": [],
+        "tools_only_recorded": [
+          "execute",
+          "write_todos"
+        ]
+      },
+      "messages": "match",
+      "tools": "differs",
+      "model": "match",
+      "system": "differs"
+    },
+    {
+      "step": 63,
+      "detail": {
+        "tools_only_sent": [],
+        "tools_only_recorded": [
+          "execute",
+          "write_todos"
+        ]
+      },
+      "messages": "match",
+      "tools": "differs",
+      "model": "match",
+      "system": "differs"
+    },
+    {
+      "step": 74,
+      "detail": {
+        "tools_only_sent": [],
+        "tools_only_recorded": [
+          "execute",
+          "write_todos"
+        ]
+      },
+      "messages": "match",
+      "tools": "differs",
+      "model": "match",
+      "system": "differs"
+    },
+    {
+      "step": 85,
+      "detail": {
+        "tools_only_sent": [],
+        "tools_only_recorded": [
+          "execute",
+          "write_todos"
+        ]
+      },
+      "messages": "match",
+      "tools": "differs",
+      "model": "match",
+      "system": "differs"
+    }
+  ]
+}

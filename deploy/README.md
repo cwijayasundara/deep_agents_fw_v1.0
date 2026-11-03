@@ -42,7 +42,8 @@ Tool side effects are a per-tenant policy too: `AGENTKIT_ALLOWED_SIDE_EFFECTS` i
 (comma-separated, any of `read`, `write`, `external`; stamps write `read,external`) lists the
 side-effect classes the tool guards let that tenant's agents call. A registered tool whose
 `side_effects` is not listed is refused before it runs, so `write` tools stay off until the line
-says `read,write,external`; an unknown value fails Settings validation. A tenant file stamped before
+says `read,write,external`; an unknown value fails Settings validation. An explicitly empty
+`AGENTKIT_ALLOWED_SIDE_EFFECTS=` allows no class, so every registered tool is refused (fail closed). A tenant file stamped before
 the setting existed has no such line: the helper then leaves the variable unset and the default
 `read,external` applies. Like `AGENTKIT_TENANT`, it must not be set in the repo `.env` (the helper
 refuses).

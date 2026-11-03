@@ -217,6 +217,7 @@ metadata (`build_deep_agent`), and subagent requests are not in the parent threa
    that already works, so lowest risk).
 3. P2-A guard tier. The `tenant_tool_policy` guard ships before the MCP gateway; the `side_effects` guard
    ships with HITL.
+   Note: the `side_effects` guard shipped in this phase (see Refinements); HITL approval is still to come.
 4. Then the MCP gateway as an `agentkit.tool_sources` provider, behind P2-A.
 
 ## Decisions settled with the user (2026-11-03)

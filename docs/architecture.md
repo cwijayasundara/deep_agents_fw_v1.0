@@ -59,10 +59,10 @@ mypy strict, ruff with line length 100.
 
 | Path | Responsibility | Key modules and APIs | Depends on (workspace) |
 |---|---|---|---|
-| `packages/agentkit-core` | Settings and secrets, the model registry, the run context | `Settings`, `ConfigError`, `Provider`, `ModelRegistry`, `ModelSpec`, `TIERS`, `get_model`, `PlatformContext`, `Label`, `check_label`, `check_user_id`, `store_namespace`, `BuildContext`; `models.yaml` | none |
+| `packages/agentkit-core` | Settings and secrets, the model registry, the run context, capability seams | `Settings`, `ConfigError`, `Seam`, `provider`, `resolve_secret`, `Provider`, `ModelRegistry`, `ModelSpec`, `TIERS`, `get_model`, `PlatformContext`, `Label`, `check_label`, `check_user_id`, `store_namespace`, `BuildContext`; `models.yaml` | none |
 | `packages/agentkit-tools` | Read-only research tools, their pool factories and tool governance | `web_search` and `fetch_url` factories (`factories.py`), `DuckDuckGoSearch`, `TavilySearch`, `HttpFetch`, `make_web_search_tool`, `make_fetch_tool`, `ToolError`; `platform_tool`, `ToolMeta`, `tool_meta`, `check_tool_contract`; `tool_schemas.json` | core |
 | `packages/agentkit-connectors` | Connector specs, secret refs, embeddings, pooled engines and the curated KB tools | `load_connector`, `get_embeddings`, `get_engine`; `kb_search` and `sql_query` factories (`tools.py`); script `agentkit-kb` (`setup`, `ingest`) | core, tools |
-| `packages/agentkit-middleware` | Tenant guard, Decisions-based selection, resilience | `TenantGuardMiddleware`, `TenantMismatch`, `MissingPlatformContext`, `SelectionMiddleware`, `Selector`, `Selection`, `ToolCard`, `DecisionsClient`, `DecisionsSelector`, `CircuitBreaker`, `call_with_retry`, `call_limit` factory | core |
+| `packages/agentkit-middleware` | Tenant guard, tool guards, Decisions-based selection, resilience | `TenantGuardMiddleware`, `TenantMismatch`, `MissingPlatformContext`, `GuardMiddleware`, `platform_guards`, `SelectionMiddleware`, `Selector`, `Selection`, `ToolCard`, `DecisionsClient`, `DecisionsSelector`, `CircuitBreaker`, `call_with_retry`, `call_limit` factory | core |
 | `packages/agentkit-persistence` | Encrypted Postgres checkpoints and store, thread locks, pruning | `PersistenceSettings`, `open_persistence`, `Persistence`, `EncryptedStore`, `StoreEncryptionError`, `thread_lock`, `prune`; script `agentkit-prune` | core |
 | `packages/agentkit-deep` | The factory, skills mount, memory tiers, test doubles | `build_deep_agent`, `prompt_hash`, `agent_prompt_hash`; `memory.memory_backend`; `skills_mount.skills_mount`, `skills_routes`, `skills_source`; `testing.ScriptedChatModel`, `MeteredChatModel`, `ctx`, `memory_persistence` | core, middleware, persistence |
 | `packages/agentkit-config` | The declarative layer: YAML specs, pools, validation, resolution, flows | `load_agent`, `LoadedAgent`, `Library`, `CodePools`, `SpecError`, `SpecErrors`, `read_output`; `flow.load_flow`, `flow.validate_flow`; script `agentkit` | core, deep, middleware, persistence (tools only as a dev dependency) |
@@ -442,7 +442,8 @@ build_deep_agent(
 | A concrete model | `model` is a `BaseChatModel` or a `ModelSpec`; a `ModelSpec` needs `settings` and is built with `get_model`, which fails fast if the provider key is missing. |
 | `context_schema=PlatformContext` | Every run must pass `context=PlatformContext(...)` (a dict is validated against it). |
 | `TenantGuardMiddleware` first | The guard for the deployment tenant (`settings.deployment_tenant`, or `AGENTKIT_TENANT` read once per process when no settings are given) is prepended to the caller's middleware. Passing a `TenantGuardMiddleware` yourself raises `ValueError`. |
-| Caller middleware order preserved | The middleware list is `[guard, *middleware]`. From YAML, `middleware` is sorted into the canonical order (`agentkit_config/stack.py`, `STACK_ORDER`): `selection` (when `selection: decisions`), `model_fallback`, `model_retry`, `tool_retry`, `require_output`, `call_limit`, `tool_call_limit`, `pii`, then any other pool entries in file order. File order no longer matters. The first entry is the outermost wrapper: `SelectionMiddleware` overrides the request's model, so fallback sits inside it and can swap the model on failure, and retry sits inside fallback so each model is retried before the next is tried. `require_output` sits outside `call_limit`, so the model calls its nudges cause are counted against the budget. Validation rejects a second enabled `selection`, `model_fallback`, `model_retry`, `tool_retry`, `require_output` or `call_limit`, and repeats of `pii` (same `type`) or `tool_call_limit` (same `tool_name`); an agent without an enabled `call_limit` gets a warning. DeepAgents then wraps its own stack around this user-middleware slot. |
+| `GuardMiddleware` next | `platform_guards(settings)` goes right after the tenant guard on the main agent and first in every subagent's middleware (section 6.1.1). Passing one, or any middleware with its name, raises `ValueError`. |
+| Caller middleware order preserved | The middleware list is `[tenant_guard, guards, *middleware]`. From YAML, `middleware` is sorted into the canonical order (`agentkit_config/stack.py`, `STACK_ORDER`): `selection` (when `selection: decisions`), `model_fallback`, `model_retry`, `tool_retry`, `require_output`, `call_limit`, `tool_call_limit`, `pii`, then any other pool entries in file order. File order no longer matters. The first entry is the outermost wrapper: `SelectionMiddleware` overrides the request's model, so fallback sits inside it and can swap the model on failure, and retry sits inside fallback so each model is retried before the next is tried. `require_output` sits outside `call_limit`, so the model calls its nudges cause are counted against the budget. Validation rejects a second enabled `selection`, `model_fallback`, `model_retry`, `tool_retry`, `require_output` or `call_limit`, and repeats of `pii` (same `type`) or `tool_call_limit` (same `tool_name`); an agent without an enabled `call_limit` gets a warning. DeepAgents then wraps its own stack around this user-middleware slot. |
 | Skills | `skills` are skill *sources* (`skills_source(owner)`), passed through with `backend` and `permissions` (section 7). |
 | Persistence | With `persistence`: its encrypted `saver` and `store` become the checkpointer and store (passing `checkpointer` or `store` too raises `ValueError`); the backend becomes `memory_backend()` unless the caller passed one built by `memory_backend(...)` (any other backend raises `ValueError`); `memory=["/org/AGENTS.md", "/memories/AGENTS.md"]`; and `ORG_WRITE_DENY` is prepended to the permissions. |
 | Prompt hash | The returned graph is `agent.with_config(metadata={"prompt_hash": prompt_hash(system_prompt)})`, so every run and trace inherits it. |
@@ -455,8 +456,8 @@ it back (`""` for a graph not built by the factory).
 guard, identity and tool policy, tool surface, model fallback and retry, tool error handling and
 retry, call limits, PII, todo list) and an org-to-tenant-to-role prompt composer. The code enforces
 the guard's position, and YAML agents get the resilience and limit middleware (fallback, retry, call
-limits, PII) in the canonical order; identity and tool policy, tool error handling, the todo list and
-the prompt composer are not there yet. The factory
+limits, PII) in the canonical order, and tool policy is enforced by the tool guards (section 6.1.1);
+identity, tool error handling, the todo list and the prompt composer are not there yet. The factory
 also does not disable DeepAgents' automatically added `general-purpose` subagent, which the report
 recommends turning off by default.
 
@@ -663,11 +664,13 @@ identity arguments such as `tenant` or `user_id`).
 
 - **Tenant policy.** An agent or subagent that names a tool whose `tenants` excludes the deployment
   tenant (`AGENTKIT_TENANT`, default `default`) fails `agentkit validate` and `load_agent` with a
-  `SpecError` at `tools[N]` naming the tool and the tenant, before any key check. Policy is checked at
-  build and validate time, not per call: one deployment serves one tenant and `TenantGuardMiddleware`
-  rejects every other tenant's run. A factory without metadata loads with a warning.
-- **Recorded, not enforced yet.** `side_effects`, `identity` and `classification` are listed but not
-  enforced; no shipped tool writes. HITL for `side_effects: write` is a Phase 2 item.
+  `SpecError` at `tools[N]` naming the tool and the tenant, before any key check. The same policy is
+  enforced per call by the tool guards (section 6.1.1). A factory without metadata is a validation error
+  (`tool 'x' has no @platform_tool metadata; its calls would be refused as unregistered`), since the
+  guards refuse every call to it.
+- **Side effects enforced; identity and classification recorded.** The `side_effects` guard refuses a
+  tool whose class the tenant does not allow (section 6.1.1). `identity` and `classification` are listed
+  but not enforced. HITL approval for `side_effects: write` is still a Phase 2 item.
 - **`agentkit tools list [--tenant T]`** prints one line per tool the tenant may use:
   `name version side_effects classification owner tenants` (`*` = every tenant).
 - **`agentkit tools snapshot [--check] [--file PATH]`** (`make tool-schemas`) writes or checks
@@ -686,6 +689,33 @@ web_search 1.0.0 external public platform *
 
 `web_search` and `fetch_url` have pydantic argument schemas (`query`, `k` 1-10, default 5; `url`) and
 descriptions that say when to use the tool and when not to.
+
+### 6.1.1 Tool guards
+
+`GuardMiddleware` (`agentkit_middleware/guards.py`) runs deny-only guards in `wrap_tool_call`, before
+the tool runs. A refusal is an error `ToolMessage` (`Tool call refused by <guard>: <reason>`); the tool
+body never executes. Guards never rewrite or allow-list a call. `platform_guards(settings)` builds the
+two built-in guards, in order:
+
+| Guard | Refuses |
+|---|---|
+| `tenant_tool_policy` | a call with no `tool.metadata["agentkit"]` (`unregistered tool 'x'`), including a call whose tool a middleware binds dynamically (the guards see no tool); a tool whose `tenants` excludes the deployment tenant |
+| `side_effects` | a registered tool whose `side_effects` class is not in `AGENTKIT_ALLOWED_SIDE_EFFECTS` |
+
+- **Where.** `build_deep_agent` installs one `GuardMiddleware` right after `TenantGuardMiddleware` on
+  the main agent and first in every subagent's middleware, including an explicitly declared
+  `general-purpose` subagent (deepagents' auto-added one would not inherit it). Caller middleware sits
+  inside the guards, so a denied call is never retried by `tool_retry` and still counts against
+  `tool_call_limit`.
+- **Fail closed.** A guard that raises refuses the call (`guard failed: <ExceptionType>`, no error
+  text). Metadata missing a key a guard needs refuses the call. Only deepagents built-ins
+  (`BUILTIN_TOOLS`) pass without metadata, so `build_deep_agent` refuses a caller tool with a
+  built-in's name, a tool that is not a `BaseTool` (dict or provider-native tools run at the provider),
+  a passed `GuardMiddleware` or any middleware with its name, and compiled or remote subagents.
+- **`AGENTKIT_ALLOWED_SIDE_EFFECTS`.** Comma-separated subset of `read`, `write`, `external`, set per
+  tenant stamp (`deploy/README.md`); default `read,external`, so `write` tools are refused until
+  allowed. An unknown value fails Settings validation; an explicitly empty value refuses every
+  registered tool.
 
 ### 6.2 Connectors and the curated knowledge-base tools
 
@@ -1688,7 +1718,7 @@ agent, flow and subagent. When you rely on a new upstream behaviour, pin it with
 | Fallback needs a Fireworks key | The shipped research agent's `model_fallback` target (`fireworks-glm:strong`) is built at load, so `FIREWORKS_API_KEY` is required for every `--model`, not only Fireworks entries. Drop the `model_fallback` entry (or point it at the run's own provider) to run without it. |
 | Fallback hides the primary's failure | When the primary model fails, the fallback answers silently: the CLI's model line still names the primary, and only the ledger row's `model` (every model id the run called, comma-joined) shows the switch. |
 | Eval gate scope | The gate compares means over one live run; a single golden run has run-to-run noise (DuckDuckGo results, model sampling), so floors and `max_drop` are set loosely (`docs/phase1-results.md`). The judge is one model (`anthropic`, strong tier); judges are not calibrated yet (Phase 2). The gate checks only after all cases ran, so a mismatched run still costs its cases. |
-| Tool governance recorded, not enforced | `side_effects`, `identity` and `classification` are listed by `agentkit tools list` but not enforced; tenant policy is checked at build and validate time only (section 6.1). HITL for write tools is Phase 2. |
+| Tool governance partly enforced | Tenant policy and `side_effects` are enforced per call by the tool guards (section 6.1.1); `identity` and `classification` are listed by `agentkit tools list` but not enforced. HITL approval for write tools is Phase 2. |
 | Secrets providers | Connector secrets resolve only `env://VAR`; Vault and cloud secret managers are Phase 2. Only pgvector and Postgres connectors exist (no Qdrant, Weaviate or Pinecone). |
 | `sql_query` one-statement check | Any `;` other than one trailing is refused, even inside a string literal (conservative). The `kb_reader` role is the real wall; never point `KB_READER_DATABASE_URL` at an admin login. On first use the tool refuses a login (`session_user`) or active role (`current_user`) that is or is a member of a superuser, BYPASSRLS or `pg_read_server_files`-style built-in role, or can CREATE in a configured schema, and refuses any login whose active role differs from it (a startup `role` setting). It checks role attributes and memberships, not object grants: an ordinary login granted SELECT on other tables passes and can read them. A passed check is cached for the built tool's lifetime, so a later role change needs a rebuild or restart. |
 | Single-step and gate sampling | Live eval cases are single samples (no pass^k): two single-step cases failed in the recorded baseline and passed in one further run (the plugin run, minutes later), which cannot tell variance from an intermittent gap; `mean_total_tokens` is heavy-tailed, and the re-recorded research baseline (an outlier at 297k) loosened the token ceiling to about 386k (`docs/phase1b-results.md`). No VCR replay, judge caching or judge calibration yet. |

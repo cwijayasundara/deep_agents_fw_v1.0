@@ -26,7 +26,7 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   The shipped research agent needs `FIREWORKS_API_KEY` for any `--model` (fallback).
   Open items: P10 thread-to-user binding, P3 primitive state plaintext, AES key rotation/backup;
   `eval-<hex>` users' store items are never pruned (prune deletes threads only); prune needs a
-  tenant filter if DBs are ever shared; tool side effects recorded not enforced (HITL is Phase 2); only `env://`
+  tenant filter if DBs are ever shared; tool side-effect policy is enforced by the guards, HITL approval still open; only `env://`
   secrets. Next: Phase 2 (roadmap in `reports/Reusable agent platform components.md`). Draft spec:
   `docs/superpowers/specs/2026-11-03-agentkit-phase2-design.md` (guard tier, capability seams,
   model-visible-means-logged; rest of Phase 2 still to design). Plan:

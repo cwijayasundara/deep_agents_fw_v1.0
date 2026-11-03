@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from agentkit_core import Settings
 from agentkit_deep import build_deep_agent
-from agentkit_deep.factory import _process_tenant
+from agentkit_deep.factory import _process_settings
 from agentkit_deep.testing import ctx, scripted
 from agentkit_middleware import TenantMismatch
 from langchain_core.messages import AIMessage, HumanMessage
@@ -22,7 +22,7 @@ def test_suite_runs_under_the_default_tenant() -> None:
 
 async def test_guard_uses_an_exported_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AGENTKIT_TENANT", "acme")
-    _process_tenant.cache_clear()
+    _process_settings.cache_clear()
     model = scripted(AIMessage(content="done"))
     agent = build_deep_agent(model=model, system_prompt="p")  # no settings: process tenant
     with pytest.raises(TenantMismatch, match="deployment tenant 'acme'"):

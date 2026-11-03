@@ -158,7 +158,7 @@ def _error_dump(spans) -> str:
 
 
 async def _run_erroring_tools():
-    from agentkit_deep.testing import tool_call
+    from agentkit_deep.testing import registered, tool_call
     from langchain.tools import tool
 
     @tool
@@ -181,7 +181,10 @@ async def _run_erroring_tools():
         )
     )
     agent = build_deep_agent(
-        model=model, system_prompt="p", tools=[boom, typed], settings=Settings(_env_file=None)
+        model=model,
+        system_prompt="p",
+        tools=[registered(boom), registered(typed)],
+        settings=Settings(_env_file=None),
     )
     config = run_config(_ctx(), agent_prompt_hash(agent), CostLedger())
     try:
@@ -241,7 +244,7 @@ async def _run_tool_returning_error_messages():
     content into the status message without calling the masking hook."""
     from typing import Annotated
 
-    from agentkit_deep.testing import tool_call
+    from agentkit_deep.testing import registered, tool_call
     from langchain.tools import InjectedToolCallId, tool
     from langchain_core.messages import ToolMessage
 
@@ -265,7 +268,10 @@ async def _run_tool_returning_error_messages():
         )
     )
     agent = build_deep_agent(
-        model=model, system_prompt="p", tools=[login, charge], settings=Settings(_env_file=None)
+        model=model,
+        system_prompt="p",
+        tools=[registered(login), registered(charge)],
+        settings=Settings(_env_file=None),
     )
     config = run_config(_ctx(), agent_prompt_hash(agent), CostLedger())
     await agent.ainvoke({"messages": [HumanMessage("go")]}, config, context=_ctx())

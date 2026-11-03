@@ -11,6 +11,7 @@ from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 from langchain_core.messages.ai import UsageMetadata
 from langchain_core.outputs import ChatResult
+from langchain_core.tools import BaseTool
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
 from pydantic import Field
@@ -71,6 +72,16 @@ def memory_persistence() -> Persistence:
         saver=cast(Any, InMemorySaver()),
         store=cast(Any, InMemoryStore()),
     )
+
+
+def registered[T: BaseTool](
+    tool: T, *, side_effects: str = "read", tenants: Sequence[str] | None = None
+) -> T:
+    """`tool`, carrying the `metadata["agentkit"]` a registered platform tool gets from
+    agentkit-config, so the platform guards let a test fake run. Returns the same object."""
+    meta = {"tenants": None if tenants is None else list(tenants), "side_effects": side_effects}
+    tool.metadata = {**(tool.metadata or {}), "agentkit": meta}
+    return tool
 
 
 def scripted(*messages: AIMessage) -> ScriptedChatModel:

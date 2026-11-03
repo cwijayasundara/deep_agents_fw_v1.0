@@ -254,3 +254,11 @@ async def test_load_agent_with_persistence_keeps_skills_and_memory(tmp_path):
     )
     ns = ("default", "agentkit", "platform", "local", "memories")
     assert (await p.store.aget(ns, "/AGENTS.md")) is not None
+
+
+def test_yaml_cannot_name_the_guard(tmp_path):
+    """The guards are installed by build_deep_agent, never configured: no pool offers them."""
+    p = _write(tmp_path, "middleware:\n  - {type: agentkit_guards}\n")
+    lib = Library.from_roots([tmp_path], CodePools.from_entry_points())
+    with pytest.raises(SpecErrors, match="unknown middleware 'agentkit_guards'"):
+        load_agent(p, settings=SETTINGS, library=lib, model=scripted())

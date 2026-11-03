@@ -12,7 +12,7 @@ from collections.abc import Iterator
 
 import pytest
 from agentkit_core import Settings
-from agentkit_deep.factory import _process_tenant
+from agentkit_deep.factory import _process_settings
 
 
 def _keeps_dotenv(node: pytest.Item) -> bool:
@@ -26,9 +26,9 @@ def _default_deployment_tenant(
     monkeypatch.delenv("AGENTKIT_TENANT", raising=False)
     if not _keeps_dotenv(request.node):
         monkeypatch.setitem(Settings.model_config, "env_file", None)
-    _process_tenant.cache_clear()
+    _process_settings.cache_clear()
     yield
-    _process_tenant.cache_clear()
+    _process_settings.cache_clear()
 
 
 @pytest.fixture(autouse=True)

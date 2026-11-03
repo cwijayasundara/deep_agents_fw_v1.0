@@ -1,7 +1,7 @@
 import pytest
 from agentkit_config import CodePools, SpecErrors, load_agent, read_output
 from agentkit_core import ConfigError, ModelRegistry, Settings
-from agentkit_deep.testing import ctx, scripted, tool_call
+from agentkit_deep.testing import ctx, registered, scripted, tool_call
 from agentkit_telemetry import CostLedger
 from agentkit_tools import Page, Source, make_fetch_tool, make_web_search_tool
 from langchain_core.messages import AIMessage, HumanMessage
@@ -21,8 +21,12 @@ class FakeFetch:
 def fake_pools() -> CodePools:
     return CodePools.from_entry_points().override(
         tools={
-            "web_search": lambda ctx, **kw: make_web_search_tool(FakeSearch()),
-            "fetch_url": lambda ctx, **kw: make_fetch_tool(FakeFetch()),
+            "web_search": lambda ctx, **kw: registered(
+                make_web_search_tool(FakeSearch()), side_effects="external"
+            ),
+            "fetch_url": lambda ctx, **kw: registered(
+                make_fetch_tool(FakeFetch()), side_effects="external"
+            ),
         }
     )
 

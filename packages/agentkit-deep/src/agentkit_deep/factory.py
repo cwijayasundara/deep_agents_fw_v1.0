@@ -6,9 +6,15 @@ from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from agentkit_core import ModelSpec, PlatformContext, Settings, get_model
-from agentkit_middleware import TenantGuardMiddleware
+from agentkit_middleware import (
+    BUILTIN_TOOLS,
+    GuardMiddleware,
+    TenantGuardMiddleware,
+    platform_guards,
+)
 from deepagents import FilesystemPermission, create_deep_agent
 from deepagents.backends.protocol import BackendProtocol
+from deepagents.middleware.subagents import GENERAL_PURPOSE_SUBAGENT
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
@@ -25,9 +31,50 @@ PROMPT_ID_KEY = "prompt_id"
 
 
 @cache
-def _process_tenant() -> str:
-    """The deployment tenant when no Settings are passed (read once: it is per process)."""
-    return Settings().deployment_tenant
+def _process_settings() -> Settings:
+    """The deployment Settings when none are passed (read once: they are per process)."""
+    return Settings()
+
+
+def _check_tool_names(tools: Sequence[BaseTool]) -> None:
+    """Guards skip built-ins by name, so a caller tool must not borrow a built-in's name."""
+    for t in tools:
+        if t.name in BUILTIN_TOOLS:
+            raise ValueError(f"tool name {t.name!r} is reserved for deepagents built-ins")
+
+
+def _no_guard_passed(middleware: Sequence[AgentMiddleware]) -> None:
+    if any(isinstance(m, GuardMiddleware) for m in middleware):
+        raise ValueError("build_deep_agent adds GuardMiddleware itself; do not pass one")
+
+
+def _guarded_subagents(
+    subagents: Sequence[dict[str, Any]], guards: GuardMiddleware, skills: list[str] | None
+) -> list[dict[str, Any]]:
+    """Every subagent with `guards` first in its own middleware, plus an explicit
+    general-purpose subagent unless the caller declared one.
+
+    deepagents' auto-added general-purpose subagent does not inherit the main agent's custom
+    middleware, so it would run tools unguarded; declaring it here (without "tools" or "model",
+    so it inherits the parent's) is how it gets the guards. Compiled and remote subagents run
+    their own tool loop out of reach of any middleware here, so they are refused."""
+    out: list[dict[str, Any]] = []
+    for spec in subagents:
+        if "runnable" in spec or "graph_id" in spec:
+            raise ValueError(
+                f"subagent {spec.get('name')!r} is a compiled or remote graph; "
+                "build_deep_agent cannot install the platform guards on it"
+            )
+        own = list(spec.get("middleware") or ())
+        _check_tool_names(spec.get("tools") or ())
+        _no_guard_passed(own)
+        out.append({**spec, "middleware": [guards, *own]})
+    if not any(s["name"] == GENERAL_PURPOSE_SUBAGENT["name"] for s in out):
+        gp: dict[str, Any] = {**GENERAL_PURPOSE_SUBAGENT, "middleware": [guards]}
+        if skills is not None:
+            gp["skills"] = skills  # the auto-added one loads the main agent's skills too
+        out.insert(0, gp)  # where deepagents puts its auto-added one
+    return out
 
 
 def build_deep_agent(
@@ -67,6 +114,15 @@ def build_deep_agent(
     deployment tenant first (as `research_agent.persist.require_tenant` does), or another
     tenant's input lands in the thread's history before the guard refuses the run.
 
+    Tool guards: `platform_guards(settings)` (tenant tool policy, then side effects; deny-only)
+    goes right after `TenantGuardMiddleware` on the main agent and first in every subagent's
+    own middleware, so a refused call never reaches the tool and still counts against call
+    limits. deepagents' auto-added general-purpose subagent would not inherit it, so the
+    general-purpose subagent is always declared explicitly (inheriting the parent's tools,
+    model and skills) unless the caller declares one. Callers cannot pass `GuardMiddleware`,
+    give a tool a built-in's name (guards skip built-ins by name), or pass compiled or remote
+    subagents (their tool calls would bypass the guards).
+
     The returned agent's `config["metadata"]["prompt_hash"]` is the SHA-256 of `system_prompt`
     as configured, before memory or harness text is added (see `prompt_hash`); every run and
     trace inherits it. `prompt_id` (`name@version` from the prompt registry), when given, is
@@ -77,8 +133,12 @@ def build_deep_agent(
         model = get_model(model, settings)
     if any(isinstance(m, TenantGuardMiddleware) for m in middleware):
         raise ValueError("build_deep_agent adds TenantGuardMiddleware itself; do not pass one")
-    tenant = settings.deployment_tenant if settings is not None else _process_tenant()
-    guard = TenantGuardMiddleware(tenant)
+    _no_guard_passed(middleware)
+    _check_tool_names(tools)
+    deployment = settings if settings is not None else _process_settings()
+    tenant_guard = TenantGuardMiddleware(deployment.deployment_tenant)
+    guards = platform_guards(deployment)
+    skill_sources = None if skills is None else list(skills)
     memory: list[str] | None = None
     if persistence is not None:
         if checkpointer is not None or store is not None:
@@ -94,13 +154,13 @@ def build_deep_agent(
         model=model,
         tools=list(tools),
         system_prompt=system_prompt,
-        middleware=[guard, *middleware],
+        middleware=[tenant_guard, guards, *middleware],
         context_schema=PlatformContext,
         store=store,
-        subagents=list(subagents) or None,  # type: ignore[arg-type]
+        subagents=_guarded_subagents(subagents, guards, skill_sources),  # type: ignore[arg-type]
         checkpointer=checkpointer,
         name=name,
-        skills=None if skills is None else list(skills),
+        skills=skill_sources,
         backend=backend,
         permissions=None if permissions is None else list(permissions),
         memory=memory,

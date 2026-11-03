@@ -14,6 +14,7 @@ from agentkit_deep.skills_mount import (
     skills_source,
 )
 from langchain.agents.middleware import AgentMiddleware
+from langchain.agents.structured_output import ToolStrategy
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
 
@@ -93,8 +94,10 @@ def _subagent(
     if sub.skills:
         out["skills"] = [skills_source(sub.name)]
     if sub.response_schema is not None:
-        out["response_format"] = _code(lib).schemas.get(
-            sub.response_schema, file=_FILE, path=sub.response_schema
+        # Always the tool strategy: a provider-native schema constrains the first reply to JSON,
+        # so a model whose profile claims structured output answers without calling its tools.
+        out["response_format"] = ToolStrategy(
+            _code(lib).schemas.get(sub.response_schema, file=_FILE, path=sub.response_schema)
         )
     mw = order_stack(_middleware(sub.middleware, lib, ctx))
     if mw:

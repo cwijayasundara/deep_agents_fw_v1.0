@@ -13,8 +13,10 @@ from agentkit_core import ConfigError, ModelRegistry, Settings
 from agentkit_deep.testing import ctx, scripted, tool_call
 from agentkit_tools import platform_tool
 from langchain.agents.middleware import AgentMiddleware
+from langchain.agents.structured_output import ToolStrategy
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import tool
+from pydantic import BaseModel
 
 SETTINGS = Settings(_env_file=None, deployment_tenant="default")  # built at import: pin tenant
 
@@ -39,6 +41,10 @@ def _other(ctx: Any, **_: Any) -> Any:
     return other
 
 
+class _Out(BaseModel):
+    answer: str
+
+
 class MwA(AgentMiddleware):
     pass
 
@@ -59,7 +65,7 @@ def _pools() -> CodePools:
             {"a": lambda ctx: MwA(), "b": lambda ctx: MwB(), "c": lambda ctx: MwC()},
         ),
         Registry("node", {}),
-        Registry("schema", {}),
+        Registry("schema", {"Out": _Out}),
     )
 
 
@@ -153,6 +159,14 @@ def test_subagent_tools_replace_parent(tmp_path):
     (sub,) = kw["subagents"]
     assert [t.name for t in sub["tools"]] == ["other"]
     assert "model" not in sub and "skills" not in sub
+
+
+def test_response_schema_uses_the_tool_strategy(tmp_path):
+    # Provider-native structured output forces a JSON first reply, so the subagent never searched.
+    spec = parse_agent(_write(tmp_path, sub="response_schema: Out\n"))
+    kw = resolve_agent(spec, _lib(tmp_path), ModelRegistry.default(), SETTINGS, model=scripted())
+    fmt = kw["subagents"][0]["response_format"]
+    assert isinstance(fmt, ToolStrategy) and fmt.schema is _Out
 
 
 def test_prompt_rendered_with_agent_name(tmp_path):

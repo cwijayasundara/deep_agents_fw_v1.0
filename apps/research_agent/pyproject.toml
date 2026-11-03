@@ -18,6 +18,7 @@ research-eval = "research_agent.eval_cli:main"
 
 [project.entry-points."agentkit.schemas"]
 "research.ReviewState" = "research_agent.flow_nodes:ReviewState"
+"research.Findings" = "research_agent.schemas:Findings"
 
 [project.entry-points."agentkit.nodes"]
 "research.critique" = "research_agent.flow_nodes:critique"

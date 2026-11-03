@@ -42,9 +42,13 @@ def test_bad_tool_exit_1_and_prints_path(lib: Path, capsys: pytest.CaptureFixtur
     assert f"{f}:tools[0]" in out and "nope" in out
 
 
-def test_warning_only_exit_0(capsys: pytest.CaptureFixture[str]) -> None:
-    f = str(REPO / "libraries/subagents/researcher.yaml")
-    assert main(["validate", f]) == 0
+def test_warning_only_exit_0(lib: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (lib / "libraries/prompts/research/researcher.md").write_text("Research.", encoding="utf-8")
+    sub = (
+        "apiVersion: agentkit/v1\nkind: SubAgent\nname: r\ndescription: d\n"
+        "prompt: research/researcher\ntools: [web_search]\n"
+    )
+    assert main(["validate", _write(lib, "researcher.yaml", sub)]) == 0
     out = capsys.readouterr().out
     assert "response_schema" in out and "1 warning(s)" in out
 

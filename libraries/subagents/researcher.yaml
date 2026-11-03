@@ -4,6 +4,7 @@ name: researcher
 description: Read-only researcher for one sub-question; returns sourced findings.
 prompt: research/researcher
 tools: [web_search, fetch_url]
+response_schema: research.Findings
 middleware:
   - {type: call_limit, params: {max_model_calls: 30}}
   - {type: tool_call_limit, params: {run_limit: 25}}

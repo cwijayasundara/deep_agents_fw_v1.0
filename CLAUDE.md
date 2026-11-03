@@ -27,7 +27,10 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   Open items: P10 thread-to-user binding, P3 primitive state plaintext, AES key rotation/backup;
   `eval-<hex>` users' store items are never pruned (prune deletes threads only); prune needs a
   tenant filter if DBs are ever shared; tool side effects recorded not enforced (HITL is Phase 2); only `env://`
-  secrets. Next: Phase 2 (roadmap in `reports/Reusable agent platform components.md`).
+  secrets. Next: Phase 2 (roadmap in `reports/Reusable agent platform components.md`). Draft spec:
+  `docs/superpowers/specs/2026-11-03-agentkit-phase2-design.md` (guard tier, capability seams,
+  model-visible-means-logged; rest of Phase 2 still to design). Plan:
+  `docs/superpowers/plans/2026-11-03-agentkit-phase2-platform-shape-plan.md` (not started).
 - Web search `backend: auto` (default) chains Parallel -> Brave -> Tavily (each if its key is set) -> DuckDuckGo;
   pin with `web_search: {backend: <name or list>}`. Rationale: `research_notes/2026-11-03-web-search-provider.md`.
 - Providers to support: OpenAI, Gemini, Anthropic, Fireworks (deepseek-v4p1-flash-1017,

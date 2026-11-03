@@ -30,7 +30,11 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   secrets. Next: Phase 2 (roadmap in `reports/Reusable agent platform components.md`). Draft spec:
   `docs/superpowers/specs/2026-11-03-agentkit-phase2-design.md` (guard tier, capability seams,
   model-visible-means-logged; rest of Phase 2 still to design). Plan:
-  `docs/superpowers/plans/2026-11-03-agentkit-phase2-platform-shape-plan.md` (not started).
+  `docs/superpowers/plans/2026-11-03-agentkit-phase2-platform-shape-plan.md`. **Phase 2a (platform shape) done**
+  (branch `phase2-platform-shape`; results `docs/phase2a-results.md`, audit `docs/phase2-model-visible-audit.md`):
+  `agentkit_core.seams.Seam`, `agentkit.secrets` and `agentkit.search_backends` seams, deny-only `GuardMiddleware`
+  on the main agent and every subagent, `AGENTKIT_ALLOWED_SIDE_EFFECTS` per tenant stamp (default `read,external`;
+  in tenant env files only), verify feature `tool-guards`.
 - Web search `backend: auto` (default) chains Parallel -> Brave -> Tavily (each if its key is set) -> DuckDuckGo;
   pin with `web_search: {backend: <name or list>}`. Backends are the `agentkit.search_backends` entry-point seam (third-party ones by name only; `auto` uses the four built-ins). Rationale: `research_notes/2026-11-03-web-search-provider.md`.
 - Providers to support: OpenAI, Gemini, Anthropic, Fireworks (deepseek-v4p1-flash-1017,

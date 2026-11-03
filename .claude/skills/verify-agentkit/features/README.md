@@ -51,4 +51,5 @@ details out; name only user paths, commands, stable output lines and observable 
 - [Research eval](./research-eval.md): scored eval on a one-case dataset, JSON and Markdown scores (citation, source, trajectory and judge metrics), per-case trace and usage, the `--gate`/`--write-baseline` regression gate and its exit codes, single-step cases and the pytest plugin (`--agentkit-live`).
 - [Knowledge-base agent](./kb-agent.md): `agentkit tools list`, `agentkit-kb setup`/`make kb-ingest` on the tenant DB, and one cited `apps/kb_agent` turn through `kb_search` as `kb_reader`.
 - [Tenant isolation](./tenant-isolation.md): stamping, port/key separation, the TenantMismatch pre-check, `make contract` and `make phase0-exit`.
+- [Tool guards](./tool-guards.md): the deny-only guard tier; a tenant's `AGENTKIT_ALLOWED_SIDE_EFFECTS` refusing `web_search`/`fetch_url`, run still ends with a report and ledger row.
 - [agentkit validate](./agentkit-validate.md): offline YAML validation with file:path errors and exit codes.

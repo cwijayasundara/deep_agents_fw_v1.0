@@ -38,6 +38,15 @@ tenant's `AGENTKIT_TENANT`, `DATABASE_URL`, `LANGGRAPH_AES_KEY` and `OTEL_EXPORT
 over the shell's. `AGENTKIT_TENANT` must not be set in the repo `.env` (it would win over every
 stamp; the helper refuses).
 
+Tool side effects are a per-tenant policy too: `AGENTKIT_ALLOWED_SIDE_EFFECTS` in the tenant file
+(comma-separated, any of `read`, `write`, `external`; stamps write `read,external`) lists the
+side-effect classes the tool guards let that tenant's agents call. A registered tool whose
+`side_effects` is not listed is refused before it runs, so `write` tools stay off until the line
+says `read,write,external`; an unknown value fails Settings validation. A tenant file stamped before
+the setting existed has no such line: the helper then leaves the variable unset and the default
+`read,external` applies. Like `AGENTKIT_TENANT`, it must not be set in the repo `.env` (the helper
+refuses).
+
 ```bash
 scripts/tenant_env.sh tenant-a uv run research "question" --tenant tenant-a --persist
 scripts/tenant_env.sh tenant-a uv run python scripts/smoke.py --persist --trace --tenant tenant-a

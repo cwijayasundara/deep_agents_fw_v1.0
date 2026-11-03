@@ -6,6 +6,14 @@ from .decisions import (
     DecisionsError,
     DecisionsSelector,
 )
+from .guards import (
+    Deny,
+    Guard,
+    GuardMiddleware,
+    SideEffectsGuard,
+    TenantToolPolicyGuard,
+    platform_guards,
+)
 from .require_output import RequireOutputMiddleware
 from .resilience import (
     CircuitBreaker,
@@ -34,18 +42,24 @@ __all__ = [
     "DecisionsError",
     "DecisionsSelector",
     "DecisionsUsage",
+    "Deny",
+    "Guard",
+    "GuardMiddleware",
     "MissingPlatformContext",
     "RequireOutputMiddleware",
     "CircuitBreaker",
     "Selection",
     "SelectionMiddleware",
     "Selector",
+    "SideEffectsGuard",
     "TenantGuardMiddleware",
     "TenantMismatch",
+    "TenantToolPolicyGuard",
     "ToolCard",
     "Unavailable",
     "backoff_delay",
     "call_with_retry",
+    "platform_guards",
     "reset_shared_breakers",
     "shared_breaker",
 ]

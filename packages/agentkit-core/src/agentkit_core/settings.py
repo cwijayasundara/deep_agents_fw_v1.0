@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from enum import StrEnum
 from pathlib import Path
+from typing import Annotated, Any, Literal
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import (
     BaseSettings,
+    NoDecode,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
 )
@@ -33,6 +35,8 @@ _ENV_VAR = {
 
 # Web search backends (agentkit-tools `web_search`); all optional.
 _SEARCH_KEYS = ("PARALLEL_API_KEY", "BRAVE_API_KEY", "TAVILY_API_KEY")
+
+SideEffects = Literal["read", "write", "external"]
 
 
 def find_env_file(start: Path | None = None) -> Path | None:
@@ -75,6 +79,19 @@ class Settings(BaseSettings):
     deployment_tenant: Label = Field(
         default="default", validation_alias=AliasChoices("AGENTKIT_TENANT", "deployment_tenant")
     )
+    # Tool side-effect classes this deployment may call (the tool guards deny the rest).
+    # Comma-separated in the env, e.g. AGENTKIT_ALLOWED_SIDE_EFFECTS=read,external.
+    allowed_side_effects: Annotated[frozenset[SideEffects], NoDecode] = Field(
+        default=frozenset({"read", "external"}),
+        validation_alias=AliasChoices("AGENTKIT_ALLOWED_SIDE_EFFECTS", "allowed_side_effects"),
+    )
+
+    @field_validator("allowed_side_effects", mode="before")
+    @classmethod
+    def _split_side_effects(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return frozenset(item.strip() for item in value.split(",") if item.strip())
+        return value
 
     def env_file_used(self) -> Path | None:
         env = self.model_config.get("env_file")

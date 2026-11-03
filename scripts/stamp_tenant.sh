@@ -64,6 +64,8 @@ AGENTKIT_PG_PASSWORD=$password
 DATABASE_URL=postgresql://agentkit:$password@127.0.0.1:$pg_port/agentkit
 LANGGRAPH_AES_KEY=$aes_key
 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:$otlp_port
+# Tool side-effect classes this tenant's agents may call (read, write, external).
+AGENTKIT_ALLOWED_SIDE_EFFECTS=read,external
 # Optional: set all three to forward this tenant's spans to its Langfuse project, then re-stamp.
 LANGFUSE_PUBLIC_KEY=
 LANGFUSE_SECRET_KEY=

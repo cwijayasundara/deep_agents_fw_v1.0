@@ -4,7 +4,8 @@
 #   scripts/tenant_env.sh tenant-a uv run research "question" --tenant tenant-a --persist
 #
 # Exports AGENTKIT_TENANT, DATABASE_URL, LANGGRAPH_AES_KEY and OTEL_EXPORTER_OTLP_ENDPOINT from the
-# tenant file, over anything set in this shell. Sourced (by the other scripts) it only defines
+# tenant file, over anything set in this shell. AGENTKIT_ALLOWED_SIDE_EFFECTS too; a tenant file
+# stamped before it existed has no such line, and then the var is unset (Settings' default). Sourced (by the other scripts) it only defines
 # env_get and tenant_exports.
 
 env_get() { # env_get KEY FILE: the value of the last KEY= line in FILE
@@ -19,15 +20,22 @@ tenant_exports() { # tenant_exports TENANT: export its runtime settings; fails i
     return 2
   fi
   # Settings prefers .env over the process env, so a tenant there would override every stamp.
-  if grep -qsE '^AGENTKIT_TENANT=' "$(dirname "$file")/../../.env"; then
-    echo "remove AGENTKIT_TENANT from .env: the tenant comes from $file" >&2
-    return 2
-  fi
   local var value
+  for var in AGENTKIT_TENANT AGENTKIT_ALLOWED_SIDE_EFFECTS; do
+    if grep -qsE "^$var=" "$(dirname "$file")/../../.env"; then
+      echo "remove $var from .env: it comes from $file" >&2
+      return 2
+    fi
+  done
   for var in AGENTKIT_TENANT DATABASE_URL LANGGRAPH_AES_KEY OTEL_EXPORTER_OTLP_ENDPOINT; do
     value=$(env_get "$var" "$file")
     export "$var=$value"
   done
+  if grep -qE '^AGENTKIT_ALLOWED_SIDE_EFFECTS=' "$file"; then
+    export "AGENTKIT_ALLOWED_SIDE_EFFECTS=$(env_get AGENTKIT_ALLOWED_SIDE_EFFECTS "$file")"
+  else
+    unset AGENTKIT_ALLOWED_SIDE_EFFECTS
+  fi
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then

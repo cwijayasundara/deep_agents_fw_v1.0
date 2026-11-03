@@ -1,9 +1,10 @@
 import ddgs.ddgs
+import ddgs.exceptions
 import pytest
 from agentkit_core import BuildContext, ConfigError, ModelRegistry, Settings
 from agentkit_tools import Source, ToolError
 from agentkit_tools.duckduckgo import DuckDuckGoSearch
-from agentkit_tools.factories import fetch_url, web_search
+from agentkit_tools.factories import _names, fetch_url, web_search
 
 
 def _ctx(**env: str) -> BuildContext:
@@ -11,9 +12,40 @@ def _ctx(**env: str) -> BuildContext:
     return BuildContext(settings, ModelRegistry.default().resolve(), "agent")
 
 
-def test_web_search_defaults_to_duckduckgo_without_key():
-    # DuckDuckGo is the default backend: no key needed (operator's call, 2026-11-02)
+def test_web_search_auto_without_keys_falls_back_to_duckduckgo():
+    # `auto` still builds with no key: keyless DuckDuckGo is the last resort.
+    assert _names(_ctx(), "auto") == ["duckduckgo"]
     assert web_search(_ctx()).name == "web_search"
+
+
+def test_web_search_auto_orders_keyed_backends_first():
+    ctx = _ctx(tavily_api_key="t", brave_api_key="b", parallel_api_key="p")
+    assert _names(ctx, "auto") == ["parallel", "brave", "tavily", "duckduckgo"]
+    assert _names(_ctx(brave_api_key="b"), "auto") == ["brave", "duckduckgo"]
+
+
+def test_web_search_empty_key_counts_as_unset():
+    assert _names(_ctx(parallel_api_key=""), "auto") == ["duckduckgo"]
+
+
+@pytest.mark.parametrize(("backend", "env"), [("parallel", "PARALLEL"), ("brave", "BRAVE")])
+def test_web_search_named_backend_requires_key(backend, env):
+    with pytest.raises(ConfigError, match=f"{env}_API_KEY is required"):
+        web_search(_ctx(), backend=backend)
+    assert web_search(_ctx(**{f"{backend}_api_key": "k"}), backend=backend).name == "web_search"
+
+
+def test_web_search_backend_list():
+    ctx = _ctx(parallel_api_key="p")
+    assert web_search(ctx, backend=["parallel", "duckduckgo"]).name == "web_search"
+    with pytest.raises(ConfigError, match="BRAVE_API_KEY is required"):
+        web_search(ctx, backend=["parallel", "brave"])
+    with pytest.raises(ConfigError, match="empty"):
+        web_search(ctx, backend=[])
+    with pytest.raises(ConfigError, match="duplicates"):
+        web_search(ctx, backend=["duckduckgo", "duckduckgo"])
+    with pytest.raises(ConfigError, match="name or a list"):
+        web_search(ctx, backend=5)  # type: ignore[arg-type]
 
 
 def test_web_search_tavily_requires_key():
@@ -30,7 +62,7 @@ def test_web_search_duckduckgo_needs_no_key():
 
 
 def test_web_search_unknown_backend():
-    with pytest.raises(ConfigError, match="tavily.*duckduckgo"):
+    with pytest.raises(ConfigError, match="parallel.*brave.*tavily.*duckduckgo"):
         web_search(_ctx(), backend="bing")  # type: ignore[arg-type]
 
 
@@ -49,6 +81,25 @@ async def test_duckduckgo_error_becomes_tool_error(monkeypatch):
         await DuckDuckGoSearch().search("q")
     tool = web_search(_ctx(), backend="duckduckgo")
     assert (await tool.ainvoke({"query": "q"})).startswith("ERROR:")
+
+
+async def test_duckduckgo_no_results_is_empty_not_error(monkeypatch):
+    def none_found(self, q, max_results=5, **kw):
+        raise ddgs.ddgs.DDGSException("No results found.")
+
+    monkeypatch.setattr(ddgs.ddgs.DDGS, "text", none_found)
+    assert await DuckDuckGoSearch().search("q") == []
+    tool = web_search(_ctx(), backend="duckduckgo")
+    assert await tool.ainvoke({"query": "q"}) == "No results."
+
+
+async def test_duckduckgo_ratelimit_is_still_an_error(monkeypatch):
+    def limited(self, q, max_results=5, **kw):
+        raise ddgs.exceptions.RatelimitException("No results found.")
+
+    monkeypatch.setattr(ddgs.ddgs.DDGS, "text", limited)
+    with pytest.raises(ToolError, match="RatelimitException"):
+        await DuckDuckGoSearch().search("q")
 
 
 def test_fetch_url_max_chars_param():

@@ -22,8 +22,8 @@ Feature recipes: [`features/README.md`](features/README.md). Background: `docs/a
 
 - **Model:** live runs use only the `fireworks-glm` registry entry, as agent and as eval judge. The
   helpers hard-code it and refuse `--model`. Never fan out across providers.
-- **Cost:** every `research` turn and every eval case is real money (Fireworks tokens, DuckDuckGo
-  or Tavily traffic, one Decisions call per new thread). Plan the number of turns before you
+- **Cost:** every `research` turn and every eval case is real money (Fireworks tokens, web search
+  API traffic, one Decisions call per new thread). Plan the number of turns before you
   start, and give each eval a ONE-case dataset (`drive_eval.sh` writes one). Never run the
   10-case `evals/smoke.jsonl` as a proof.
 - **Secrets:** keys live in the repo `.env` (read by `Settings`, which prefers `.env` over the
@@ -156,10 +156,11 @@ anywhere; they `cd` to the repo root and set `UV_CONSTRAINT=constraints.txt`):
 
 ## Gotchas
 
-- Web search defaults to DuckDuckGo, which rate-limits bursts (`web_search ... failed: search failed:
-  DDGSException` warnings and `<- web_search error` lines are normal in small numbers; many of them, thin
-  reports, or `agent finished without writing /report.md` are not). Wait and rerun as a new LABEL; do
-  not switch providers or weaken the question. Tavily is an `agent.yaml` change, not a flag.
+- Web search (`backend: auto`) uses each set key in order Parallel, Brave, Tavily, then DuckDuckGo.
+  `web_search backend X failed ... ` warnings mean a fallback happened; that is fine in small numbers.
+  With no search key it is DuckDuckGo only, which rate-limits bursts (`DDGSException`, `<- web_search
+  error`); many of them, thin reports, or `agent finished without writing /report.md` are not normal.
+  Wait and rerun as a new LABEL; do not weaken the question. Pinning a backend is an `agent.yaml` change.
 - A Decisions failure does not fail the run: stderr shows `selection unavailable for thread ...`
   and the agent falls back to all tools. Treat that line as a doctor finding, not a pass.
 - `research-eval` checks the tenant even without `--persist`: through `tenant_env.sh` you must pass

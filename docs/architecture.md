@@ -598,7 +598,7 @@ returned to the model as text starting with `ERROR:`, so the agent can recover i
 
 | Tool | Factory | Params | Behaviour |
 |---|---|---|---|
-| `web_search(query, k=5)` | `agentkit_tools.factories.web_search` | `backend`: `duckduckgo` (default) or `tavily` | Numbered results with title, URL and snippet. DuckDuckGo uses the `ddgs` package and needs no key. `backend: tavily` needs `TAVILY_API_KEY` (missing key: `ConfigError` at build). |
+| `web_search(query, k=5)` | `agentkit_tools.factories.web_search` | `backend`: `auto` (default), one of `parallel`, `brave`, `tavily`, `duckduckgo`, or a list of them | Numbered results with title, URL and snippet. `auto` chains every backend whose key is set (`PARALLEL_API_KEY`, `BRAVE_API_KEY`, `TAVILY_API_KEY`, in that order) and ends with keyless DuckDuckGo (`ddgs`). A list is tried in order; the next backend runs only when one raises `ToolError` (HTTP error incl. 429, timeout); an empty result is returned as `No results.`. A named backend without its key is a `ConfigError` at build. Successful results are cached per tool by normalised query and `k` (256 entries). |
 | `fetch_url(url)` | `agentkit_tools.factories.fetch_url` | `max_chars` (default 20000) | Fetches a page with `httpx` (20 s timeout, follows up to 5 redirects), reads at most 1,000,000 bytes, strips HTML to text (skipping `script`, `style`, `noscript`, `svg`, `head`), truncates to `max_chars` and appends `[truncated]`. |
 
 `fetch_url` refuses non-`http(s)` URLs, `localhost`, hosts ending in `.internal`, and IP literals that are
@@ -606,10 +606,10 @@ not globally routable. Redirects are followed by hand and every hop is re-checke
 against these rules, so a public URL cannot redirect to a private address. DNS rebinding is out of scope
 (see section 16).
 
-To use Tavily:
+To pin backends instead of `auto`:
 
 ```yaml
-tools: [{web_search: {backend: tavily}}, fetch_url]
+tools: [{web_search: {backend: [parallel, brave]}}, fetch_url]
 ```
 
 Subagent tools replace the parent's, so set the backend on each subagent too.
@@ -1195,7 +1195,9 @@ walking up from the working directory when the module is imported) over the proc
 | `ANTHROPIC_API_KEY` | `Settings` | unset | Anthropic models (also the default `--judge`) |
 | `GOOGLE_API_KEY` | `Settings` | unset | `google_genai` models |
 | `FIREWORKS_API_KEY` | `Settings` | unset | Fireworks models; also required by the shipped research agent for any `--model`, because its `model_fallback` target `fireworks-glm:strong` is built at load |
-| `TAVILY_API_KEY` | `Settings` | unset | `web_search: {backend: tavily}` only |
+| `PARALLEL_API_KEY` | `Settings` | unset | `web_search` Parallel backend (first in `auto`) |
+| `BRAVE_API_KEY` | `Settings` | unset | `web_search` Brave backend (second in `auto`) |
+| `TAVILY_API_KEY` | `Settings` | unset | `web_search` Tavily backend (third in `auto`) |
 | `AGENTKIT_TENANT` | `Settings.deployment_tenant`, `TelemetrySettings.tenant` | `default` | The one tenant this deployment serves; must be a label |
 | `AGENTKIT_LIBRARY_PATH` | `Library.for_file` | unset | Extra library roots, `os.pathsep`-separated |
 | `DATABASE_URL` | `PersistenceSettings` | required for `--persist` | Postgres URL |

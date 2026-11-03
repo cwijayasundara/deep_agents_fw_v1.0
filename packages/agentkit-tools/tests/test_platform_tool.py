@@ -79,10 +79,10 @@ def test_clean_tool_passes() -> None:
 
 
 def test_shipped_tools_pass_and_are_decorated(ctx: BuildContext) -> None:
-    for factory in (web_search, fetch_url):
+    for factory, version in ((web_search, "1.1.0"), (fetch_url, "1.0.0")):
         meta = tool_meta(factory)
         assert meta is not None
-        assert meta.version == "1.0.0"
+        assert meta.version == version
         assert meta.side_effects == "external"
         assert meta.classification == "public"
         assert check_tool_contract(factory(ctx)) == []

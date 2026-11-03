@@ -28,7 +28,8 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   `eval-<hex>` users' store items are never pruned (prune deletes threads only); prune needs a
   tenant filter if DBs are ever shared; tool side effects recorded not enforced (HITL is Phase 2); only `env://`
   secrets. Next: Phase 2 (roadmap in `reports/Reusable agent platform components.md`).
-- Web search defaults to DuckDuckGo (no key); Tavily is opt-in via `web_search: {backend: tavily}`.
+- Web search `backend: auto` (default) chains Parallel -> Brave -> Tavily (each if its key is set) -> DuckDuckGo;
+  pin with `web_search: {backend: <name or list>}`. Rationale: `research_notes/2026-11-03-web-search-provider.md`.
 - Providers to support: OpenAI, Gemini, Anthropic, Fireworks (deepseek-v4p1-flash-1017,
   glm-5p3-flash, minimax-m3p1-flash). Model/tool selection via OpenAI Decisions API (`gpt-6-luna`).
 - Prior work to learn from (not vendored): github.com/cwijayasundara/deep_agents_utils_v1.0,

@@ -28,10 +28,15 @@ checks() {
     for k in FIREWORKS_API_KEY OPENAI_API_KEY; do
       case " $set_keys " in *" $k "*) pass "key $k set in .env" ;; *) fail "key $k missing from .env" ;; esac
     done
-    case " $set_keys " in
-      *" TAVILY_API_KEY "*) pass "key TAVILY_API_KEY set (optional; web search still defaults to DuckDuckGo)" ;;
-      *) warn "TAVILY_API_KEY not set (optional; DuckDuckGo is the default backend)" ;;
-    esac
+    local search_keys=""
+    for k in PARALLEL_API_KEY BRAVE_API_KEY TAVILY_API_KEY; do
+      case " $set_keys " in *" $k "*) search_keys="$search_keys $k" ;; esac
+    done
+    if [ -n "$search_keys" ]; then
+      pass "web search keys set:$search_keys (auto chain, DuckDuckGo last)"
+    else
+      warn "no web search key set (PARALLEL/BRAVE/TAVILY_API_KEY); web_search falls back to DuckDuckGo only"
+    fi
     if grep -qE '^AGENTKIT_TENANT=' .env; then
       fail ".env sets AGENTKIT_TENANT: it would override every stamp (comment it out)"
     else

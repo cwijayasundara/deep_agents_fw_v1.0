@@ -47,7 +47,8 @@ and hides them again. After `make sync`, `uv run --no-sync ...` keeps them visib
 ### Research agent (web research, no Docker)
 
 Needs `FIREWORKS_API_KEY` (the agent and its fallback model) and `OPENAI_API_KEY` (model and tool
-selection), or pass `--no-selection` to skip the OpenAI key. Web search uses DuckDuckGo and needs no key.
+selection), or pass `--no-selection` to skip the OpenAI key. Web search uses the first of `PARALLEL_API_KEY`, `BRAVE_API_KEY`,
+`TAVILY_API_KEY` that is set, falling back down that list and finally to keyless DuckDuckGo (unreliable).
 
 ```bash
 cp .env.example .env              # fill in the keys
@@ -108,8 +109,8 @@ grep -oE '^[A-Z_]+=.' .env | cut -d= -f1    # lists the keys that are set, never
 | `research-eval` | The above, plus the key of the `--judge` entry (default `anthropic`) |
 
 To try a provider without an OpenAI key, pass `--no-selection` (a Fireworks key is still needed): the agent sees every tool and stays on the
-configured tier. For Tavily instead of DuckDuckGo, set `tools: [{web_search: {backend: tavily}}, fetch_url]`
-and `TAVILY_API_KEY`; a subagent's `tools` replace the parent's, so set the backend on each subagent too.
+configured tier. To pin a search backend, set `tools: [{web_search: {backend: brave}}, fetch_url]` (or a list such as
+`[parallel, brave]`, tried in order); a subagent's `tools` replace the parent's, so set it on each subagent too.
 
 ### 3. Check that each model answers
 
@@ -162,7 +163,7 @@ A model whose keys are missing is skipped. Record each result in `docs/phase0-re
 | `packages/agentkit-config` | declarative layer: `load_agent`, pools, `Library`, validation, flows (`load_flow`), `agentkit validate` |
 | `packages/agentkit-deep` | `build_deep_agent` factory, skills mount, memory tiers, scripted test models |
 | `packages/agentkit-middleware` | `TenantGuardMiddleware`, per-thread `SelectionMiddleware` + Decisions client, retry and circuit breaker |
-| `packages/agentkit-tools` | `web_search` (DuckDuckGo default, Tavily optional) and `fetch_url` tool factories, `@platform_tool`, `tool_schemas.json` |
+| `packages/agentkit-tools` | `web_search` (Parallel, Brave, Tavily, DuckDuckGo; `auto` fallback chain by default) and `fetch_url` tool factories, `@platform_tool`, `tool_schemas.json` |
 | `packages/agentkit-connectors` | connector specs (`env://` secrets), embeddings, pooled engines, `kb_search` / `sql_query`, `agentkit-kb` |
 | `packages/agentkit-persistence` | encrypted Postgres checkpoints and store (`open_persistence`), `thread_lock`, `agentkit-prune` |
 | `packages/agentkit-telemetry` | tenant-tagged OTel tracing with masking, `run_config`, `CostLedger` (`agentkit_usage`) |

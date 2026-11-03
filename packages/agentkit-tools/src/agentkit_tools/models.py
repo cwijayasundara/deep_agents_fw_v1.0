@@ -28,4 +28,11 @@ class FetchTool(Protocol):
 
 
 class ToolError(RuntimeError):
-    """Tool failed in a way the agent should see as a message, not a crash."""
+    """Tool failed in a way the agent should see as a message, not a crash.
+
+    `status` is the upstream HTTP status, when there was one.
+    """
+
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status

@@ -23,7 +23,8 @@ class TavilySearch:
             )
             resp.raise_for_status()
         except httpx.HTTPStatusError as e:
-            raise ToolError(f"search failed: HTTP {e.response.status_code}") from e
+            status = e.response.status_code
+            raise ToolError(f"search failed: HTTP {status}", status=status) from e
         except httpx.HTTPError as e:
             raise ToolError(f"search failed: {type(e).__name__}") from e
         return [

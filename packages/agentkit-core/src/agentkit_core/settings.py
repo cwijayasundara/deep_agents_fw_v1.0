@@ -31,6 +31,9 @@ _ENV_VAR = {
     Provider.FIREWORKS: "FIREWORKS_API_KEY",
 }
 
+# Web search backends (agentkit-tools `web_search`); all optional.
+_SEARCH_KEYS = ("PARALLEL_API_KEY", "BRAVE_API_KEY", "TAVILY_API_KEY")
+
 
 def find_env_file(start: Path | None = None) -> Path | None:
     """The nearest `.env` in `start` (default: cwd) or any parent directory."""
@@ -66,6 +69,8 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     fireworks_api_key: SecretStr | None = None
     tavily_api_key: SecretStr | None = None
+    parallel_api_key: SecretStr | None = None
+    brave_api_key: SecretStr | None = None
     # The one tenant this deployment serves; every run's PlatformContext.tenant must match it.
     deployment_tenant: Label = Field(
         default="default", validation_alias=AliasChoices("AGENTKIT_TENANT", "deployment_tenant")
@@ -77,7 +82,7 @@ class Settings(BaseSettings):
 
     def keys_present(self) -> list[str]:
         """Names (never values) of the API keys that are set."""
-        names = [*_ENV_VAR.values(), "TAVILY_API_KEY"]
+        names = [*_ENV_VAR.values(), *_SEARCH_KEYS]
         return [n for n in names if (v := getattr(self, n.lower())) and v.get_secret_value()]
 
     def require_key(self, provider: Provider) -> str:

@@ -1,0 +1,4 @@
+kind: pgvector
+dsn: env://KB_DATABASE_URL
+collection: kb_docs
+embeddings: fireworks-nomic

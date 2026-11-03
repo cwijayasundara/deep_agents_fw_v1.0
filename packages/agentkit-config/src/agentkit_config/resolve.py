@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -18,7 +19,8 @@ from langchain_core.tools import BaseTool
 
 from agentkit_config.errors import SpecError, SpecErrors
 from agentkit_config.library import Library
-from agentkit_config.pools.prompts import render
+from agentkit_config.pools.code import factory_meta, meta_dict
+from agentkit_config.pools.prompts import Prompt, compose, render
 from agentkit_config.selection import decisions_middleware
 from agentkit_config.spec import AgentSpec, MiddlewareRef, SubAgentSpec, ToolRef
 from agentkit_config.stack import order_stack
@@ -35,9 +37,22 @@ def _code(lib: Library) -> Any:
     return lib.code
 
 
+def _composed(prompt: Prompt, lib: Library) -> Prompt:
+    """The prompt with its `{{> fragment}}` includes expanded."""
+    return replace(prompt, text=compose(prompt, lib.prompts, file=_FILE, path=prompt.name))
+
+
 def _tools(refs: list[ToolRef], lib: Library, ctx: BuildContext) -> list[BaseTool]:
     pool = _code(lib).tools
-    return [pool.get(r.name, file=_FILE, path=r.name)(ctx, **r.params) for r in refs]
+    out: list[BaseTool] = []
+    for r in refs:
+        factory = pool.get(r.name, file=_FILE, path=r.name)
+        tool = factory(ctx, **r.params)
+        meta = factory_meta(factory)
+        if meta is not None:
+            tool.metadata = {**(tool.metadata or {}), "agentkit": meta_dict(meta)}
+        out.append(tool)
+    return out
 
 
 def _middleware(
@@ -65,12 +80,12 @@ def _subagent(
 ) -> dict[str, Any]:
     # An unset model or tier is inherited from the parent.
     spec = models.resolve(sub.model or parent.model, sub.tier or parent.tier)
-    ctx = BuildContext(settings, spec, sub.name)
-    prompt = lib.prompts.get(sub.prompt, file=_FILE, path=sub.prompt)
+    ctx = BuildContext(settings, spec, sub.name, library_roots=lib.roots)
+    prompt = lib.prompts.get_ref(sub.prompt, file=_FILE, path=sub.prompt)
     out: dict[str, Any] = {
         "name": sub.name,
         "description": sub.description,
-        "system_prompt": render(prompt, agent_name=sub.name, date=today),
+        "system_prompt": render(_composed(prompt, lib), agent_name=sub.name, date=today),
         "tools": _tools(sub.tools, lib, ctx),
     }
     if sub.model is not None or sub.tier is not None:
@@ -101,9 +116,9 @@ def resolve_agent(
     With `persistence`, skills routes are folded into the memory backend (one composite)."""
     today = datetime.date.today().isoformat()
     model_spec = models.resolve(spec.model, spec.tier)
-    ctx = BuildContext(settings, model_spec, spec.name)
-    prompt = lib.prompts.get(spec.prompt, file=_FILE, path=spec.prompt)
-    system_prompt = render(prompt, agent_name=spec.name, date=today)
+    ctx = BuildContext(settings, model_spec, spec.name, library_roots=lib.roots)
+    prompt = lib.prompts.get_ref(spec.prompt, file=_FILE, path=spec.prompt)
+    system_prompt = render(_composed(prompt, lib), agent_name=spec.name, date=today)
 
     subs = [
         lib.subagents.get(e, file=_FILE, path=e) if isinstance(e, str) else e
@@ -130,6 +145,7 @@ def resolve_agent(
         "model": model or model_spec,
         "settings": settings,
         "system_prompt": system_prompt,
+        "prompt_id": prompt.prompt_id,
         "tools": _tools(spec.tools, lib, ctx),
         "subagents": [_subagent(s, lib, models, settings, spec, today) for s in subs],
         "middleware": middleware,

@@ -61,3 +61,15 @@ async def test_metered_model_reports_usage_and_model_name():
     out = await model.ainvoke("hi")
     assert out.usage_metadata == {"input_tokens": 10, "output_tokens": 3, "total_tokens": 13}
     assert model._get_ls_params()["ls_model_name"] == "m1"
+
+
+def test_prompt_id_is_exposed_when_given():
+    from agentkit_deep import agent_prompt_id
+
+    plain = build_deep_agent(model=scripted(AIMessage(content="x")), system_prompt="p")
+    assert agent_prompt_id(plain) == ""
+    agent = build_deep_agent(
+        model=scripted(AIMessage(content="x")), system_prompt="p", prompt_id="a/b@1.0.0"
+    )
+    assert agent.config["metadata"]["prompt_id"] == "a/b@1.0.0"
+    assert agent_prompt_id(agent) == "a/b@1.0.0"

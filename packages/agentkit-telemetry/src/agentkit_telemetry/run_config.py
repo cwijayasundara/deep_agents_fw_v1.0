@@ -29,6 +29,7 @@ def run_config(
     prompt_hash: str,
     ledger: CostLedger,
     *,
+    prompt_id: str = "",
     recursion_limit: int = DEFAULT_RECURSION_LIMIT,
 ) -> RunnableConfig:
     """Config for one run of `ctx`: a fresh root `run_id`, the ledger, and a tracing handler
@@ -51,6 +52,8 @@ def run_config(
         "langfuse_session_id": ctx.thread_id,
         "langfuse_tags": [f"tenant:{ctx.tenant}", f"agent:{ctx.agent_name}"],
     }
+    if prompt_id:
+        metadata["prompt_id"] = prompt_id
     return RunnableConfig(
         run_id=run_id,
         recursion_limit=recursion_limit,

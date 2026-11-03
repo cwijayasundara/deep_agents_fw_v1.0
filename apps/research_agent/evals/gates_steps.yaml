@@ -1,0 +1,5 @@
+baseline: baseline_steps.json
+min_cases: 12
+metrics:
+  step_pass: {min: 0.80}
+  completed: {min: 1.0}

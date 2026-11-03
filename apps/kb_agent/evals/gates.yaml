@@ -1,0 +1,14 @@
+baseline: baseline.json
+min_cases: 20
+# Floors sit below the 2026-11-02 baseline by the research gates' margins (gates.yaml vs baseline.json
+# there): completed/has_citation -0.04, sources_section/tool_recall -0.10, citation_validity -0.11,
+# completeness/groundedness -0.12 (rounded down). Baseline and reasoning: docs/phase1b-results.md.
+metrics:
+  completed: {min: 0.96}
+  has_citation: {min: 0.86}
+  sources_section: {min: 0.80}
+  citation_validity: {min: 0.79, max_drop: 0.05}
+  completeness: {min: 0.87, max_drop: 0.05}
+  groundedness: {min: 0.76, max_drop: 0.10}
+  tool_recall: {min: 0.90}
+  mean_total_tokens: {max_rise: 0.30}

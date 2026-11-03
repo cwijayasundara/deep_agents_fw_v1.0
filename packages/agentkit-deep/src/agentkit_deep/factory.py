@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from agentkit_persistence import Persistence
 
 PROMPT_HASH_KEY = "prompt_hash"
+PROMPT_ID_KEY = "prompt_id"
 
 
 @cache
@@ -44,6 +45,7 @@ def build_deep_agent(
     permissions: Sequence[FilesystemPermission] | None = None,
     store: BaseStore | None = None,
     persistence: Persistence | None = None,
+    prompt_id: str | None = None,
 ) -> Any:
     """The one way teams build agents. Model is always explicit; middleware is injectable
     (the Decisions-based selection middleware attaches here once T4/T5 land).
@@ -67,7 +69,8 @@ def build_deep_agent(
 
     The returned agent's `config["metadata"]["prompt_hash"]` is the SHA-256 of `system_prompt`
     as configured, before memory or harness text is added (see `prompt_hash`); every run and
-    trace inherits it."""
+    trace inherits it. `prompt_id` (`name@version` from the prompt registry), when given, is
+    exposed the same way as `config["metadata"]["prompt_id"]`."""
     if isinstance(model, ModelSpec):
         if settings is None:
             raise ValueError("settings is required when model is a ModelSpec")
@@ -102,7 +105,10 @@ def build_deep_agent(
         permissions=None if permissions is None else list(permissions),
         memory=memory,
     )
-    return agent.with_config(metadata={PROMPT_HASH_KEY: prompt_hash(system_prompt)})
+    metadata = {PROMPT_HASH_KEY: prompt_hash(system_prompt)}
+    if prompt_id:
+        metadata[PROMPT_ID_KEY] = prompt_id
+    return agent.with_config(metadata=metadata)
 
 
 def prompt_hash(system_prompt: str) -> str:
@@ -117,3 +123,9 @@ def agent_prompt_hash(agent: Any) -> str:
     """The prompt hash `build_deep_agent` put on the agent's config; "" for any other graph."""
     config = getattr(agent, "config", None) or {}
     return str((config.get("metadata") or {}).get(PROMPT_HASH_KEY, ""))
+
+
+def agent_prompt_id(agent: Any) -> str:
+    """The `name@version` prompt id `build_deep_agent` put on the agent's config; "" if none."""
+    config = getattr(agent, "config", None) or {}
+    return str((config.get("metadata") or {}).get(PROMPT_ID_KEY, ""))

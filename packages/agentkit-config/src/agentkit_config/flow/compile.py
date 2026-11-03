@@ -108,7 +108,9 @@ def load_flow(
     file = str(path)
     lib = library if library is not None else flow_library(path, CodePools.from_entry_points())
     spec = parse_flow(path)
-    problems = validate_flow(spec, lib, ModelRegistry.default(), file=file)
+    problems = validate_flow(
+        spec, lib, ModelRegistry.default(), file=file, tenant=settings.deployment_tenant
+    )
     for w in (p for p in problems if p.severity == "warning"):
         log.warning("%s", w)
     SpecErrors(problems).raise_if_errors()

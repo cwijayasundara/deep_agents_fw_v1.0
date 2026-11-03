@@ -8,7 +8,6 @@ from pathlib import Path
 from agentkit_config.pools import (
     AgentFileRegistry,
     CodePools,
-    Prompt,
     PromptRegistry,
     Skill,
     SkillRegistry,
@@ -21,7 +20,7 @@ from agentkit_config.spec import SubAgentSpec
 @dataclass(frozen=True)
 class Library:
     roots: tuple[Path, ...]
-    prompts: Registry[Prompt]
+    prompts: PromptRegistry
     skills: Registry[Skill]
     subagents: Registry[SubAgentSpec]
     agents: Registry[Path]

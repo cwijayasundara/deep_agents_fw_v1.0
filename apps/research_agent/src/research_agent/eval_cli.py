@@ -15,18 +15,21 @@ from typing import Any
 
 from agentkit_config import load_agent, read_output
 from agentkit_core import ConfigError, ModelRegistry, Settings, get_model
-from agentkit_deep import agent_prompt_hash
+from agentkit_deep import agent_prompt_hash, agent_prompt_id
 from agentkit_evals import (
     Baseline,
     BaselineMismatch,
+    EvalCase,
     LLMJudge,
     RunResult,
+    StepResult,
     aggregate,
     check_gates,
     load_dataset,
     load_gates,
     run_eval,
     select_cases,
+    single_step,
     to_markdown,
 )
 from agentkit_middleware import TenantMismatch
@@ -93,7 +96,12 @@ async def evaluate(
             loaded = load_agent(agent_path, settings=settings, overrides=overrides, persistence=p)
             ctx = platform_context(loaded.spec, tenant=tenant, user=user, thread=new_thread())
             log.info("eval thread %s: %s", ctx.thread_id, question)
-            config = run_config(ctx, agent_prompt_hash(loaded.graph), ledger)
+            config = run_config(
+                ctx,
+                agent_prompt_hash(loaded.graph),
+                ledger,
+                prompt_id=agent_prompt_id(loaded.graph),
+            )
             seen: list[str] = []  # every tool result, orchestrator and subagents
             calls: list[str] = []
             started = time.monotonic()
@@ -117,7 +125,22 @@ async def evaluate(
                 latency_s=latency,
             )
 
-        results = await run_eval(cases, run_agent, judge, concurrency=concurrency)
+        async def run_step(case: EvalCase) -> StepResult:
+            # One model call, no tools run, no checkpointer: nothing to persist or lock.
+            loaded = load_agent(agent_path, settings=settings, overrides=overrides)
+            ctx = platform_context(loaded.spec, tenant=tenant, user=user, thread=new_thread())
+            log.info("eval step %s: %s", ctx.thread_id, case.id)
+            config = run_config(
+                ctx,
+                agent_prompt_hash(loaded.graph),
+                ledger,
+                prompt_id=agent_prompt_id(loaded.graph),
+            )
+            return await single_step(loaded.graph, case, config=dict(config), context=ctx)
+
+        results = await run_eval(
+            cases, run_agent, judge, concurrency=concurrency, run_step=run_step
+        )
     print(ledger.summary())
     md = f"## {first.spec.model} (judge: {judge_entry})\n\n{to_markdown(results)}\n"
     summary = {

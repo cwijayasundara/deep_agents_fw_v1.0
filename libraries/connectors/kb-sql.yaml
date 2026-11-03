@@ -1,0 +1,3 @@
+kind: postgres
+dsn: env://KB_READER_DATABASE_URL
+schemas: [kb]

@@ -349,6 +349,50 @@ def test_eval_mints_one_thread_per_case(offline_cli, monkeypatch, tmp_path):
     assert {(c.tenant, c.user_id) for c in offline_cli} == {("default", "e1")}
 
 
+def test_eval_runs_a_mixed_dataset(offline_cli, monkeypatch, tmp_path):
+    import json
+
+    from agentkit_evals import StepResult
+    from research_agent import eval_cli
+
+    data = tmp_path / "d.jsonl"
+    step = {
+        "id": "s",
+        "question": "q",
+        "kind": "single_step",
+        "expect_call": {"name": "^web_search$"},
+    }
+    data.write_text(
+        json.dumps({"id": "f", "question": "q", "must_cover": ["x"]})
+        + "\n"
+        + json.dumps(step)
+        + "\n"
+    )
+
+    class Judge:
+        def __init__(self, model):
+            pass
+
+        async def __call__(self, case, report, retrieved):
+            return {"groundedness": 1.0}
+
+    async def fake_step(graph, case, *, config, context):
+        return StepResult("fetch_url", {"url": "u"}, "txt")
+
+    monkeypatch.setattr(eval_cli, "LLMJudge", Judge)
+    monkeypatch.setattr(eval_cli, "get_model", lambda spec, settings: None)
+    monkeypatch.setattr(eval_cli, "single_step", fake_step)
+    monkeypatch.setattr("sys.argv", ["research-eval", "--dataset", str(data), "--user", "e1"])
+    eval_cli.main()
+    summary = json.loads((tmp_path / "eval_results.json").read_text())
+    by = {c["case_id"]: c for c in summary["cases"]}
+    assert by["s"]["scores"] == {"step_pass": 0.0}
+    assert by["s"]["reason"] == "called fetch_url, expected ^web_search$"
+    assert by["s"]["report"] == "txt"
+    assert by["f"]["report"].startswith("# r [1]") and "step_pass" not in by["f"]["scores"]
+    assert summary["aggregate"]["completed"] == 1.0
+
+
 def test_cli_tenant_mismatch_exits_1_with_one_line(offline_cli, monkeypatch, capsys):
     from agentkit_middleware import TenantMismatch
     from research_agent import cli
@@ -936,11 +980,35 @@ def test_eval_concurrency_reaches_run_eval(subset_env, monkeypatch):
     seen = {}
     real = eval_cli.run_eval
 
-    async def spy(cases, run_agent, judge, concurrency=2):
+    async def spy(cases, run_agent, judge, concurrency=2, **kw):
         seen["concurrency"] = concurrency
-        return await real(cases, run_agent, judge, concurrency=concurrency)
+        return await real(cases, run_agent, judge, concurrency=concurrency, **kw)
 
     monkeypatch.setattr(eval_cli, "run_eval", spy)
     run, _ = subset_env
     assert run() == 0 and seen["concurrency"] == 6
     assert run("--concurrency", "3") == 0 and seen["concurrency"] == 3
+
+
+def test_prompt_id_reaches_run_metadata_and_the_prompt_hash_is_unchanged():
+    import hashlib
+
+    from agentkit_deep import agent_prompt_hash, agent_prompt_id
+    from agentkit_telemetry import run_config
+
+    loaded = load_agent(
+        DEFAULT_AGENT,
+        settings=Settings(_env_file=None, fireworks_api_key="f"),
+        library=lib(),
+        overrides={"selection": "off"},
+        model=scripted(AIMessage(content="x")),
+    )
+    assert agent_prompt_id(loaded.graph) == "research/orchestrator@1.0.0"
+    config = run_config(
+        ctx(),
+        agent_prompt_hash(loaded.graph),
+        CostLedger(),
+        prompt_id=agent_prompt_id(loaded.graph),
+    )
+    assert config["metadata"]["prompt_id"] == "research/orchestrator@1.0.0"
+    assert len(agent_prompt_hash(loaded.graph)) == len(hashlib.sha256(b"").hexdigest())

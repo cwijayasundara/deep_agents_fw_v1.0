@@ -1,0 +1,216 @@
+{
+  "agent": "/Users/chamindawijayasundara/Documents/learning_102/deep_agents_fw_v1.0/apps/research_agent/agent.yaml",
+  "overrides": {
+    "model": "fireworks-glm"
+  },
+  "model": "fireworks-glm",
+  "tier": "default",
+  "selection": "decisions",
+  "judge": "anthropic",
+  "model_id": "accounts/fireworks/models/glm-5p3-flash",
+  "judge_model_id": "claude-opus-5-5",
+  "dataset": "apps/research_agent/evals/steps.jsonl",
+  "persist": false,
+  "aggregate": {
+    "step_pass": 0.8333333333333334,
+    "completed": 1.0
+  },
+  "cases": [
+    {
+      "case_id": "first-factual",
+      "scores": {
+        "step_pass": 1.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [
+        "web_search",
+        "web_search"
+      ],
+      "reason": null,
+      "report": "I'll research the Model Context Protocol, starting with searches for primary sources."
+    },
+    {
+      "case_id": "first-comparison",
+      "scores": {
+        "step_pass": 0.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [],
+      "reason": "no tool call",
+      "report": "I'll research this comparison in three parallel tracks (licensing, hosting, filtered-search performance), then verify key primary sources myself before writing the report."
+    },
+    {
+      "case_id": "first-recent",
+      "scores": {
+        "step_pass": 1.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [
+        "web_search",
+        "fetch_url"
+      ],
+      "reason": null,
+      "report": "I'll research this by checking the official Python release sources."
+    },
+    {
+      "case_id": "after-plan",
+      "scores": {
+        "step_pass": 1.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [
+        "web_search",
+        "web_search"
+      ],
+      "reason": null,
+      "report": ""
+    },
+    {
+      "case_id": "fetch-official",
+      "scores": {
+        "step_pass": 1.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [
+        "fetch_url"
+      ],
+      "reason": null,
+      "report": ""
+    },
+    {
+      "case_id": "fetch-primary-paper",
+      "scores": {
+        "step_pass": 1.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [
+        "fetch_url"
+      ],
+      "reason": null,
+      "report": "I'll fetch the paper's abstract page to confirm details before summarizing."
+    },
+    {
+      "case_id": "search-after-dead-link",
+      "scores": {
+        "step_pass": 1.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [
+        "fetch_url"
+      ],
+      "reason": null,
+      "report": ""
+    },
+    {
+      "case_id": "write-after-enough-sources",
+      "scores": {
+        "step_pass": 0.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [
+        "fetch_url"
+      ],
+      "reason": "called fetch_url, expected ^write_file$",
+      "report": ""
+    },
+    {
+      "case_id": "write-on-call-limit",
+      "scores": {
+        "step_pass": 1.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [
+        "write_file"
+      ],
+      "reason": null,
+      "report": ""
+    },
+    {
+      "case_id": "report-has-citations",
+      "scores": {
+        "step_pass": 1.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [
+        "write_file"
+      ],
+      "reason": null,
+      "report": ""
+    },
+    {
+      "case_id": "follow-up-needs-new-facts",
+      "scores": {
+        "step_pass": 1.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [
+        "web_search",
+        "web_search"
+      ],
+      "reason": null,
+      "report": ""
+    },
+    {
+      "case_id": "first-multi-part",
+      "scores": {
+        "step_pass": 1.0
+      },
+      "error": null,
+      "run_id": null,
+      "trace_id": null,
+      "usage": null,
+      "latency_s": null,
+      "tool_calls": [
+        "task",
+        "task",
+        "task"
+      ],
+      "reason": null,
+      "report": "I'll research these three independent topics in parallel using researcher subagents."
+    }
+  ]
+}

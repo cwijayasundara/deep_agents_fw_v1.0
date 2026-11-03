@@ -19,11 +19,24 @@ class ModelSpec:
     kwargs: dict[str, Any] = field(default_factory=dict, hash=False, compare=False)
 
 
+@dataclass(frozen=True)
+class EmbeddingSpec:
+    provider: Provider
+    model_id: str
+    dimensions: int
+
+
 class ModelRegistry:
     """Maps a logical entry name + tier to a concrete (provider, model id)."""
 
-    def __init__(self, entries: dict[str, dict[str, Any]], default_entry: str | None = None):
+    def __init__(
+        self,
+        entries: dict[str, dict[str, Any]],
+        default_entry: str | None = None,
+        embeddings: dict[str, dict[str, Any]] | None = None,
+    ):
         self._entries = entries
+        self._embeddings = embeddings or {}
         self.default_entry = default_entry or next(iter(entries))
 
     @classmethod
@@ -32,7 +45,7 @@ class ModelRegistry:
         models = raw.get("models")
         if not models:
             raise ConfigError("registry has no 'models'")
-        return cls(models, raw.get("default_provider"))
+        return cls(models, raw.get("default_provider"), raw.get("embeddings"))
 
     @classmethod
     def from_file(cls, path: str | Path) -> ModelRegistry:
@@ -55,3 +68,13 @@ class ModelRegistry:
         entry = self._entries[name]
         provider = Provider(entry.get("provider", name))
         return ModelSpec(provider, entry[tier], dict(entry.get("kwargs", {})))
+
+    def embedding_names(self) -> list[str]:
+        return list(self._embeddings)
+
+    def embedding(self, name: str) -> EmbeddingSpec:
+        if name not in self._embeddings:
+            known = ", ".join(self._embeddings) or "none"
+            raise ConfigError(f"unknown embeddings entry '{name}'; known: {known}")
+        entry = self._embeddings[name]
+        return EmbeddingSpec(Provider(entry["provider"]), entry["model"], int(entry["dimensions"]))

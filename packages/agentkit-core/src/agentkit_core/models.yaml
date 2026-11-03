@@ -30,3 +30,13 @@ models:
     fast: accounts/fireworks/models/minimax-m3p1-flash
     default: accounts/fireworks/models/minimax-m3p1-flash
     strong: accounts/fireworks/models/minimax-m3
+# Embedding models for connectors (libraries/connectors/*.yaml `embeddings:` names one of these).
+embeddings:
+  fireworks-nomic:
+    provider: fireworks
+    model: nomic-ai/nomic-embed-text-v1.5
+    dimensions: 768
+  openai-small:
+    provider: openai
+    model: text-embedding-3-small
+    dimensions: 1536

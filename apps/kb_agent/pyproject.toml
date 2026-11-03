@@ -1,0 +1,9 @@
+[project]
+name = "kb-agent"
+version = "0.0.1"
+requires-python = ">=3.12,<3.13"
+dependencies = ["agentkit-core", "agentkit-config", "agentkit-connectors", "agentkit-middleware", "agentkit-deep", "agentkit-evals"]
+
+# YAML, evals and tests only: no Python package. It runs through `research-eval --agent apps/kb_agent/agent.yaml`.
+[tool.uv]
+package = false

@@ -1,0 +1,40 @@
+{
+  "dataset_sha256": "badfe95602ad684c0e4c02d1fc596712b302da7204b3f14399a5e49ccc1d75b7",
+  "model_id": "accounts/fireworks/models/glm-5p3-flash",
+  "judge_model_id": "claude-opus-5-5",
+  "aggregate": {
+    "citation_validity": 0.9,
+    "completeness": 0.997,
+    "groundedness": 0.886,
+    "has_citation": 0.9,
+    "source_count_ok": 0.9,
+    "sources_section": 0.9,
+    "tool_recall": 1.0,
+    "mean_latency_s": 11.077117927151267,
+    "mean_total_tokens": 22100.25,
+    "completed": 1.0
+  },
+  "completed_cases": [
+    "what-is-agentkit",
+    "build-deep-agent",
+    "agent-yaml",
+    "validate-yaml",
+    "missing-keys",
+    "run-research",
+    "middleware-order",
+    "require-output",
+    "tool-budgets",
+    "platform-context",
+    "tenant-guard",
+    "stamp-tenant",
+    "encrypted-at-rest",
+    "thread-lock",
+    "prune-threads",
+    "cost-ledger",
+    "tracing-masking",
+    "eval-gate",
+    "recursion-limit",
+    "decisions-risk"
+  ],
+  "recorded": "2026-11-02"
+}

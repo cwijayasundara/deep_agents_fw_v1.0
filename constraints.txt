@@ -18,3 +18,10 @@ pycryptodome==4.2.0
 langfuse==5.1.0
 opentelemetry-sdk==1.45.2
 opentelemetry-exporter-otlp==1.45.2
+langchain-postgres==0.0.19
+langchain-protocol==0.0.20
+pgvector==0.3.6
+asyncpg==0.32.0
+sqlalchemy==2.1.6
+numpy==2.5.4
+greenlet==3.5.6

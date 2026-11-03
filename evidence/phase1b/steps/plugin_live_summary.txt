@@ -1,0 +1,13 @@
+apps/research_agent/tests/test_eval_steps.py::test_first_step[first-factual] PASSED [  8%]
+apps/research_agent/tests/test_eval_steps.py::test_first_step[first-comparison] PASSED [ 16%]
+apps/research_agent/tests/test_eval_steps.py::test_first_step[first-recent] PASSED [ 25%]
+apps/research_agent/tests/test_eval_steps.py::test_first_step[after-plan] PASSED [ 33%]
+apps/research_agent/tests/test_eval_steps.py::test_first_step[fetch-official] PASSED [ 41%]
+apps/research_agent/tests/test_eval_steps.py::test_first_step[fetch-primary-paper] PASSED [ 50%]
+apps/research_agent/tests/test_eval_steps.py::test_first_step[search-after-dead-link] PASSED [ 58%]
+apps/research_agent/tests/test_eval_steps.py::test_first_step[write-after-enough-sources] PASSED [ 66%]
+apps/research_agent/tests/test_eval_steps.py::test_first_step[write-on-call-limit] PASSED [ 75%]
+apps/research_agent/tests/test_eval_steps.py::test_first_step[report-has-citations] PASSED [ 83%]
+apps/research_agent/tests/test_eval_steps.py::test_first_step[follow-up-needs-new-facts] PASSED [ 91%]
+apps/research_agent/tests/test_eval_steps.py::test_first_step[first-multi-part] PASSED [100%]
+============================= 12 passed in 46.58s ==============================

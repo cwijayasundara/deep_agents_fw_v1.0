@@ -8,7 +8,7 @@ from pathlib import Path
 
 from agentkit_config import load_agent, read_output
 from agentkit_core import Settings
-from agentkit_deep import agent_prompt_hash
+from agentkit_deep import agent_prompt_hash, agent_prompt_id
 from agentkit_telemetry import run_config, trace_id
 from langchain_core.messages import HumanMessage
 
@@ -53,7 +53,9 @@ async def run(
         log.info("run: tenant=%s user=%s thread=%s", ctx.tenant, ctx.user_id, ctx.thread_id)
         log.info("question: %s", question)
         ledger = await ledger_for(p)
-        config = run_config(ctx, agent_prompt_hash(loaded.graph), ledger)
+        config = run_config(
+            ctx, agent_prompt_hash(loaded.graph), ledger, prompt_id=agent_prompt_id(loaded.graph)
+        )
         async with turn_lock(p, thread):
             if p is not None and (step := await resumed_step(loaded.graph, thread)) is not None:
                 print(f"resumed thread {thread} at step {step}", flush=True)

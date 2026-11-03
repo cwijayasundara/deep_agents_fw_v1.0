@@ -8,6 +8,9 @@ description: Drive the agentkit research agent CLI (`uv run research`, `research
 agentkit's user surface is a set of CLIs run from the repo root: `uv run research` (one research
 turn, optionally persisted to a tenant's encrypted Postgres and traced to its collector),
 `uv run research-eval` (scored eval), `uv run agentkit validate` (offline YAML checks),
+`uv run agentkit tools list`, `uv run agentkit-kb setup|ingest` (the knowledge-base pilot
+`apps/kb_agent`, run with `research --agent apps/kb_agent/agent.yaml`), the pytest plugin
+(`pytest ... --agentkit-live`),
 `uv run agentkit-prune`, and the `make stamp/unstamp/contract/phase0-exit` tenant targets. There is
 no server: "launch" means stamping one isolated verification tenant; each drive is a short-lived
 CLI process whose stdout/stderr is teed into the evidence dir.
@@ -189,7 +192,13 @@ row), a one-case `mcp` eval (all scores 1.00), collect (all PASS: 88 masked span
 only, 2 usage rows), cleanup (project gone, evidence kept). Re-proven 2026-11-02 for Phase 1 (RUN_ID `20261102-phase1`): the middleware stack rode along on a
 persisted turn (exit 0, 35 s, `## Sources` report), a one-case `mcp` eval scored all seven metrics 1.00,
 the `--gate` mismatch probe exited 2 with `gate: baseline mismatch: ...`, `--write-baseline` without
-`--gate` exited 2, checks all PASS (223 spans, 2 usage rows), cleanup clean. Not yet driven live by this skill: the
+`--gate` exited 2, checks all PASS (223 spans, 2 usage rows), cleanup clean. Re-proven 2026-11-02 for the rest of Phase 1
+(RUN_ID `20261102-phase1b`): doctor OK; a persisted research turn after the tool-description change
+(exit 0, 34 s, `## Sources`); `agentkit tools list` (four tools at 1.0.0); `agentkit-kb setup` and
+`make kb-ingest` (161 chunks) on the verify tenant; one persisted `apps/kb_agent` turn as `kb_reader`
+(exit 0, 8 `kb_search` lines, `## Sources` of GitHub blob URLs); the plugin skip (12 skipped) and one
+live plugin case (`first-factual` PASSED); checks all PASS (163 masked spans, 2 usage rows); cleanup
+clean. Not yet driven live by this skill: the
 resume turn, `make contract`, `make phase0-exit`, `agentkit validate` recipes (validate output was
 checked by hand when writing the map). Keep the map honest as the CLIs change with
 `/pstack:maintain-verification-skill`.

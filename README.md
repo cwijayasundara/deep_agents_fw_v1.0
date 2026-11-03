@@ -36,13 +36,38 @@ make test                   # uv sync (pinned via constraints.txt) + offline tes
 make lint                   # ruff, mypy, agentkit validate
 ```
 
-Run the research agent (needs the chosen provider's key and `FIREWORKS_API_KEY`, which its fallback model
-uses; web search uses DuckDuckGo and needs no key):
+## Run the sample apps
+
+There are two sample agents. Run every command from the repo root (the CLIs read `.env` from there).
+
+On macOS, if a `uv run` command fails with `cannot import name 'Settings'`, run `make sync` and retry:
+macOS hides the `.pth` files that make the workspace packages importable, and a plain `uv run` re-syncs
+and hides them again. After `make sync`, `uv run --no-sync ...` keeps them visible.
+
+### Research agent (web research, no Docker)
+
+Needs `FIREWORKS_API_KEY` (the agent and its fallback model) and `OPENAI_API_KEY` (model and tool
+selection), or pass `--no-selection` to skip the OpenAI key. Web search uses DuckDuckGo and needs no key.
 
 ```bash
-UV_CONSTRAINT=constraints.txt uv run research "your question"
-UV_CONSTRAINT=constraints.txt uv run research-eval --judge anthropic
+cp .env.example .env              # fill in the keys
+make sync
+uv run --no-sync research "When should a team choose RAG over fine-tuning?" \
+	--model fireworks-glm --out report.md
 ```
+
+Progress (searches, fetches, delegations, run time) streams to stderr; the cited report lands in
+`report.md`. To score it, add an Anthropic key (the judge) and run one golden case or the full gate:
+
+```bash
+uv run --no-sync research-eval --model fireworks-glm --case mcp --judge anthropic   # one case, about 2 min
+uv run --no-sync research-eval --model fireworks-glm --judge anthropic \
+	--dataset apps/research_agent/evals/golden.jsonl --gate apps/research_agent/evals/gates.yaml   # 25 cases, about 10 min
+```
+
+### Knowledge-base agent (answers from this repo's docs, needs Docker)
+
+See [Knowledge-base agent](#knowledge-base-agent) below: stamp a tenant, load the docs once, then ask.
 
 The agent is `apps/research_agent/agent.yaml`. `--model <registry entry>` switches provider (default
 `fireworks-glm`, `accounts/fireworks/models/glm-5p3-flash`); `--tier` and `--no-selection` override the
@@ -65,7 +90,7 @@ paths are relative to it. Every step except 1 costs real tokens.
 ### 1. Check the offline build
 
 ```bash
-make test        # expect: 473 passed, 24 skipped (pg, no database), 7 deselected (live)
+make test        # expect: 571 passed, 61 skipped (pg without a database, live evals), 8 deselected (live)
 make lint        # expect: no ruff or mypy errors; agentkit validate: 0 error(s)
 ```
 
@@ -169,25 +194,55 @@ sections 9 to 11.
 
 `apps/kb_agent` answers questions from this repo's docs, stored in a tenant's Postgres (pgvector), with
 cited answers. It reaches the data only through `kb_search` and the read-only `sql_query`. Needs
-`FIREWORKS_API_KEY` (agent and `fireworks-nomic` embeddings); details in `deploy/README.md`.
+`FIREWORKS_API_KEY` (agent and `fireworks-nomic` embeddings) and Docker; details in `deploy/README.md`.
+
+**1. Stamp a tenant and load the docs (once).** Setup and ingest use the tenant's admin login; nothing
+else does.
 
 ```bash
-make stamp TENANT=kb-demo
-export KB_READER_PASSWORD=...     # pick one; read from this variable, never printed
-# once: schema kb and the read-only role kb_reader, then ingest README + docs (admin DSN only here)
-scripts/tenant_env.sh kb-demo sh -c 'KB_DATABASE_URL="$DATABASE_URL" uv run agentkit-kb setup \
+make sync
+make stamp TENANT=kb-demo         # prints the tenant's Postgres port, e.g. 127.0.0.1:55500
+export KB_READER_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')"
+# schema kb and the read-only role kb_reader (the password is read from the variable, never printed)
+scripts/tenant_env.sh kb-demo sh -c 'KB_DATABASE_URL="$DATABASE_URL" uv run --no-sync agentkit-kb setup \
 	--connector kb-docs --reader-password-env KB_READER_PASSWORD'
+# README + docs into kb.kb_docs (expect: ingest: <n> chunk(s) from 5 file(s) into kb.kb_docs)
 scripts/tenant_env.sh kb-demo sh -c 'make kb-ingest KB_ADMIN_DATABASE_URL="$DATABASE_URL"'
-# agent runs: both connectors log in as kb_reader (port: the stamp's Postgres port)
-export KB_READER_DATABASE_URL="postgresql://kb_reader:$KB_READER_PASSWORD@127.0.0.1:<pg port>/agentkit"
+```
+
+Keep `KB_READER_PASSWORD` for later sessions; re-running `setup` resets it.
+
+**2. Point the agent at the read-only login.** Both connectors log in as `kb_reader` at run time;
+`sql_query` refuses an admin login.
+
+```bash
+PG_PORT=$(grep -o '127.0.0.1:[0-9]*' deploy/tenants/kb-demo.env | head -1 | cut -d: -f2)   # no password printed
+export KB_READER_DATABASE_URL="postgresql://kb_reader:$KB_READER_PASSWORD@127.0.0.1:$PG_PORT/agentkit"
 export KB_DATABASE_URL="$KB_READER_DATABASE_URL"
-scripts/tenant_env.sh kb-demo uv run research "How do I give a tenant its own deployment?" \
+```
+
+**3. Ask a question.**
+
+```bash
+scripts/tenant_env.sh kb-demo uv run --no-sync research "How do I give a tenant its own deployment?" \
 	--agent apps/kb_agent/agent.yaml --model fireworks-glm --tenant kb-demo --out kb_report.md
-# its golden gate (20 cases)
-scripts/tenant_env.sh kb-demo uv run research-eval --agent apps/kb_agent/agent.yaml --model fireworks-glm \
-	--tenant kb-demo --dataset apps/kb_agent/evals/golden.jsonl --judge anthropic \
+```
+
+A good run makes a few `kb_search` calls, writes `/report.md` and finishes in about 10-20 seconds;
+`kb_report.md` holds the answer, cited to the docs' GitHub URLs under `## Sources`.
+
+**4. Score it (optional, about 2 minutes, needs an Anthropic key for the judge).**
+
+```bash
+scripts/tenant_env.sh kb-demo uv run --no-sync research-eval --agent apps/kb_agent/agent.yaml \
+	--model fireworks-glm --tenant kb-demo --dataset apps/kb_agent/evals/golden.jsonl --judge anthropic \
 	--gate apps/kb_agent/evals/gates.yaml --out kb_eval.md
-make unstamp TENANT=kb-demo
+```
+
+**5. Tear it down.**
+
+```bash
+make unstamp TENANT=kb-demo       # deletes the tenant's database (keeps deploy/tenants/kb-demo.env)
 ```
 
 ## Tools, prompts and agent evals

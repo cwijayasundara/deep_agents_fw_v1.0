@@ -8,6 +8,12 @@ dependencies = ["agentkit-core", "ddgs", "httpx", "langchain-core"]
 web_search = "agentkit_tools.factories:web_search"
 fetch_url = "agentkit_tools.factories:fetch_url"
 
+[project.entry-points."agentkit.search_backends"]
+parallel = "agentkit_tools.backends:parallel"
+brave = "agentkit_tools.backends:brave"
+tavily = "agentkit_tools.backends:tavily"
+duckduckgo = "agentkit_tools.backends:duckduckgo"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

@@ -1,52 +1,33 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Sequence
-from typing import Literal
+from collections.abc import Sequence
 
 from agentkit_core import BuildContext, ConfigError
+from agentkit_core.seams import Seam
 from langchain_core.tools import BaseTool
 
-from .brave import BraveSearch
+from .backends import api_key
 from .chain import CachedSearch, FallbackSearch
-from .duckduckgo import DuckDuckGoSearch
 from .fetch import HttpFetch
 from .langchain_tools import make_fetch_tool, make_web_search_tool
 from .models import SearchTool
-from .parallel import ParallelSearch
 from .platform import platform_tool
-from .tavily import TavilySearch
 
 log = logging.getLogger(__name__)
 
-Backend = Literal["parallel", "brave", "tavily", "duckduckgo"]
-BACKENDS: tuple[str, ...] = ("parallel", "brave", "tavily", "duckduckgo")
-# `auto`: each backend whose key is set, in this order, then keyless DuckDuckGo as last resort.
+SEARCH_BACKENDS: Seam[SearchTool] = Seam("agentkit.search_backends", "web_search backend")
+# `auto`: each built-in whose key is set, in this order, then keyless DuckDuckGo as last resort.
+# Third-party providers are reachable by name only.
 AUTO_ORDER: tuple[str, ...] = ("parallel", "brave", "tavily")
-_KEY_ENV = {"parallel": "PARALLEL_API_KEY", "brave": "BRAVE_API_KEY", "tavily": "TAVILY_API_KEY"}
-_CLASSES: dict[str, Callable[[str], SearchTool]] = {
-    "parallel": ParallelSearch,
-    "brave": BraveSearch,
-    "tavily": TavilySearch,
-}
 
 
 def _key(ctx: BuildContext, name: str) -> str | None:
-    secret = getattr(ctx.settings, _KEY_ENV[name].lower())
-    if secret is None or not secret.get_secret_value():
-        return None
-    return str(secret.get_secret_value())
+    return api_key(ctx.settings, name)
 
 
 def _backend(ctx: BuildContext, name: str) -> SearchTool:
-    if name == "duckduckgo":
-        return DuckDuckGoSearch()
-    if name not in _CLASSES:
-        raise ConfigError(f"unknown web_search backend {name!r}; expected one of {BACKENDS}")
-    key = _key(ctx, name)
-    if key is None:
-        raise ConfigError(f"{_KEY_ENV[name]} is required for the {name} web search backend")
-    return _CLASSES[name](key)
+    return SEARCH_BACKENDS.get(name, ctx.settings.deployment_tenant)(ctx.settings)
 
 
 def _names(ctx: BuildContext, backend: str | Sequence[str]) -> list[str]:
@@ -69,9 +50,7 @@ def _names(ctx: BuildContext, backend: str | Sequence[str]) -> list[str]:
 
 
 @platform_tool(owner="platform", version="1.1.0", side_effects="external", classification="public")
-def web_search(
-    ctx: BuildContext, *, backend: Literal["auto"] | Backend | list[Backend] = "auto"
-) -> BaseTool:
+def web_search(ctx: BuildContext, *, backend: str | list[str] = "auto") -> BaseTool:
     """Web search tool.
 
     `backend: auto` (default) uses every search key that is set (Parallel, then Brave, then

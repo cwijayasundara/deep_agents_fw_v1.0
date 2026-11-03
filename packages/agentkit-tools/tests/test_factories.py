@@ -62,8 +62,8 @@ def test_web_search_duckduckgo_needs_no_key():
 
 
 def test_web_search_unknown_backend():
-    with pytest.raises(ConfigError, match="parallel.*brave.*tavily.*duckduckgo"):
-        web_search(_ctx(), backend="bing")  # type: ignore[arg-type]
+    with pytest.raises(ConfigError, match="'bing'; known: brave, duckduckgo, parallel, tavily"):
+        web_search(_ctx(), backend="bing")
 
 
 async def test_duckduckgo_maps_results(monkeypatch):

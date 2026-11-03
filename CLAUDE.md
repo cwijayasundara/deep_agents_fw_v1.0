@@ -32,7 +32,7 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   model-visible-means-logged; rest of Phase 2 still to design). Plan:
   `docs/superpowers/plans/2026-11-03-agentkit-phase2-platform-shape-plan.md` (not started).
 - Web search `backend: auto` (default) chains Parallel -> Brave -> Tavily (each if its key is set) -> DuckDuckGo;
-  pin with `web_search: {backend: <name or list>}`. Rationale: `research_notes/2026-11-03-web-search-provider.md`.
+  pin with `web_search: {backend: <name or list>}`. Backends are the `agentkit.search_backends` entry-point seam (third-party ones by name only; `auto` uses the four built-ins). Rationale: `research_notes/2026-11-03-web-search-provider.md`.
 - Providers to support: OpenAI, Gemini, Anthropic, Fireworks (deepseek-v4p1-flash-1017,
   glm-5p3-flash, minimax-m3p1-flash). Model/tool selection via OpenAI Decisions API (`gpt-6-luna`).
 - Prior work to learn from (not vendored): github.com/cwijayasundara/deep_agents_utils_v1.0,

@@ -24,7 +24,7 @@ from functools import partial
 from pathlib import Path
 
 import asyncpg  # type: ignore[import-untyped]  # ships no type information
-from agentkit_core import ConfigError, Settings
+from agentkit_core import ConfigError, Settings, resolve_secret
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_postgres import PGVectorStore
@@ -33,7 +33,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from .embeddings import embedding_dimensions, get_embeddings
 from .engines import KB_SCHEMA, get_engine, run_on
-from .secrets import EnvSecrets
 from .spec import PgVectorSpec, library_roots, load_connector
 from .tools import qualified_table, table_dims
 
@@ -189,7 +188,7 @@ async def ingest(
 
     A file's previous chunks are replaced, so re-ingesting a shrunk file leaves no stale rows."""
     sources = _read_sources(paths, source_base=source_base, root=root)
-    engine = get_engine(EnvSecrets().resolve(spec.dsn))
+    engine = get_engine(resolve_secret(spec.dsn, Settings()))
     table = spec.collection
     present, have = await run_on(engine, lambda pool: _prepare(pool, table))
     if not present:
@@ -245,7 +244,7 @@ def _run(args: argparse.Namespace) -> str:
         password = os.environ.get(args.reader_password_env)
         if not password:
             raise ConfigError(f"{args.reader_password_env} is not set (the kb_reader password)")
-        asyncio.run(setup(EnvSecrets().resolve(spec.dsn), password))
+        asyncio.run(setup(resolve_secret(spec.dsn, Settings()), password))
         return f"setup: schema {KB_SCHEMA} and role {ROLE} ready (read-only, SELECT on {KB_SCHEMA})"
     if not isinstance(spec, PgVectorSpec):
         raise ConfigError(f"connector {args.connector!r} is a {spec.kind} connector; need pgvector")

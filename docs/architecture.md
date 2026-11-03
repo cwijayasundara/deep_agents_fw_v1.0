@@ -61,7 +61,7 @@ mypy strict, ruff with line length 100.
 |---|---|---|---|
 | `packages/agentkit-core` | Settings and secrets, the model registry, the run context | `Settings`, `ConfigError`, `Provider`, `ModelRegistry`, `ModelSpec`, `TIERS`, `get_model`, `PlatformContext`, `Label`, `check_label`, `check_user_id`, `store_namespace`, `BuildContext`; `models.yaml` | none |
 | `packages/agentkit-tools` | Read-only research tools, their pool factories and tool governance | `web_search` and `fetch_url` factories (`factories.py`), `DuckDuckGoSearch`, `TavilySearch`, `HttpFetch`, `make_web_search_tool`, `make_fetch_tool`, `ToolError`; `platform_tool`, `ToolMeta`, `tool_meta`, `check_tool_contract`; `tool_schemas.json` | core |
-| `packages/agentkit-connectors` | Connector specs, secret refs, embeddings, pooled engines and the curated KB tools | `load_connector`, `EnvSecrets`, `get_embeddings`, `get_engine`; `kb_search` and `sql_query` factories (`tools.py`); script `agentkit-kb` (`setup`, `ingest`) | core, tools |
+| `packages/agentkit-connectors` | Connector specs, secret refs, embeddings, pooled engines and the curated KB tools | `load_connector`, `get_embeddings`, `get_engine`; `kb_search` and `sql_query` factories (`tools.py`); script `agentkit-kb` (`setup`, `ingest`) | core, tools |
 | `packages/agentkit-middleware` | Tenant guard, Decisions-based selection, resilience | `TenantGuardMiddleware`, `TenantMismatch`, `MissingPlatformContext`, `SelectionMiddleware`, `Selector`, `Selection`, `ToolCard`, `DecisionsClient`, `DecisionsSelector`, `CircuitBreaker`, `call_with_retry`, `call_limit` factory | core |
 | `packages/agentkit-persistence` | Encrypted Postgres checkpoints and store, thread locks, pruning | `PersistenceSettings`, `open_persistence`, `Persistence`, `EncryptedStore`, `StoreEncryptionError`, `thread_lock`, `prune`; script `agentkit-prune` | core |
 | `packages/agentkit-deep` | The factory, skills mount, memory tiers, test doubles | `build_deep_agent`, `prompt_hash`, `agent_prompt_hash`; `memory.memory_backend`; `skills_mount.skills_mount`, `skills_routes`, `skills_source`; `testing.ScriptedChatModel`, `MeteredChatModel`, `ctx`, `memory_persistence` | core, middleware, persistence |
@@ -696,8 +696,9 @@ connection; they reach Postgres only through two curated tools.
   `pgvector` (`dsn`, `collection`, `embeddings`) and `postgres` (`dsn`, `schemas`, plus limits such as
   `max_rows` and the statement timeout). `load_connector` takes the first match over the library roots;
   an unknown name is a `ConfigError` that lists the known ones.
-- **Secrets.** `dsn` is a secret reference. Only `env://VAR` is implemented (`EnvSecrets`, behind a
-  `SecretsProvider` protocol so Vault or a cloud secret manager can be added later). An unset variable is
+- **Secrets.** `dsn` is a secret reference. Resolved by `resolve_secret` through the
+  `agentkit.secrets` seam (`agentkit_core.secrets`); only `env://VAR` ships, and other schemes are added
+  as entry-point providers. An unset variable is
   a `ConfigError` naming the variable, never its value.
 - **Embeddings** are a new `embeddings:` section in `models.yaml` (`fireworks-nomic`,
   `nomic-ai/nomic-embed-text-v1.5`, 768 dimensions; `openai-small`, `text-embedding-3-small`, 1536),

@@ -3,12 +3,11 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from functools import cache
 
-from agentkit_core import Settings
+from agentkit_core import Settings, resolve_secret
 from langchain_postgres import PGEngine, PGVectorStore
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from .embeddings import get_embeddings
-from .secrets import EnvSecrets, SecretsProvider
 from .spec import PgVectorSpec
 
 KB_SCHEMA = "kb"  # knowledge-base tables live here; `agentkit-kb setup` grants kb_reader SELECT
@@ -36,10 +35,8 @@ async def run_on[T](engine: PGEngine, work: Callable[[AsyncEngine], Awaitable[T]
     return await engine._run_as_async(work(engine._pool))
 
 
-def get_vectorstore(
-    spec: PgVectorSpec, settings: Settings, secrets: SecretsProvider | None = None
-) -> PGVectorStore:
-    engine = get_engine((secrets or EnvSecrets()).resolve(spec.dsn))
+def get_vectorstore(spec: PgVectorSpec, settings: Settings) -> PGVectorStore:
+    engine = get_engine(resolve_secret(spec.dsn, settings))
     return PGVectorStore.create_sync(
         engine,
         get_embeddings(spec.embeddings, settings),

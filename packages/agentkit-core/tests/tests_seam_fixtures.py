@@ -16,3 +16,13 @@ def beta_b_only(settings):
 @provider(owner="platform", version="1.0.0")
 def alpha_again(settings):
     return "alpha-again"
+
+
+class _FakeSecrets:
+    def resolve(self, name):
+        return f"v-{name}"
+
+
+@provider(owner="platform", version="1.0.0")
+def fake_secrets(settings):
+    return _FakeSecrets()

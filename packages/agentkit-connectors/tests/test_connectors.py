@@ -2,7 +2,6 @@ import logging
 
 import pytest
 from agentkit_connectors import (
-    EnvSecrets,
     PgVectorSpec,
     PostgresSpec,
     embedding_dimensions,
@@ -12,7 +11,7 @@ from agentkit_connectors import (
     get_vectorstore,
     load_connector,
 )
-from agentkit_core import ConfigError, Settings
+from agentkit_core import ConfigError, Settings, resolve_secret
 
 
 def _write(root, name, text):
@@ -54,18 +53,18 @@ def test_unknown_name_lists_known_and_first_root_wins(tmp_path):
         load_connector("nope", [r1, r2])
 
 
-def test_env_secrets(monkeypatch, caplog):
+def test_resolve_secret_env(monkeypatch, caplog):
     monkeypatch.setenv("KB_X", "postgresql://u:hunter2@h/db")
-    assert EnvSecrets().resolve("env://KB_X") == "postgresql://u:hunter2@h/db"
+    assert resolve_secret("env://KB_X", Settings()) == "postgresql://u:hunter2@h/db"
     monkeypatch.delenv("KB_DATABASE_URL", raising=False)
     with (
         caplog.at_level(logging.DEBUG),
         pytest.raises(ConfigError, match=r"env://KB_DATABASE_URL is not set"),
     ):
-        EnvSecrets().resolve("env://KB_DATABASE_URL")
+        resolve_secret("env://KB_DATABASE_URL", Settings())
     assert "hunter2" not in caplog.text
     with pytest.raises(ConfigError, match="unsupported secret ref scheme"):
-        EnvSecrets().resolve("vault://x")
+        resolve_secret("vault://x", Settings())
 
 
 def test_get_engine_cached_per_dsn(monkeypatch):

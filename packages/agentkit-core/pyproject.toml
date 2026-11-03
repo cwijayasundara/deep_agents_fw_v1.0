@@ -4,6 +4,9 @@ version = "0.0.1"
 requires-python = ">=3.12,<3.13"
 dependencies = ["pydantic-settings", "pyyaml", "langchain", "langchain-core", "langchain-openai", "langchain-anthropic", "langchain-google-genai", "langchain-fireworks"]
 
+[project.entry-points."agentkit.secrets"]
+env = "agentkit_core.secrets:env_secrets"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

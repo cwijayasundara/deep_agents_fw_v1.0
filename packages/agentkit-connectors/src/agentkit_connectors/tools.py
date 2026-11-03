@@ -21,7 +21,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from agentkit_core import BuildContext, ConfigError
+from agentkit_core import BuildContext, ConfigError, resolve_secret
 from agentkit_tools import platform_tool
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
@@ -34,7 +34,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from .embeddings import get_embeddings
 from .engines import KB_SCHEMA, get_engine, run_on
-from .secrets import EnvSecrets
 from .spec import PgVectorSpec, PostgresSpec, library_roots, load_connector
 
 log = logging.getLogger(__name__)
@@ -208,7 +207,7 @@ def make_kb_search_tool(kb: KnowledgeBase, *, default_k: int) -> BaseTool:
 def kb_search(ctx: BuildContext, *, connector: str, k: int = 5) -> BaseTool:
     """Semantic search over a pgvector connector's table in schema `kb`."""
     spec = _connector(ctx, connector, "kb_search", PgVectorSpec)
-    engine = get_engine(EnvSecrets().resolve(spec.dsn))
+    engine = get_engine(resolve_secret(spec.dsn, ctx.settings))
     kb = PgKb(engine, get_embeddings(spec.embeddings, ctx.settings), spec.collection)
     return make_kb_search_tool(kb, default_k=k)
 
@@ -419,7 +418,7 @@ def make_sql_query_tool(runner: SqlRunner, *, max_rows: int) -> BaseTool:
 def sql_query(ctx: BuildContext, *, connector: str) -> BaseTool:
     """Read-only SQL over a postgres connector (connect it as `kb_reader`)."""
     spec = _connector(ctx, connector, "sql_query", PostgresSpec)
-    engine = get_engine(EnvSecrets().resolve(spec.dsn))
+    engine = get_engine(resolve_secret(spec.dsn, ctx.settings))
     runner = PgSql(
         engine, schemas=spec.schemas, timeout_ms=spec.statement_timeout_ms, fetch=spec.max_rows + 1
     )

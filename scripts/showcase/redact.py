@@ -48,7 +48,7 @@ def _hit(text: str) -> str | None:
 
 
 def contains_local_path(text: str) -> bool:
-    return str(ROOT) in text
+    return str(ROOT) in text or str(Path.home()) in text
 
 
 def _bad(text: str) -> bool:

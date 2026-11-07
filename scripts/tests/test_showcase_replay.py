@@ -66,3 +66,9 @@ def test_secrets_and_dsns_absent(replay) -> None:
     assert "postgresql://" in raw and "sk-abcdef" in raw  # the fixture really holds them
     dump = json.dumps(replay)
     assert "postgresql://" not in dump and "sk-abcdef" not in dump
+
+
+def test_main_agent_strong_tier_maps_to_primary_model(replay) -> None:
+    main = [e for e in replay["events"] if e["kind"] == "model" and "model call" not in e["label"]]
+    assert main and main[0]["label"] == "glm-5p3"  # non-flash, main agent
+    assert all(e["part_id"] == "model:fireworks-glm" for e in main)

@@ -92,10 +92,6 @@ def _snippet(text: str, marker: str) -> str:
     return m.group(0) if m else marker
 
 
-def _model_part(name: str) -> str:
-    return "model:fireworks-glm" if name.endswith("-flash") else "model:fireworks-glm:strong"
-
-
 def replay_from_spans(spans_path: Path, usage_rows: list[dict]) -> dict:
     spans = _load(Path(spans_path))
     if not spans:
@@ -151,7 +147,8 @@ def replay_from_spans(spans_path: Path, usage_rows: list[dict]) -> dict:
             detail = text or ", ".join(c.get("name", "") for c in calls or [])
             who = subagent_of(s)
             label = f"{who} · model call" if who else (mname or "model")
-            add(s, "model", label, _model_part(mname), detail)
+            # Always the primary layer: the tier is selection, not fallback.
+            add(s, "model", label, "model:fireworks-glm", detail)
         elif name == "task":
             body = _json(inp) or {}
             add(

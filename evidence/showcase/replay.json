@@ -20,7 +20,7 @@
    "t": 3.86,
    "kind": "model",
    "label": "glm-5p3",
-   "part_id": "model:fireworks-glm:strong",
+   "part_id": "model:fireworks-glm",
    "detail": "I'll research these five platforms in parallel for an enterprise comparison, then verify key facts against primary sources before writing the report. One note up front: the email address you referenced came through as `[REDACTED_EMAIL]`, s…"
   },
   {
@@ -1539,7 +1539,7 @@
    "t": 140.03,
    "kind": "model",
    "label": "glm-5p3",
-   "part_id": "model:fireworks-glm:strong",
+   "part_id": "model:fireworks-glm",
    "detail": "The LangChain, Google ADK, CrewAI, Copilot Studio, and analyst researchers returned solid findings, but the OpenAI researcher's report didn't come through with usable detail. I'll research OpenAI directly and verify the key pricing pages f…"
   },
   {
@@ -1588,7 +1588,7 @@
    "t": 149.45,
    "kind": "model",
    "label": "glm-5p3",
-   "part_id": "model:fireworks-glm:strong",
+   "part_id": "model:fireworks-glm",
    "detail": "Pricing pages for LangSmith, Copilot Studio, and CrewAI are now verified directly. Next I need OpenAI's platform specifics and Google ADK verification."
   },
   {
@@ -1630,7 +1630,7 @@
    "t": 157.6,
    "kind": "model",
    "label": "glm-5p3",
-   "part_id": "model:fireworks-glm:strong",
+   "part_id": "model:fireworks-glm",
    "detail": "All research is in and key pricing/compliance pages have been verified directly. Now I'll write the full comparison report to `/report.md`."
   },
   {
@@ -1644,7 +1644,7 @@
    "t": 415.7,
    "kind": "model",
    "label": "glm-5p3",
-   "part_id": "model:fireworks-glm:strong",
+   "part_id": "model:fireworks-glm",
    "detail": "The report compares all five platforms across builder persona, model/cloud flexibility, deployment and compliance, observability, pricing mechanics, and vendor maturity — concluding that Copilot Studio fits Microsoft-centric low-code teams…"
   }
  ],

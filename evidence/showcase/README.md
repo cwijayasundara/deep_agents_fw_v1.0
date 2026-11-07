@@ -12,4 +12,3 @@ One real research-agent run, recorded live and converted to `replay.json`.
 - Convert: `uv run python -m showcase.replay <spans.jsonl> <usage.json> > evidence/showcase/replay.json` (run from `scripts/`)
 - First attempt triggered both a `pii` and a `limit` event; no re-run or steering was needed. Cost is null (shown as n/a) because the usage ledger holds token counts only.
 - No model fallback or guard denial occurred in this run. GuardMiddleware emits no span, so only the tenant guard appears in the events.
-- No model fallback or guard denial occurred in this run. GuardMiddleware emits no span, so only the tenant guard appears in the events.

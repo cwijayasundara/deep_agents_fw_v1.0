@@ -94,3 +94,11 @@ def test_policy_parsing_and_missing_key(tmp_path):
     f.write_text("OTHER=1\n")
     with pytest.raises(ValueError):
         example_tenant_policy(f)
+
+
+def test_home_dir_is_machine_state():
+    from pathlib import Path
+
+    from showcase.redact import contains_local_path
+
+    assert contains_local_path(f"see {Path.home()}/notes.txt")

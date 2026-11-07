@@ -272,6 +272,20 @@ Add tools and middleware as entry-point factories `(ctx: BuildContext, **params)
 as files under `libraries/`, models as entries in `models.yaml`, and agents and flows as YAML. Check YAML
 with `uv run agentkit validate <files>`. Step-by-step recipes: `docs/architecture.md` section 15.
 
+## Showcase
+
+A one-page view of the platform: one chassis, many agents. It shows the recipe for an agent, how the
+parts assemble, the bench results, a replay of a real steered `fireworks-glm` run, and the positioning.
+Views are Recipe, Assembly, Bench, Replay and Positioning. Press `p` or add `?present` for presenter mode,
+and step with the arrow keys.
+
+- `make showcase` serves the live page on port 8766 (`PORT=<n>` to change it) and opens it.
+- `make showcase-snapshot` writes `evidence/showcase/showcase.html`, one offline file that is safe to share.
+  It is gitignored and carries no machine state or open items.
+- The replay reads `evidence/showcase/replay.json`; regenerate it as `evidence/showcase/README.md` describes.
+
+Spec: `docs/superpowers/specs/2026-11-07-agentkit-showcase-design.md`.
+
 ## Status
 
 Phase 0 (T1-T9) and Phase 0b are delivered and live-verified (`docs/phase0-results.md`). All six model ids

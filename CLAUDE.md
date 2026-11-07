@@ -50,3 +50,4 @@ Shared, self-hosted agent platform on DeepAgents / LangChain v1 / LangGraph for 
   report + transcript + spans + agentkit_usage rows + eval scores under `evidence/verify/<run-id>/`. Keep its
   feature map current with `/pstack:maintain-verification-skill`.
 - Conventions: uv workspace, Python 3.12, pinned versions in one constraints file, never commit `.env`.
+- Showcase page: spec `docs/superpowers/specs/2026-11-07-agentkit-showcase-design.md`, plan `docs/superpowers/plans/2026-11-07-agentkit-showcase-plan.md`, `make showcase` (live) and `make showcase-snapshot` (offline file).

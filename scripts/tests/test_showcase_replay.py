@@ -50,6 +50,17 @@ def test_totals_sum_usage_rows(replay) -> None:
     assert replay["totals"] == {"tokens": 1830, "cost_usd": 0.015}
 
 
+def test_cost_null_when_ledger_has_no_cost() -> None:
+    rows = [{"input_tokens": 10, "output_tokens": 5}]
+    assert replay_from_spans(FIXTURE, rows)["totals"] == {"tokens": 15, "cost_usd": None}
+
+
+def test_subagent_model_calls_included(replay) -> None:
+    sub = [e for e in replay["events"] if e["label"] == "researcher · model call"]
+    assert len(sub) == 1
+    assert sub[0]["kind"] == "model" and sub[0]["part_id"] == "model:fireworks-glm"
+
+
 def test_secrets_and_dsns_absent(replay) -> None:
     raw = FIXTURE.read_text()
     assert "postgresql://" in raw and "sk-abcdef" in raw  # the fixture really holds them

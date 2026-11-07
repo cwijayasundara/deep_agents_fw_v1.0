@@ -66,6 +66,48 @@
    "detail": "Research third-party comparisons and analyst views of agentic AI development platforms for enterprises (LangChain/LangGraph/LangSmith, Google ADK, CrewAI, Microsoft Copilot Studio, OpenAI). RESEARCH ONLY (no file creation). Today is late 2…"
   },
   {
+   "t": 58.47,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"LangChain LangGraph LangSmith product overview 2025 enterprise platform\"}, \"id\": \"chatcmpl-tool-b1e878b32960b74c\", \"type\": \"tool_call\"}, …"
+  },
+  {
+   "t": 58.47,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 8, \"query\": \"Google Agent Development Kit ADK open-source framework Apache 2.0 April 2025 release\"}, \"id\": \"chatcmpl-tool-96284e7d7f3aeaf8\", \"type\": \"…"
+  },
+  {
+   "t": 58.48,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"CrewAI Enterprise pricing plans free tier Team Business Enterprise per-seat 2025\"}, \"id\": \"chatcmpl-tool-8437723aeb8edba3\", \"type\": \"tool…"
+  },
+  {
+   "t": 58.48,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 8, \"query\": \"Microsoft Copilot Studio overview low-code agent builder Power Platform 2025\"}, \"id\": \"chatcmpl-tool-afaa896de92dd196\", \"type\": \"tool_cal…"
+  },
+  {
+   "t": 58.48,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"OpenAI new tools for building agents Responses API web search file search computer use March 2025\"}, \"id\": \"chatcmpl-tool-98def0e379ecbcc…"
+  },
+  {
+   "t": 58.48,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"Gartner 40% agentic AI projects canceled by 2027 prediction\"}, \"id\": \"chatcmpl-tool-836009bd0f25c458\", \"type\": \"tool_call\"}, {\"name\": \"we…"
+  },
+  {
    "t": 60.49,
    "kind": "tool",
    "label": "web_search",
@@ -199,6 +241,48 @@
    "detail": "Google ADK Agent Development Kit LiteLLM Anthropic Mistral model support vendor-neutral"
   },
   {
+   "t": 61.34,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"LangChain \\\"State of AI Agents\\\" report 2025 LangGraph CrewAI AutoGen orchestration frameworks usage\"}, \"id\": \"chatcmpl-tool-a973657c7513…"
+  },
+  {
+   "t": 61.47,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"CrewAI LLM providers supported OpenAI Anthropic Google Ollama Azure watsonx documentation\"}, \"id\": \"chatcmpl-tool-820ae55fa9451211\", \"typ…"
+  },
+  {
+   "t": 61.57,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://openai.com/index/new-tools-for-building-agents/\"}, \"id\": \"chatcmpl-tool-ba42031a2bf6683c\", \"type\": \"tool_call\"}, {\"name\": \"fetch_url\", \"args…"
+  },
+  {
+   "t": 61.68,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://learn.microsoft.com/en-us/microsoft-copilot-studio/fundamentals-what-is-copilot-studio\"}, \"id\": \"chatcmpl-tool-8c9f1ca270c9f0db\", \"type\": \"t…"
+  },
+  {
+   "t": 61.81,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://www.langchain.com/pricing\"}, \"id\": \"chatcmpl-tool-a50f512afa7ea26a\", \"type\": \"tool_call\"}, {\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": …"
+  },
+  {
+   "t": 61.9,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://developers.googleblog.com/en/agent-development-kit-easy-to-build-multi-agent-applications/\"}, \"id\": \"chatcmpl-tool-ab1369bb980a355a\", \"type\"…"
+  },
+  {
    "t": 62.32,
    "kind": "tool",
    "label": "web_search",
@@ -211,6 +295,13 @@
    "label": "web_search",
    "part_id": "tool:web_search",
    "detail": "Menlo Ventures 2025 state of AI in the enterprise agentic AI frameworks market share LangGraph"
+  },
+  {
+   "t": 62.86,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"LangChain \\\"state of AI agents\\\" survey 2025 report which frameworks developers use\"}, \"id\": \"chatcmpl-tool-b6eda84d71b051b9\", \"type\": \"t…"
   },
   {
    "t": 62.9,
@@ -332,6 +423,34 @@
    "detail": "Microsoft Purview AI agents governance announcements 2025 Copilot Studio"
   },
   {
+   "t": 63.59,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://crewai.com/pricing\"}, \"id\": \"chatcmpl-tool-95ee9539db9222fb\", \"type\": \"tool_call\"}, {\"name\": \"fetch_url\", \"args\": {\"url\": \"https://docs.crew…"
+  },
+  {
+   "t": 63.89,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://community.openai.com/t/new-tools-for-building-agents-responses-api-web-search-file-search-computer-use-and-agents-sdk/1140896\"}, \"id\": \"chat…"
+  },
+  {
+   "t": 63.92,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://docs.cloud.google.com/vertex-ai/docs/general/vertexai-security-controls\"}, \"id\": \"chatcmpl-tool-88d4b6d0a9467b3c\", \"type\": \"tool_call\"}, {\"n…"
+  },
+  {
+   "t": 63.92,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://www.langchain.com/blog/langchain-langgraph-1dot0\"}, \"id\": \"chatcmpl-tool-bd3728228cd5e17d\", \"type\": \"tool_call\"}, {\"name\": \"fetch_url\", \"arg…"
+  },
+  {
    "t": 63.95,
    "kind": "tool",
    "label": "web_search",
@@ -344,6 +463,20 @@
    "label": "web_search",
    "part_id": "tool:web_search",
    "detail": "Forrester agentic AI platforms wave report 2025 enterprise agent builders"
+  },
+  {
+   "t": 63.96,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://www.microsoft.com/en-us/copilot/pricing/copilot-studio\"}, \"id\": \"chatcmpl-tool-ab3a31e58c54b686\", \"type\": \"tool_call\"}, {\"name\": \"web_search…"
+  },
+  {
+   "t": 64.58,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://www.langchain.com/state-of-agent-engineering\"}, \"id\": \"chatcmpl-tool-844d3f0d9411c464\", \"type\": \"tool_call\"}, {\"name\": \"web_search\", \"args\":…"
   },
   {
    "t": 65.64,
@@ -458,6 +591,41 @@
    "detail": "Google ADK adoption \"Agent Development Kit\" developers used by companies 2025 adoption numbers"
   },
   {
+   "t": 66.2,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://github.com/crewAIInc/crewAI\"}, \"id\": \"chatcmpl-tool-b45a40bd2119e750\", \"type\": \"tool_call\"}, {\"name\": \"fetch_url\", \"args\": {\"url\": \"https://…"
+  },
+  {
+   "t": 66.64,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"LangChain state of AI agents 2025 report LangGraph usage percent CrewAI AutoGen OpenAI Agents SDK framework market share chart\"}, \"id\": \"…"
+  },
+  {
+   "t": 66.72,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"\\\"Accenture\\\" \\\"LangChain\\\" partnership investment agents\"}, \"id\": \"chatcmpl-tool-98844471c7d6b20d\", \"type\": \"tool_call\"}, {\"name\": \"web_…"
+  },
+  {
+   "t": 67.12,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://developers.googleblog.com/en/agents-adk-agent-engine-a2a-enhancements-google-io/\"}, \"id\": \"chatcmpl-tool-808e47541283937b\", \"type\": \"tool_ca…"
+  },
+  {
+   "t": 68.5,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"OpenAI \\\"computer use\\\" tool pricing per 1M tokens \\\"computer-use-preview\\\" web search \\\"$10.00\\\" per 1000 calls pricing page\"}, \"id\": \"c…"
+  },
+  {
    "t": 68.69,
    "kind": "tool",
    "label": "fetch_url",
@@ -507,6 +675,13 @@
    "detail": "https://www.langchain.com/blog/series-b"
   },
   {
+   "t": 69.82,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://raw.githubusercontent.com/langchain-ai/langchain/main/LICENSE\"}, \"id\": \"chatcmpl-tool-ac8dde6d7d0c2fad\", \"type\": \"tool_call\"}, {\"name\": \"fet…"
+  },
+  {
    "t": 69.89,
    "kind": "tool",
    "label": "fetch_url",
@@ -535,6 +710,20 @@
    "detail": "https://docs.crewai.com/en/observability/overview"
   },
   {
+   "t": 70.35,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://learn.microsoft.com/en-us/microsoft-copilot-studio/requirements-messages-management\"}, \"id\": \"chatcmpl-tool-84f2e2f75dc640ba\", \"type\": \"tool…"
+  },
+  {
+   "t": 70.48,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://docs.crewai.com/en/observability/telemetry\"}, \"id\": \"chatcmpl-tool-af88f9493a147fbb\", \"type\": \"tool_call\"}, {\"name\": \"fetch_url\", \"args\": {\"…"
+  },
+  {
    "t": 70.68,
    "kind": "tool",
    "label": "web_search",
@@ -547,6 +736,13 @@
    "label": "web_search",
    "part_id": "tool:web_search",
    "detail": "Menlo Ventures 2024 state of generative AI agentic frameworks LangGraph market share 51% AI engineering tools"
+  },
+  {
+   "t": 71.25,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://menlovc.com/perspective/2025-the-state-of-generative-ai-in-the-enterprise/\"}, \"id\": \"chatcmpl-tool-bb0e1bd934bac532\", \"type\": \"tool_call\"}, …"
   },
   {
    "t": 72.47,
@@ -582,6 +778,20 @@
    "label": "web_search",
    "part_id": "tool:web_search",
    "detail": "\"Menlo Ventures\" agent frameworks market share \"LangGraph\" percent survey 2025"
+  },
+  {
+   "t": 73.15,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://cloud.google.com/vertex-ai/pricing\"}, \"id\": \"chatcmpl-tool-be75fb09378c1b39\", \"type\": \"tool_call\"}, {\"name\": \"web_search\", \"args\": {\"k\": 5, …"
+  },
+  {
+   "t": 73.6,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"Forrester Wave AI agent platforms 2025 report vendors leaders Microsoft Google LangChain\"}, \"id\": \"chatcmpl-tool-913b5ac763ccd21c\", \"type…"
   },
   {
    "t": 75.08,
@@ -631,6 +841,20 @@
    "label": "web_search",
    "part_id": "tool:web_search",
    "detail": "Copilot Studio computer use tool public preview 2025 UI automation"
+  },
+  {
+   "t": 75.77,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://raw.githubusercontent.com/langchain-ai/langchain/main/LICENSE\"}, \"id\": \"chatcmpl-tool-9277e086706d1672\", \"type\": \"tool_call\"}, {\"name\": \"web…"
+  },
+  {
+   "t": 76.09,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://techcommunity.microsoft.com/blog/microsoft-security-blog/announcing-new-microsoft-purview-capabilities-to-protect-genai-agents/4470696\"}, \"i…"
   },
   {
    "t": 76.64,
@@ -696,6 +920,20 @@
    "detail": "TechCrunch LangChain $100 million funding 2025 valuation Klarna Replit Elastic customers"
   },
   {
+   "t": 79.97,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://trust.crewai.com/\"}, \"id\": \"chatcmpl-tool-a23a60b879863bfe\", \"type\": \"tool_call\"}, {\"name\": \"fetch_url\", \"args\": {\"url\": \"https://docs.crewa…"
+  },
+  {
+   "t": 80.02,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"Microsoft Copilot Studio 2025 adoption number of organizations Fortune 500 customers\"}, \"id\": \"chatcmpl-tool-a48ad6e3a83db66f\", \"type\": \"…"
+  },
+  {
    "t": 80.29,
    "kind": "tool",
    "label": "fetch_url",
@@ -745,6 +983,13 @@
    "detail": "Copilot Studio Gartner Magic Quadrant OR Forrester Wave leader 2025 enterprise AI platforms"
   },
   {
+   "t": 80.87,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"\\\"LangChain\\\" \\\"Accenture\\\" 2025\"}, \"id\": \"chatcmpl-tool-9308b0e7c60f37a7\", \"type\": \"tool_call\"}, {\"name\": \"fetch_url\", \"args\": {\"url\": \"…"
+  },
+  {
    "t": 81.28,
    "kind": "tool",
    "label": "web_search",
@@ -773,6 +1018,13 @@
    "detail": "DevDay 2025 Sam Altman stats \"800 million\" weekly users \"4 million developers\" 6 billion tokens"
   },
   {
+   "t": 81.96,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://developers.openai.com/api/docs/pricing.md\"}, \"id\": \"chatcmpl-tool-9f89e6cf7f4a4834\", \"type\": \"tool_call\"}, {\"name\": \"fetch_url\", \"args\": {\"u…"
+  },
+  {
    "t": 82.05,
    "kind": "tool",
    "label": "web_search",
@@ -785,6 +1037,27 @@
    "label": "web_search",
    "part_id": "tool:web_search",
    "detail": "OpenAI AgentKit October 2025 DevDay agents platform enterprises Moderna Lowe's"
+  },
+  {
+   "t": 82.68,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"Google Agent Development Kit ADK 2025 customers adoption enterprises Vertex AI Agent Builder\"}, \"id\": \"chatcmpl-tool-ba8aa7dcd9bfd764\", \"…"
+  },
+  {
+   "t": 83.26,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"Copilot Studio agents Microsoft Entra ID single sign-on authentication security data residency Dataverse\"}, \"id\": \"chatcmpl-tool-99bb548c…"
+  },
+  {
+   "t": 83.47,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://adk.dev/runtime/\"}, \"id\": \"chatcmpl-tool-b7a71b1a13a54e5c\", \"type\": \"tool_call\"}, {\"name\": \"fetch_url\", \"args\": {\"url\": \"https://pypi.org/pr…"
   },
   {
    "t": 83.96,
@@ -836,6 +1109,27 @@
    "detail": "\"LangChain\" \"Accenture\" 2025"
   },
   {
+   "t": 84.96,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"A2A protocol donated Linux Foundation 2025 MCP standard interoperability agent protocols Microsoft OpenAI Google adopt\"}, \"id\": \"chatcmpl…"
+  },
+  {
+   "t": 85.44,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"Findings\", \"args\": {\"question\": \"LangChain/LangGraph/LangSmith enterprise adoption research: product lineup, pricing, licensing/self-hosting, security/compliance, model flexibil…"
+  },
+  {
+   "t": 86.01,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://docs.crewai.com/v1.15.37/en/advanced/telemetry\"}, \"id\": \"chatcmpl-tool-8b0a01376792e1a3\", \"type\": \"tool_call\"}, {\"name\": \"fetch_url\", \"args\"…"
+  },
+  {
    "t": 87.57,
    "kind": "tool",
    "label": "web_search",
@@ -869,6 +1163,20 @@
    "label": "web_search",
    "part_id": "tool:web_search",
    "detail": "The New Stack AI agent framework comparison 2025 Copilot Studio low-code versus LangGraph code-first"
+  },
+  {
+   "t": 88.22,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://www.microsoft.com/en-us/copilot/blog/copilot-studio/model-context-protocol-mcp-is-now-generally-available-in-microsoft-copilot-studio/\"}, \"i…"
+  },
+  {
+   "t": 89.11,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"InfoWorld Google ADK vs LangChain agent framework review 2025\"}, \"id\": \"chatcmpl-tool-8d2a1309e6ef10fb\", \"type\": \"tool_call\"}, {\"name\": \"…"
   },
   {
    "t": 89.17,
@@ -913,6 +1221,13 @@
    "detail": "Azure OpenAI Responses API general availability GPT-5 delay feature lag versus OpenAI API"
   },
   {
+   "t": 89.81,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/runtime/quickstart-adk\"}, \"id\": \"chatcmpl-tool-b05e5f6f518543d1\", \"type\": \"tool…"
+  },
+  {
    "t": 90.68,
    "kind": "tool",
    "label": "web_search",
@@ -932,6 +1247,13 @@
    "label": "fetch_url",
    "part_id": "tool:fetch_url",
    "detail": "https://docs.crewai.com/v1.15.37/en/advanced/telemetry"
+  },
+  {
+   "t": 91.25,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://www.langchain.com/stateofaiagents\"}, \"id\": \"chatcmpl-tool-9cd2607c6f3e5a79\", \"type\": \"tool_call\"}, {\"name\": \"web_search\", \"args\": {\"k\": 6, \"…"
   },
   {
    "t": 93.45,
@@ -955,6 +1277,27 @@
    "detail": "Copilot Studio data residency bot data storage region Power Platform environment"
   },
   {
+   "t": 94.55,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"Findings\", \"args\": {\"findings\": [{\"claim\": \"CrewAI open-source framework is MIT-licensed on GitHub (crewAIInc/crewAI), with ~60.6k stars and 9.1k forks at retrieval\", \"url\": \"ht…"
+  },
+  {
+   "t": 94.63,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://www.microsoft.com/en-us/microsoft-365-copilot/pricing\"}, \"id\": \"chatcmpl-tool-88a06c2ad82f4412\", \"type\": \"tool_call\"}, {\"name\": \"web_search\"…"
+  },
+  {
+   "t": 94.65,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 5, \"query\": \"\\\"computer-use-preview\\\" OpenAI pricing \\\"$3.00\\\" input \\\"$12.00\\\" output per million tokens\"}, \"id\": \"chatcmpl-tool-ae77270175e7b5da\", \"…"
+  },
+  {
    "t": 96.17,
    "kind": "tool",
    "label": "fetch_url",
@@ -976,6 +1319,13 @@
    "detail": "https://drel.ai/blog/google-adk-security-review"
   },
   {
+   "t": 96.88,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 6, \"query\": \"Vertex AI release notes \\\"Agent Engine\\\" runtime \\\"charging\\\" \\\"November 6, 2025\\\" pricing vCPU\"}, \"id\": \"chatcmpl-tool-b1b3943a76d0187f\"…"
+  },
+  {
    "t": 99.1,
    "kind": "tool",
    "label": "fetch_url",
@@ -988,6 +1338,13 @@
    "label": "web_search",
    "part_id": "tool:web_search",
    "detail": "InfoWorld \"agent\" framework comparison 2025 CrewAI \"Copilot Studio\" OR \"AgentKit\" enterprise verdict"
+  },
+  {
+   "t": 99.8,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://menlovc.com/2024-the-state-of-generative-ai-in-the-enterprise/\"}, \"id\": \"chatcmpl-tool-83e2a80f3fe252da\", \"type\": \"tool_call\"}, {\"name\": \"we…"
   },
   {
    "t": 100.0,
@@ -1018,11 +1375,25 @@
    "detail": "Copilot Studio extend agents custom code plugins Azure Functions Power Fx"
   },
   {
+   "t": 101.31,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 5, \"query\": \"\\\"Microsoft 365 Copilot\\\" enterprise license includes \\\"Copilot Chat\\\" Word Excel Outlook Teams agents what's included official\"}, \"id\": …"
+  },
+  {
    "t": 103.0,
    "kind": "tool",
    "label": "fetch_url",
    "part_id": "tool:fetch_url",
    "detail": "https://menlovc.com/2024-the-state-of-generative-ai-in-the-enterprise/"
+  },
+  {
+   "t": 103.29,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"Findings\", \"args\": {\"question\": \"Third-party/analyst comparisons of enterprise agentic AI platforms: Gartner/Forrester coverage, usage-share surveys, comparative articles, selec…"
   },
   {
    "t": 103.45,
@@ -1044,6 +1415,13 @@
    "label": "web_search",
    "part_id": "tool:web_search",
    "detail": "LangChain LangGraph GitHub stars 2025 community size compared Google ADK downloads"
+  },
+  {
+   "t": 104.16,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://cloud.google.com/blog/products/ai-machine-learning/introducing-gemini-enterprise-agent-platform\"}, \"id\": \"chatcmpl-tool-a87391e69ad287c3\", \"…"
   },
   {
    "t": 107.42,
@@ -1074,11 +1452,32 @@
    "detail": "OpenAI Codex general availability June 2025 Slack included ChatGPT plans codex-mini API"
   },
   {
+   "t": 108.29,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"web_search\", \"args\": {\"k\": 5, \"query\": \"OpenAI ChatGPT connectors enterprise June 2025 Google Drive SharePoint Connector Registry DevDay\"}, \"id\": \"chatcmpl-tool-bf0a78498a9b8b92…"
+  },
+  {
    "t": 108.56,
    "kind": "tool",
    "label": "fetch_url",
    "part_id": "tool:fetch_url",
    "detail": "https://cloud.google.com/blog/products/ai-machine-learning/introducing-gemini-enterprise-agent-platform"
+  },
+  {
+   "t": 108.89,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"Findings\", \"args\": {\"findings\": [{\"claim\": \"Google ADK is an open-source framework announced April 9, 2025 at Google Cloud Next '25\", \"url\": \"https://developers.googleblog.com/e…"
+  },
+  {
+   "t": 109.97,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"Findings\", \"args\": {\"question\": \"Microsoft Copilot Studio for enterprise agent building: what it is, pricing, integration, security, capabilities, maturity, and weaknesses (2025…"
   },
   {
    "t": 110.29,
@@ -1109,11 +1508,32 @@
    "detail": "Operator OpenAI deprecated folded into ChatGPT agent July 2025"
   },
   {
+   "t": 111.02,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"fetch_url\", \"args\": {\"url\": \"https://www.infoq.com/news/2025/10/openai-dev-day/\"}, \"id\": \"chatcmpl-tool-b5848b214ffb4877\", \"type\": \"tool_call\"}, {\"name\": \"web_search\", \"args\": {…"
+  },
+  {
    "t": 114.7,
    "kind": "tool",
    "label": "fetch_url",
    "part_id": "tool:fetch_url",
    "detail": "https://www.infoq.com/news/2025/10/openai-dev-day/"
+  },
+  {
+   "t": 115.79,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"Findings\", \"args\": {\"findings\": [{\"claim\": \"OpenAI released the Responses API with built-in web search, file search, and computer-use tools on March 11, 2025, alongside the open…"
+  },
+  {
+   "t": 133.52,
+   "kind": "model",
+   "label": "researcher · model call",
+   "part_id": "model:fireworks-glm",
+   "detail": "{\"role\": \"assistant\", \"content\": \"\", \"tool_calls\": [{\"name\": \"Findings\", \"args\": {\"findings\": [{\"claim\": \"Consolidated research on OpenAI's enterprise agent platform (Responses API, Agents SDK, AgentKit, pricing, security, adoption) is com…"
   },
   {
    "t": 140.03,
@@ -1230,6 +1650,6 @@
  ],
  "totals": {
   "tokens": 1464238,
-  "cost_usd": 0.0
+  "cost_usd": null
  }
 }

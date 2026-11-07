@@ -71,6 +71,10 @@ def _first_text(payload: Any) -> str:
     return str(payload or "")
 
 
+def _clean(text: str) -> str:
+    return _SECRETS.sub("[secret]", scrub(text) or "")
+
+
 def _marker(kind: str, text: str) -> str | None:
     """PII middleware output marker: langchain's `[REDACTED_<TYPE>]`, or a card mask."""
     tag = f"[REDACTED_{kind.upper()}]"
@@ -100,13 +104,13 @@ def replay_from_spans(spans_path: Path, usage_rows: list[dict]) -> dict:
     parent = {s["spanId"]: s.get("parentSpanId", "") for s in spans}
     name_of = {s["spanId"]: s["name"] for s in spans}
 
-    def in_subagent(span: dict) -> bool:
+    def subagent_of(span: dict) -> str:
         pid = span.get("parentSpanId", "")
         while pid:
             if name_of.get(pid) == "researcher":
-                return True
+                return "researcher"
             pid = parent.get(pid, "")
-        return False
+        return ""
 
     events: list[dict] = []
     seen: set[str] = set()
@@ -123,7 +127,7 @@ def replay_from_spans(spans_path: Path, usage_rows: list[dict]) -> dict:
         name, a = s["name"], _attrs(s)
         inp, out = a.get(_IN, ""), a.get(_OUT, "")
         if name == "research_agent" and not question:
-            question = _detail_free(_first_text(_json(inp)))
+            question = _clean(_first_text(_json(inp)))
         elif (m := _PII_SPAN.match(name)) and (mark := _marker(m.group(1), out)):
             pid = f"mw:pii:{m.group(1)}"
             if pid not in seen:
@@ -138,14 +142,16 @@ def replay_from_spans(spans_path: Path, usage_rows: list[dict]) -> dict:
             add(
                 s, "guard", "Tenant guard", "guard:TenantGuardMiddleware", "Run bound to its tenant"
             )
-        elif name == "ChatFireworks" and not in_subagent(s):
+        elif name == "ChatFireworks":
             mname = a.get("langfuse.observation.model.name", "").rsplit("/", 1)[-1]
             model = model or mname
             body = _json(out)
             text = (body.get("content") if isinstance(body, dict) else "") or out
             calls = body.get("tool_calls") if isinstance(body, dict) else None
             detail = text or ", ".join(c.get("name", "") for c in calls or [])
-            add(s, "model", mname or "model", _model_part(mname), detail)
+            who = subagent_of(s)
+            label = f"{who} · model call" if who else (mname or "model")
+            add(s, "model", label, _model_part(mname), detail)
         elif name == "task":
             body = _json(inp) or {}
             add(
@@ -166,13 +172,10 @@ def replay_from_spans(spans_path: Path, usage_rows: list[dict]) -> dict:
         + int(r.get("decisions_input_tokens") or 0) + int(r.get("decisions_output_tokens") or 0)
         for r in usage_rows
     )  # fmt: skip
-    cost = round(sum(float(r.get("cost_usd") or 0) for r in usage_rows), 6)
+    costs = [float(r["cost_usd"]) for r in usage_rows if r.get("cost_usd") is not None]
+    cost = round(sum(costs), 6) if costs else None
     return {"question": question, "model": model, "events": events,
             "totals": {"tokens": tokens, "cost_usd": cost}}  # fmt: skip
-
-
-def _detail_free(text: str) -> str:
-    return _SECRETS.sub("[secret]", scrub(text) or "")
 
 
 def main(argv: list[str]) -> int:

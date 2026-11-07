@@ -316,6 +316,8 @@ def _apps() -> list[dict]:
             "output": spec.get("output"),
             "flows": [],
             "evals": _evals(agent_file.parent),
+            "yaml": agent_file.read_text(),
+            "spec": spec,
         }
         for flow_file in sorted(agent_file.parent.glob("flows/*.yaml")):
             flow = _yaml(flow_file)

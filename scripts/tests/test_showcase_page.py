@@ -79,3 +79,23 @@ def test_coming_items_named(snapshot):
         assert hits, term
         assert all(r["agentkit"] == "coming" for r in hits), term
     assert "configuration bounded by guardrails the config cannot remove" in snapshot
+
+
+def test_embedded_json_escapes_lt(monkeypatch, tmp_path):
+    report = tmp_path / "report.md"
+    hostile = "# Report\n\nfrom the web: <!--<script>alert(1)</script>"
+    report.write_text(hostile)
+    monkeypatch.setattr(page, "REPORT", report)
+    html = page.render(snapshot=True)
+    block = re.search(r'<script id="data" type="application/json">(.*?)</script>', html, re.DOTALL)
+    assert "<" not in block.group(1)
+    assert _data(html)["report"] == hostile
+
+
+def test_every_bench_rule_has_js_trigger():
+    import platform_catalog
+    from showcase.bench import build_bench
+
+    js = page.TEMPLATE.read_text()
+    for rule in build_bench(platform_catalog.collect())["rules"]:
+        assert f'add("{rule["id"]}"' in js, rule["id"]

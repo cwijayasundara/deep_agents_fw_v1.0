@@ -657,14 +657,15 @@ function md(src) {
 }
 
 /* ---------------- positioning ---------------- */
+const safeUrl = (u) => (/^https?:\/\//i.test(String(u || "")) ? u : "#");
 function badge(s) { return `<span class="badge ${esc(s)}">${esc(s)}</span>`; }
 function renderPositioning() {
   const src = P.components_source || {};
   const comp = (P.components || []).map((r) => `<tr><th>${esc(r.name)}</th><td>${badge(r.agentkit)}</td><td>${esc(r.note)}</td></tr>`).join("");
-  const peers = (P.peers || []).map((r) => `<tr><th><a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.name)}</a></th><td>${esc(r.approach)}</td><td>${badge(r.agentkit)}</td><td>${esc(r.note)}</td></tr>`).join("");
+  const peers = (P.peers || []).map((r) => `<tr><th><a href="${esc(safeUrl(r.link))}" target="_blank" rel="noopener">${esc(r.name)}</a></th><td>${esc(r.approach)}</td><td>${badge(r.agentkit)}</td><td>${esc(r.note)}</td></tr>`).join("");
   const nb = (P.not_built || []).map((r) => `<li>${badge(r.agentkit)} <b>${esc(r.name)}</b>: ${esc(r.note)}</li>`).join("");
   $("#v-positioning").innerHTML = `<p class="quote">${esc(P.differentiator ? "The difference: " + P.differentiator + "." : "")}</p>` +
-    `<div class="card"><h3>${esc(src.label || "Company harness components")}</h3><p class="hint"><a href="${esc(src.link || "#")}" target="_blank" rel="noopener">Read the post</a></p>` +
+    `<div class="card"><h3>${esc(src.label || "Company harness components")}</h3><p class="hint"><a href="${esc(safeUrl(src.link))}" target="_blank" rel="noopener">Read the post</a></p>` +
     `<div class="scroll"><table style="min-width:520px"><thead><tr><th>Component</th><th>agentkit</th><th>Where it stands</th></tr></thead><tbody>${comp}</tbody></table></div></div>` +
     `<div class="card" style="margin-top:16px"><h3>Peer agent builders</h3><p class="hint">How others let you define an agent, and the closest agentkit equivalent.</p>` +
     `<div class="scroll"><table style="min-width:720px"><thead><tr><th>Peer</th><th>Their approach</th><th>agentkit</th><th>Note</th></tr></thead><tbody>${peers}</tbody></table></div></div>` +

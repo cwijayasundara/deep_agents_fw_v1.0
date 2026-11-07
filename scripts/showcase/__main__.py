@@ -78,7 +78,8 @@ def build_data(snapshot: bool) -> dict:
 
 
 def render(snapshot: bool) -> str:
-    payload = json.dumps(build_data(snapshot)).replace("</", "<\\/")
+    # Every "<" escaped, so web-sourced text ("</script>", "<!--") cannot end the data block.
+    payload = json.dumps(build_data(snapshot)).replace("<", "\\u003c")
     html = TEMPLATE.read_text().replace(PLACEHOLDER, payload)
     assert_clean(html)
     return html

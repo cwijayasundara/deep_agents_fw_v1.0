@@ -23,3 +23,6 @@ deploy/tenants/*.env
 
 # verify-agentkit skill runs: reports, transcripts, trace and ledger copies stay local
 evidence/verify/
+
+# showcase snapshot: a build output (make showcase-snapshot)
+evidence/showcase/showcase.html

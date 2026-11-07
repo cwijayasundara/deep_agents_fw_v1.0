@@ -175,7 +175,9 @@ def build_deep_agent(
     deployment = settings if settings is not None else _process_settings()
     tenant_guard = TenantGuardMiddleware(deployment.deployment_tenant)
     guards = platform_guards(deployment)
-    assert [type(m).__name__ for m in (tenant_guard, guards)] == [g.name for g in GUARD_LAYERS]
+    layers: list[AgentMiddleware] = [tenant_guard, guards]
+    if [type(m).__name__ for m in layers] != [g.name for g in GUARD_LAYERS]:
+        raise RuntimeError("guard layers built out of step with GUARD_LAYERS")
     skill_sources = None if skills is None else list(skills)
     memory: list[str] | None = None
     if persistence is not None:
@@ -192,7 +194,7 @@ def build_deep_agent(
         model=model,
         tools=list(tools),
         system_prompt=system_prompt,
-        middleware=[tenant_guard, guards, *middleware],
+        middleware=[*layers, *middleware],
         context_schema=PlatformContext,
         store=store,
         subagents=_guarded_subagents(subagents, guards, skill_sources),  # type: ignore[arg-type]

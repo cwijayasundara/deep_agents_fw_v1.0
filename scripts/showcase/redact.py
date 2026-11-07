@@ -39,20 +39,29 @@ DROP_KEYS = frozenset(
 _SENTENCE = re.compile(r"(?<=[.!?]) +|\n")
 
 
+_DROP: Any = object()
+
+
 def _hit(text: str) -> str | None:
     low = text.lower()
     return next((p for p in DENYLIST if p.lower() in low), None)
 
 
+def contains_local_path(text: str) -> bool:
+    return str(ROOT) in text
+
+
+def _bad(text: str) -> bool:
+    return _hit(text) is not None or contains_local_path(text)
+
+
 def _text(s: str) -> str | None:
     """Scrubbed string, or None when the whole string is dropped."""
-    if s.startswith(str(ROOT)):
-        return None
-    if _hit(s) is None:
+    if not _bad(s):
         return s
     if len(s) <= 200:
         return None
-    kept = [p for p in _split_keep(s) if _hit(p) is None]
+    kept = [p for p in _split_keep(s) if not _bad(p)]
     return "".join(kept).strip() or None
 
 
@@ -66,19 +75,18 @@ def _split_keep(s: str) -> list[str]:
     return out
 
 
-def scrub(obj: Any) -> Any:
-    """Deep copy of `obj` without denylisted text or machine state."""
+def _scrub(obj: Any) -> Any:
     if isinstance(obj, dict):
         out = {}
         for k, v in obj.items():
-            if k in DROP_KEYS:
+            if k in DROP_KEYS or (isinstance(k, str) and _bad(k)):
                 continue
-            c = scrub(v)
+            c = _scrub(v)
             if c is not _DROP:
                 out[k] = c
         return out
     if isinstance(obj, (list, tuple)):
-        items = [c for c in (scrub(v) for v in obj) if c is not _DROP]
+        items = [c for c in (_scrub(v) for v in obj) if c is not _DROP]
         return items if isinstance(obj, list) else tuple(items)
     if isinstance(obj, str):
         t = _text(obj)
@@ -86,19 +94,26 @@ def scrub(obj: Any) -> Any:
     return obj
 
 
-_DROP: Any = object()
+def scrub(obj: Any) -> Any:
+    """Deep copy of `obj` without denylisted text, paths or machine state (None if dropped)."""
+    out = _scrub(obj)
+    return None if out is _DROP else out
 
 
 def assert_clean(text: str) -> None:
     hit = _hit(text)
     if hit is not None:
         raise ValueError(f"denylisted phrase in output: {hit!r}")
+    if contains_local_path(text):
+        raise ValueError("local repo path in output")
 
 
-def example_tenant_policy() -> list[str]:
+def example_tenant_policy(path: Path | None = None) -> list[str]:
     """Side-effect classes of the example tenant, parsed from deploy/tenants/example.env only."""
-    for line in (ROOT / "deploy/tenants/example.env").read_text().splitlines():
+    path = path or ROOT / "deploy/tenants/example.env"
+    for line in path.read_text().splitlines():
         key, _, val = line.partition("=")
         if key.strip() == "AGENTKIT_ALLOWED_SIDE_EFFECTS":
+            val = val.split("#", 1)[0].strip().strip("\"'")
             return [c.strip() for c in val.split(",") if c.strip()]
-    return ["read", "external"]
+    raise ValueError(f"AGENTKIT_ALLOWED_SIDE_EFFECTS not set in {path}")

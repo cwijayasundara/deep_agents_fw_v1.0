@@ -57,3 +57,40 @@ def test_example_tenant_policy():
 def test_policy_ignores_os_environ(monkeypatch):
     monkeypatch.setenv("AGENTKIT_ALLOWED_SIDE_EFFECTS", "write")
     assert example_tenant_policy() == ["read", "external"]
+
+
+def test_scrub_drops_denylisted_and_path_keys():
+    root = str(redact.ROOT)
+    obj = {"AES key rotation": 1, f"{root}/x": 2, "ok": {"Open items": 3, "fine": 4}}
+    assert scrub(obj) == {"ok": {"fine": 4}}
+    assert scrub("key rotation") is None
+
+
+def test_assert_clean_is_case_insensitive():
+    for bad in ("KEY ROTATION", "see open items here"):
+        with pytest.raises(ValueError):
+            assert_clean(bad)
+
+
+def test_embedded_root_path_is_machine_state():
+    root = str(redact.ROOT)
+    assert scrub({"a": f"see {root}/apps"}) == {}
+    long = (
+        "Intro sentence that is harmless and goes on. " * 3
+        + f"Edit {root}/a. "
+        + "Tail is fine. " * 10
+    )
+    out = scrub(long)
+    assert root not in out and "Tail is fine" in out
+    assert redact.contains_local_path(f"x {root}")
+    with pytest.raises(ValueError):
+        assert_clean(f"<p>{root}</p>")
+
+
+def test_policy_parsing_and_missing_key(tmp_path):
+    f = tmp_path / "t.env"
+    f.write_text('AGENTKIT_ALLOWED_SIDE_EFFECTS="read, write"  # note\n')
+    assert example_tenant_policy(f) == ["read", "write"]
+    f.write_text("OTHER=1\n")
+    with pytest.raises(ValueError):
+        example_tenant_policy(f)

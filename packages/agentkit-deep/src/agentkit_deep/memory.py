@@ -13,6 +13,7 @@ The two kinds differ (`memories` vs `org`), so a user whose id is `global` write
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 from agentkit_core import PlatformContext, store_namespace
 from deepagents import FilesystemPermission
@@ -23,6 +24,42 @@ from langgraph.runtime import Runtime
 USER_ROUTE, ORG_ROUTE = "/memories/", "/org/"
 MEMORY_SOURCES = (f"{ORG_ROUTE}AGENTS.md", f"{USER_ROUTE}AGENTS.md")
 ORG_WRITE_DENY = FilesystemPermission(operations=["write"], paths=[f"{ORG_ROUTE}**"], mode="deny")
+
+
+@dataclass(frozen=True)
+class MemoryRoute:
+    """One route of the persistent agent's CompositeBackend (reference data, e.g. for docs)."""
+
+    path: str
+    backend: str
+    namespace: str
+    scope: str
+    writable: bool
+
+
+MEMORY_ROUTES = (
+    MemoryRoute(
+        USER_ROUTE,
+        "StoreBackend",
+        "(tenant, product, team, USER_ID, memories)",
+        "one user, across threads",
+        True,
+    ),
+    MemoryRoute(
+        ORG_ROUTE,
+        "StoreBackend",
+        "(tenant, product, team, global, org)",
+        "whole tenant (all users)",
+        False,
+    ),
+    MemoryRoute(
+        "/skills/<owner>/",
+        "read-only FilesystemBackend (one per skill)",
+        "-",
+        "one owner (agent or subagent)",
+        False,
+    ),
+)
 
 
 def _user_namespace(rt: Runtime[PlatformContext]) -> tuple[str, ...]:

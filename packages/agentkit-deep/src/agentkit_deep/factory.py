@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Sequence
+from dataclasses import dataclass
 from functools import cache
 from typing import TYPE_CHECKING, Any
 
@@ -46,6 +47,29 @@ def _check_tool_names(tools: Sequence[BaseTool]) -> None:
             )
         if t.name in BUILTIN_TOOLS:
             raise ValueError(f"tool name {t.name!r} is reserved for deepagents built-ins")
+
+
+@dataclass(frozen=True)
+class GuardLayer:
+    """One platform guard on the main agent, outermost first (reference data, e.g. for docs)."""
+
+    name: str
+    hook: str
+    checks: str
+
+
+GUARD_LAYERS = (
+    GuardLayer(
+        "TenantGuardMiddleware",
+        "before_agent",
+        "run tenant == deployment tenant (AGENTKIT_TENANT)",
+    ),
+    GuardLayer(
+        "GuardMiddleware",
+        "wrap_tool_call",
+        "deny-only: tool policy (metadata + tenants) + side effects; fail closed",
+    ),
+)
 
 
 def _no_guard_passed(middleware: Sequence[AgentMiddleware]) -> None:
@@ -151,6 +175,7 @@ def build_deep_agent(
     deployment = settings if settings is not None else _process_settings()
     tenant_guard = TenantGuardMiddleware(deployment.deployment_tenant)
     guards = platform_guards(deployment)
+    assert [type(m).__name__ for m in (tenant_guard, guards)] == [g.name for g in GUARD_LAYERS]
     skill_sources = None if skills is None else list(skills)
     memory: list[str] | None = None
     if persistence is not None:

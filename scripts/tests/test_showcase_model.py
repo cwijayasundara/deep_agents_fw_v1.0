@@ -93,6 +93,12 @@ def test_every_part_line_links_to_a_layer(catalog) -> None:
     for app in catalog["apps"]:
         asm = build_assembly(app, catalog)
         ids = {x["id"] for x in asm["layers"]}
-        linked = {ln["part_id"] for ln in asm["lines"] if ln["part_id"]}
+        linked = {i for ln in asm["lines"] for i in ln["part_ids"]}
         assert linked and linked <= ids
         assert len(asm["lines"]) == len(asm["yaml"].splitlines())
+
+
+def test_inline_list_line_links_every_item(catalog) -> None:
+    asm = build_assembly(_app(catalog, "research_agent"), catalog)
+    line = next(ln for ln in asm["lines"] if ln["text"].startswith("tools:"))
+    assert line["part_ids"] == ["tool:web_search", "tool:fetch_url"]

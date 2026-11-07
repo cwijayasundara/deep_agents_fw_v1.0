@@ -222,30 +222,28 @@ def build_assembly(app: dict, catalog: dict) -> dict:
     lines = []
     section = None
     for n, raw in enumerate(text.splitlines(), start=1):
-        part_id = None
+        part_ids: list[str] = []
         top = re.match(r"^([A-Za-z_]+):\s*(.*)$", raw)
         if top:
             key, rest = top.group(1), top.group(2).strip()
             section = key
             if key == "model" and rest:
-                part_id = f"model:{rest}"
+                part_ids = [f"model:{rest}"]
             elif key in ("tools", "subagents") and rest.startswith("["):
-                first = re.findall(r"[A-Za-z_][\w-]*", rest)
                 prefix = "tool" if key == "tools" else "subagent"
-                part_id = f"{prefix}:{first[0]}" if first else None
+                part_ids = [f"{prefix}:{i}" for i in re.findall(r"[A-Za-z_][\w-]*", rest)]
             elif key == "output" and "mw:require_output" in ids:
-                part_id = "mw:require_output"
+                part_ids = ["mw:require_output"]
         elif re.match(r"^\s*-\s", raw) and section == "tools":
             m = re.match(r"^\s*-\s*\{?\s*([A-Za-z_][\w-]*)", raw)
-            part_id = f"tool:{m.group(1)}" if m else None
+            part_ids = [f"tool:{m.group(1)}" if m else None]
         elif re.match(r"^\s*-\s", raw) and section == "subagents":
             m = re.match(r"^\s*-\s*\{?\s*(?:name:\s*)?([A-Za-z_][\w-]*)", raw)
-            part_id = f"subagent:{m.group(1)}" if m else None
+            part_ids = [f"subagent:{m.group(1)}" if m else None]
         elif re.match(r"^\s*-\s", raw) and section == "middleware":
             if mw_cursor < len(yaml_mw):
-                part_id = yaml_mw[mw_cursor]
+                part_ids = [yaml_mw[mw_cursor]]
                 mw_cursor += 1
-        if part_id is not None and part_id not in ids:
-            part_id = None
-        lines.append({"n": n, "text": raw, "part_id": part_id})
+        part_ids = [p for p in part_ids if p in ids]
+        lines.append({"n": n, "text": raw, "part_ids": part_ids})
     return {"yaml": text, "lines": lines, "layers": layers}

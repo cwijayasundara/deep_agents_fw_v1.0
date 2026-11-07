@@ -137,8 +137,8 @@ guardrails the config cannot remove** — that is agentkit's differentiator and 
   and the presence of local DSNs. `--serve` may still show them to the team.
 - **Claude's call:** the bench's run command depends on the template.
   - Research-derived agents: `uv run research --agent <file>`.
-  - KB-derived agents: `uv run research-eval --agent <file>`, with the prerequisites listed (kb_reader DSNs,
-    `agentkit-kb setup|ingest`).
+  - KB-derived agents: also `uv run research --agent <file>` (the verify-agentkit skill runs `kb_agent` this
+    way), with the prerequisites listed (kb_reader DSNs, `agentkit-kb setup|ingest`).
   - In both cases `agentkit validate` comes first.
 
 ## Left to the builder

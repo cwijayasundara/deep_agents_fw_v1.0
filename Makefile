@@ -1,6 +1,6 @@
 export UV_CONSTRAINT = constraints.txt
 SYNC = uv sync --python 3.12
-.PHONY: kb-ingest tool-schemas sync test lint stamp unstamp contract phase0-exit tenant-required
+.PHONY: kb-ingest tool-schemas sync test lint stamp unstamp contract phase0-exit tenant-required showcase showcase-snapshot
 sync:
 	$(SYNC)
 	@# macOS can mark .pth files hidden; Python >=3.12.11 then skips them and editable installs vanish.
@@ -38,3 +38,11 @@ kb-ingest: sync
 	@KB_DATABASE_URL="$(KB_ADMIN_DATABASE_URL)" uv run --no-sync agentkit-kb ingest --connector kb-docs \
 		README.md docs/architecture.md docs/phase*-results.md \
 		--source-base https://github.com/cwijayasundara/deep_agents_fw_v1.0/blob/main
+
+# "One chassis, many agents" page. `showcase` serves the live team view (PORT=8766 by default);
+# `showcase-snapshot` writes the self-contained customer file (no machine state).
+PORT ?= 8766
+showcase: sync
+	PYTHONPATH=scripts uv run --no-sync python -m showcase --serve --port $(PORT) --open
+showcase-snapshot: sync
+	PYTHONPATH=scripts uv run --no-sync python -m showcase --write evidence/showcase/showcase.html

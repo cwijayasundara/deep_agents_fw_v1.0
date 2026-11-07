@@ -1,0 +1,125 @@
+# Narrative copy and the peer comparison for the showcase page. Everything else on the page is
+# generated from the repo. Peer facts come from the 2026-11-07 peer survey; keep them sourced.
+
+title: One chassis, many agents
+subtitle: >-
+  Every agentkit agent runs on the same chassis. A new agent is a short YAML file that picks parts
+  from a shared library, and the platform wraps it in guardrails the file cannot switch off.
+differentiator: configuration bounded by guardrails the config cannot remove
+
+views:
+  matrix: Recipe
+  assembly: Assembly
+  bench: Bench
+  replay: Replay
+  positioning: Positioning
+
+start_here:
+  matrix: Two shipped agents side by side. Shaded cells come from the platform; the rest is set in each agent's YAML.
+  assembly: Pick an agent to see its YAML next to the harness it builds. Hover a line or a layer to link them.
+  bench: Clone an agent, switch parts on and off, and watch the YAML and the rule hints update.
+  replay: Play back one real recorded run and see which part handled each step.
+  positioning: How agentkit compares with LangChain's company-harness components and peer agent builders.
+
+# One takeaway per view in presenter mode. `focus` names what the page highlights:
+# matrix -> a row origin (platform | config | coming); assembly -> a layer kind (guard, middleware, ...).
+takeaways:
+  matrix:
+    text: Two different agents, {yaml_diff} lines of YAML apart. Guards, memory and tenant policy come from the platform for every agent.
+    focus: platform
+  assembly:
+    text: The guards sit outside everything the YAML sets. The YAML cannot remove or reorder them.
+    focus: guard
+  bench:
+    text: A new agent is a few toggles on a template. The same rules the platform enforces show up as you build.
+  replay:
+    text: One real run, step by step. The tenant guard, PII masking and a tool limit each fired and are recorded.
+  positioning:
+    text: Others make agents easy to configure. agentkit makes configuration safe by default, and says plainly what is not built yet.
+
+# LangChain, "The five components of building a 'company harness'" (2026-10-24).
+components_source:
+  label: 'LangChain: the five components of a company harness'
+  link: https://www.langchain.com/blog/components-building-company-harness
+components:
+  - name: Channel presence (Slack, breakout threads)
+    agentkit: coming
+    note: Agents run from the CLI today; no Slack or other channel presence yet.
+    link: https://www.langchain.com/blog/components-building-company-harness
+  - name: Identity
+    agentkit: partial
+    note: Per-tenant stamps, tenant and user on every run, and a tenant tool policy; no per-tool on-behalf-of-user credentials yet.
+    link: https://www.langchain.com/blog/components-building-company-harness
+  - name: Memory
+    agentkit: have
+    note: User and organisation memory tiers routed by path; the organisation tier is read-only to agents.
+    link: https://www.langchain.com/blog/components-building-company-harness
+  - name: Sandboxed code execution
+    agentkit: coming
+    note: No sandbox for agent-written code yet.
+    link: https://www.langchain.com/blog/components-building-company-harness
+  - name: Scheduled and ambient runs (crons, events)
+    agentkit: coming
+    note: Runs start on request; no crons or event triggers yet.
+    link: https://www.langchain.com/blog/components-building-company-harness
+
+peers:
+  - name: LangSmith Fleet (formerly Agent Builder)
+    approach: Template library; clone and edit the prompt, tools, triggers and model, or describe the agent in English.
+    agentkit: partial
+    note: The bench clones a shipped agent and edits its parts as YAML; no triggers or describe-in-English.
+    link: https://docs.langchain.com/langsmith/agent-builder-templates
+  - name: OpenAI Agent Builder (sunsetting 2026-11-30)
+    approach: Drag-and-drop canvas with templates and preview runs, exporting to the Agents SDK; shuts down 2026-11-30.
+    agentkit: partial
+    note: Templates and generated YAML, no canvas; agentkit is self-hosted, so no vendor shutdown date applies.
+    link: https://developers.openai.com/api/docs/guides/agent-builder
+  - name: Google ADK Agent Config
+    approach: A root_agent.yaml file with sub-agents by path, tools as dotted paths, and the adk web playground.
+    agentkit: have
+    note: One agent.yaml per agent; tools, subagents and middleware are named from a registered library and checked by agentkit validate.
+    link: https://google.github.io/adk-docs/agents/config
+  - name: CrewAI
+    approach: agents.yaml and tasks.yaml with placeholders, bound in code through CrewBase.
+    agentkit: have
+    note: Agents are pure YAML plus a versioned prompt registry; no Python binding per agent.
+    link: https://docs.crewai.com/en/concepts/tasks
+  - name: Microsoft 365 Copilot declarative agents
+    approach: A versioned JSON manifest (v1.8) with capabilities and worker agents; unknown properties are invalid.
+    agentkit: have
+    note: Specs carry apiVersion agentkit/v1 and reject unknown fields.
+    link: https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.8
+  - name: Letta Agent File (.af)
+    approach: A portable snapshot of a stateful agent; secrets are nulled on export.
+    agentkit: partial
+    note: The YAML is portable configuration; agent state and memory are not part of the file.
+    link: https://github.com/letta-ai/agent-file
+  - name: Dify
+    approach: YAML DSL export and import with a version-skew warning; asks before including secrets.
+    agentkit: have
+    note: Versioned YAML kept in git and checked by agentkit validate; no visual workflow editor.
+    link: https://docs.dify.ai/features/workflow/export-import
+  - name: kagent
+    approach: Kubernetes custom resources (Agent, ModelConfig), agents as tools, GitOps.
+    agentkit: partial
+    note: YAML in git and subagents called as tools; deployed as per-tenant stamps rather than Kubernetes resources.
+    link: https://kagent.dev/docs/kagent/concepts/tools/
+
+# Named honestly as not built. Skills are built: supported, with none in the library yet.
+not_built:
+  - name: MCP servers as tools
+    agentkit: coming
+    note: Tools come from the registered library only.
+  - name: HITL approval
+    agentkit: coming
+    note: Side-effect policy is enforced by the guards; human approval steps are not built.
+  - name: Sandboxed code execution
+    agentkit: coming
+    note: No sandbox yet.
+  - name: Crons and ambient runs
+    agentkit: coming
+    note: No scheduled or event-triggered runs yet.
+  - name: Slack and channel presence
+    agentkit: coming
+    note: No Slack or chat channel yet.
+skills_note: Skills are supported; no skills in the library yet.

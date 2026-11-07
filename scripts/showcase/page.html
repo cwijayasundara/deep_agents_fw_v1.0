@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One Chassis, Many Agents</title>
+<style>
+:root {
+  --bg: #f5f6f8; --surface: #ffffff; --surface-2: #eef1f5; --text: #151a22; --muted: #5a6474;
+  --border: #dbe0e7; --accent: #3451d1; --accent-soft: #e8ecfd; --accent-text: #ffffff;
+  --platform: #0b6e64; --platform-soft: #e2f3f0; --config: #3451d1; --config-soft: #ffffff;
+  --coming: #8a5a00; --coming-soft: #fdf3dc; --have: #13804a; --have-soft: #e1f4e8;
+  --partial: #8a5a00; --partial-soft: #fdf3dc; --warn: #a3361f; --warn-soft: #fcebe6;
+  --hl: #ffe08a; --hl-text: #151a22; --code-bg: #f3f5f9; --shadow: 0 1px 2px rgba(20,26,34,.06), 0 4px 16px rgba(20,26,34,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1217; --surface: #171b22; --surface-2: #1e232c; --text: #e6e9ee; --muted: #9aa4b2;
+    --border: #2b323d; --accent: #8da2ff; --accent-soft: #232b4a; --accent-text: #0f1217;
+    --platform: #5fd1c1; --platform-soft: #12302d; --config: #8da2ff; --config-soft: #171b22;
+    --coming: #f0bf5a; --coming-soft: #33280f; --have: #6ad49a; --have-soft: #143022;
+    --partial: #f0bf5a; --partial-soft: #33280f; --warn: #ff9a80; --warn-soft: #3a1d16;
+    --hl: #6b5514; --hl-text: #fff4cf; --code-bg: #12161c; --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1217; --surface: #171b22; --surface-2: #1e232c; --text: #e6e9ee; --muted: #9aa4b2;
+  --border: #2b323d; --accent: #8da2ff; --accent-soft: #232b4a; --accent-text: #0f1217;
+  --platform: #5fd1c1; --platform-soft: #12302d; --config: #8da2ff; --config-soft: #171b22;
+  --coming: #f0bf5a; --coming-soft: #33280f; --have: #6ad49a; --have-soft: #143022;
+  --partial: #f0bf5a; --partial-soft: #33280f; --warn: #ff9a80; --warn-soft: #3a1d16;
+  --hl: #6b5514; --hl-text: #fff4cf; --code-bg: #12161c; --shadow: 0 1px 2px rgba(0,0,0,.4);
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.5;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+a { color: var(--accent); }
+button { font: inherit; color: inherit; cursor: pointer; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px; }
+header.top { padding: 28px 0 8px; }
+.brand { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+h1 { font-size: clamp(26px, 5vw, 40px); line-height: 1.1; margin: 6px 0 10px; letter-spacing: -.02em; }
+.sub { color: var(--muted); max-width: 760px; margin: 0 0 14px; font-size: 16px; }
+.diff-line { display: inline-block; background: var(--accent-soft); color: var(--accent); border-radius: 999px;
+  padding: 6px 14px; font-weight: 600; font-size: 14px; }
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; color: var(--muted); font-size: 12.5px; }
+.toolbar .sp { flex: 1; }
+.btn { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 12px; font-size: 13px; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.btn:disabled { opacity: .5; cursor: default; }
+nav.tabs { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--border); margin-top: 14px; }
+nav.tabs .wrap { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+nav.tabs button { border: 0; background: none; padding: 12px 12px 10px; border-bottom: 2px solid transparent; color: var(--muted); white-space: nowrap; font-weight: 600; font-size: 14px; }
+nav.tabs button .n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2); font-size: 11px; margin-right: 6px; }
+nav.tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+nav.tabs button[aria-selected="true"] .n { background: var(--accent); color: var(--accent-text); }
+.start { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin: 16px 0 0; }
+.start button { text-align: left; border: 1px solid var(--border); background: var(--surface); border-radius: 10px; padding: 10px 12px; font-size: 13px; color: var(--muted); }
+.start button b { display: block; color: var(--text); font-size: 13.5px; margin-bottom: 2px; }
+.start button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.banner { display: none; margin: 16px 0 0; background: var(--accent); color: var(--accent-text); border-radius: 12px; padding: 14px 16px; align-items: center; gap: 14px; }
+.present .banner { display: flex; }
+.present .start { display: none; }
+.banner .step { font-size: 12px; opacity: .85; white-space: nowrap; font-weight: 600; }
+.banner p { margin: 0; flex: 1; font-size: clamp(15px, 2.2vw, 19px); font-weight: 600; line-height: 1.35; }
+.banner button { background: rgba(255,255,255,.18); border: 0; border-radius: 8px; width: 38px; height: 38px; color: inherit; font-size: 18px; }
+main { padding: 20px 0 60px; }
+section.view { display: none; }
+section.view.on { display: block; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 16px; min-width: 0; }
+.card h3 { margin: 0 0 4px; font-size: 15px; }
+.card .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+.grid2 { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .grid2.wide-r { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; border: 1px solid var(--border); }
+.sw.platform { background: var(--platform-soft); border-color: var(--platform); }
+.sw.config { background: var(--config-soft); }
+.sw.coming { background: var(--coming-soft); border: 1px dashed var(--coming); }
+.scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+thead th { font-size: 12px; color: var(--muted); font-weight: 600; border-bottom: 2px solid var(--border); }
+table.matrix { min-width: 640px; }
+table.matrix tbody th { font-weight: 600; white-space: nowrap; width: 1%; }
+table.matrix td { overflow-wrap: anywhere; }
+td.platform { background: var(--platform-soft); color: var(--platform); }
+td.coming { background: var(--coming-soft); color: var(--coming); font-style: italic; }
+td.yours { background: var(--surface-2); }
+td.yours.changed { box-shadow: inset 3px 0 0 var(--accent); }
+td.empty { color: var(--muted); }
+tr.focus th, tr.focus td { outline: 2px solid var(--accent); outline-offset: -2px; }
+.colbtn { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 10px; text-align: left; font-weight: 600; color: var(--text); }
+.colbtn small { display: block; font-weight: 400; color: var(--accent); }
+.colbtn:hover { border-color: var(--accent); }
+.stat { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; }
+.stat div { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; min-width: 120px; flex: 0 1 auto; }
+@media (max-width: 600px) { .stat div { flex: 1 1 140px; } }
+.stat b { display: block; font-size: 22px; letter-spacing: -.01em; }
+.stat span { font-size: 12px; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; flex-wrap: wrap; }
+.seg button { border: 0; background: var(--surface); padding: 6px 12px; font-size: 13px; border-right: 1px solid var(--border); }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+.yaml { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 8px 0; max-height: 640px; overflow-y: auto; }
+.yl { display: grid; grid-template-columns: 34px minmax(0, 1fr); padding: 1px 10px 1px 0; border-left: 3px solid transparent; }
+.yl .ln { color: var(--muted); text-align: right; padding-right: 10px; user-select: none; font-size: 11px; line-height: 19px; }
+.yl code { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 19px; }
+.yl.linked { cursor: pointer; }
+.yl.dim code { opacity: .55; }
+.yl.hl, .yl.linked:hover { background: var(--hl); color: var(--hl-text); border-left-color: var(--accent); }
+.yl.changed { border-left-color: var(--accent); }
+.ring { border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-top: 8px; background: var(--surface); }
+.ring.guards { border: 2px solid var(--platform); background: var(--platform-soft); }
+.ring.mw { background: var(--surface); }
+.ring.core { background: var(--surface-2); }
+.ring-head { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 2px 2px 6px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.ring.guards > .ring-head { color: var(--platform); }
+.ring-head .note { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.layer { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 7px 10px; margin: 6px 0; cursor: default; transition: background .12s; }
+.layer .lt { font-weight: 600; font-size: 13.5px; overflow-wrap: anywhere; }
+.layer .src { display: block; color: var(--muted); font-size: 11.5px; overflow-wrap: anywhere; margin-top: 2px; }
+.layer.fixed { border-color: var(--platform); }
+.layer.hl, .layer.lit { background: var(--hl); color: var(--hl-text); border-color: var(--accent); }
+.layer.hl .src, .layer.lit .src { color: inherit; }
+.layer.focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.badge { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 8px; vertical-align: 1px; white-space: nowrap; }
+.badge.fixed { background: var(--platform); color: var(--surface); }
+.badge.have { background: var(--have-soft); color: var(--have); }
+.badge.partial { background: var(--partial-soft); color: var(--partial); }
+.badge.coming { background: var(--coming-soft); color: var(--coming); border: 1px dashed var(--coming); }
+.badge.se { background: var(--surface-2); color: var(--muted); font-weight: 600; }
+.badge.se.bad { background: var(--warn-soft); color: var(--warn); }
+.ord { display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 5px; background: var(--surface-2); color: var(--muted); font-size: 11px; margin-right: 6px; }
+.tpls { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 12px; }
+.tpl { text-align: left; border: 1px solid var(--border); background: var(--surface); border-radius: 10px; padding: 10px 12px; }
+.tpl b { display: block; }
+.tpl span { color: var(--muted); font-size: 12.5px; }
+.tpl[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+fieldset { border: 0; padding: 0; margin: 0 0 14px; min-width: 0; }
+legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 0; margin-bottom: 6px; }
+.opt { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 14px; }
+.opt label { display: flex; gap: 8px; align-items: center; flex: 1; min-width: 0; }
+.opt .desc { color: var(--muted); font-size: 12px; width: 100%; padding-left: 26px; }
+.opt select { font: inherit; font-size: 12.5px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 2px 4px; }
+.opt.disabled { color: var(--muted); }
+.hints { list-style: none; padding: 0; margin: 0; }
+.hints li { border-radius: 8px; padding: 8px 10px; margin: 6px 0; font-size: 13px; background: var(--warn-soft); color: var(--warn); }
+.hints li b { display: block; }
+.hints li.ok { background: var(--have-soft); color: var(--have); }
+.cmds .cl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 10px 0 4px; }
+.cmd { display: flex; gap: 8px; align-items: flex-start; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 6px 6px 10px; margin: 4px 0; }
+.cmd code { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; padding-top: 3px; }
+.cmd button { flex: none; font-size: 12px; padding: 3px 8px; }
+.controls { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+.controls input[type=range] { flex: 1; min-width: 140px; accent-color: var(--accent); }
+.jump { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; font-size: 12.5px; align-items: center; color: var(--muted); }
+.events { max-height: 460px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; }
+.ev { display: grid; grid-template-columns: 54px 12px minmax(0, 1fr); gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 13px; opacity: .45; cursor: pointer; }
+.ev.done { opacity: 1; }
+.ev.cur { background: var(--hl); color: var(--hl-text); opacity: 1; }
+.ev .t { color: var(--muted); font-size: 11.5px; text-align: right; }
+.ev.cur .t { color: inherit; }
+.ev .d { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; background: var(--muted); }
+.ev .d.model { background: var(--accent); } .ev .d.tool { background: var(--platform); } .ev .d.subagent { background: #9b59d0; }
+.ev .d.guard, .ev .d.pii, .ev .d.limit { background: var(--warn); } .ev .d.output { background: var(--have); }
+.ev .x { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.ev.cur .x { color: inherit; }
+.now { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; min-height: 64px; }
+.now b { display: block; }
+.now span { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.mini .layer { padding: 4px 8px; margin: 4px 0; }
+.mini .layer .lt { font-size: 12.5px; }
+.mini .ring { padding: 6px 8px; }
+.mini .src, .mini .layer .badge { display: none; }
+@media (min-width: 900px) { .card.mini { position: sticky; top: 60px; align-self: start; } }
+.q { font-size: 15px; margin: 0 0 10px; }
+details.report { margin-top: 16px; }
+details.report summary { cursor: pointer; font-weight: 600; }
+.md { font-size: 14px; overflow-wrap: anywhere; }
+.md h1 { font-size: 22px; } .md h2 { font-size: 18px; margin-top: 22px; } .md h3 { font-size: 15px; }
+.md table { min-width: 560px; font-size: 13px; }
+.md code { background: var(--code-bg); padding: 0 4px; border-radius: 4px; }
+.quote { font-size: clamp(18px, 3vw, 24px); font-weight: 700; letter-spacing: -.01em; border-left: 4px solid var(--accent); padding: 4px 0 4px 14px; margin: 0 0 18px; }
+.empty-state { color: var(--muted); text-align: center; padding: 48px 16px; }
+.team { margin-top: 24px; border-style: dashed; }
+footer { color: var(--muted); font-size: 12px; padding: 0 0 40px; }
+@media (max-width: 600px) { .start button:not(.on) { display: none; } .banner { flex-wrap: wrap; } .banner p { flex-basis: 100%; order: -1; } .card { padding: 12px; } }
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="brand">agentkit</div>
+  <h1 id="title"></h1>
+  <p class="sub" id="subtitle"></p>
+  <span class="diff-line" id="differentiator"></span>
+  <div class="toolbar">
+    <span id="meta"></span><span class="sp"></span>
+    <button class="btn" id="theme" type="button" title="Switch light / dark">Theme</button>
+    <button class="btn primary" id="present" type="button" title="Presenter mode (p)">Present</button>
+  </div>
+</div></header>
+<nav class="tabs" aria-label="Views"><div class="wrap" id="tabs" role="tablist"></div></nav>
+<div class="wrap">
+  <div class="start" id="start"></div>
+  <div class="banner" id="banner" aria-live="polite">
+    <span class="step" id="b-step"></span><p id="b-text"></p>
+    <button type="button" data-step="-1" aria-label="Previous view">&larr;</button>
+    <button type="button" data-step="1" aria-label="Next view">&rarr;</button>
+  </div>
+  <main>
+    <section class="view" id="v-matrix"></section>
+    <section class="view" id="v-assembly"></section>
+    <section class="view" id="v-bench"></section>
+    <section class="view" id="v-replay"></section>
+    <section class="view" id="v-positioning"></section>
+    <div id="team"></div>
+  </main>
+</div>
+<footer><div class="wrap" id="foot"></div></footer>
+<script id="data" type="application/json">/*__SHOWCASE__*/</script>
+<script>
+(function () {
+"use strict";
+const D = JSON.parse(document.getElementById("data").textContent);
+const P = D.positioning || {};
+const VIEWS = ["matrix", "assembly", "bench", "replay", "positioning"];
+const FILE = "apps/my_agent/agent.yaml";
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const agents = D.matrix.agents;
+const S = {
+  view: "matrix", present: false,
+  agent: agents.includes("research_agent") ? "research_agent" : agents[0],
+  bench: null, replay: { i: -1, timer: null },
+};
+
+/* ---------------- shell: header, tabs, modes ---------------- */
+function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+function applyTheme(t) { if (t) document.documentElement.setAttribute("data-theme", t); else document.documentElement.removeAttribute("data-theme"); }
+applyTheme(store("showcase-theme"));
+$("#theme").onclick = () => {
+  const cur = document.documentElement.getAttribute("data-theme") ||
+    (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  applyTheme(next); store("showcase-theme", next);
+};
+$("#title").textContent = P.title || "One chassis, many agents";
+$("#subtitle").textContent = P.subtitle || "";
+$("#differentiator").textContent = P.differentiator ? "agentkit: " + P.differentiator : "";
+$("#meta").textContent = "Generated from the repo " + (D.generated_at || "").slice(0, 10) + " at " + (D.git_sha || "unknown");
+$("#foot").innerHTML = "Every part, layer and command on this page is generated from the agentkit repository by introspection; " +
+  "only the narrative and the peer comparison are written by hand. This page runs nothing: no agents, models or databases.";
+
+const viewName = (v) => (P.views && P.views[v]) || v;
+$("#tabs").innerHTML = VIEWS.map((v, i) =>
+  `<button role="tab" type="button" data-view="${v}"><span class="n">${i + 1}</span>${esc(viewName(v))}</button>`).join("");
+$("#start").innerHTML = VIEWS.map((v, i) =>
+  `<button type="button" data-view="${v}"><b>${i + 1}. ${esc(viewName(v))}</b>${esc((P.start_here || {})[v] || "")}</button>`).join("");
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-view]");
+  if (b && !b.closest("section.view")) show(b.dataset.view);
+  const st = e.target.closest("[data-step]");
+  if (st) step(+st.dataset.step);
+});
+$("#present").onclick = () => setPresent(!S.present);
+
+function yamlDiffCount() {
+  const ys = agents.map((a) => new Set(D.assemblies[a].lines.map((l) => l.text.trim()).filter((t) => t && !t.startsWith("#"))));
+  if (ys.length < 2) return 0;
+  return [...ys[0]].filter((t) => !ys[1].has(t)).length + [...ys[1]].filter((t) => !ys[0].has(t)).length;
+}
+function takeaway(v) {
+  const t = (P.takeaways || {})[v] || {};
+  return { text: String(t.text || "").replace("{yaml_diff}", yamlDiffCount()), focus: S.present ? t.focus : null };
+}
+function setPresent(on) {
+  S.present = on;
+  document.body.classList.toggle("present", on);
+  $("#present").textContent = on ? "Exit presenter" : "Present";
+  const u = new URL(location.href);
+  if (on) u.searchParams.set("present", ""); else u.searchParams.delete("present");
+  try { history.replaceState(null, "", u.toString().replace("present=", "present")); } catch (e) { /* file:// */ }
+  show(S.view);
+}
+function step(d) { show(VIEWS[Math.max(0, Math.min(VIEWS.length - 1, VIEWS.indexOf(S.view) + d))]); }
+function show(v) {
+  if (!VIEWS.includes(v)) v = "matrix";
+  if (v !== "replay") pause();
+  S.view = v;
+  VIEWS.forEach((x) => $("#v-" + x).classList.toggle("on", x === v));
+  $$("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === v)));
+  $$("#start button").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
+  $("#b-step").textContent = (VIEWS.indexOf(v) + 1) + " / " + VIEWS.length + " · " + viewName(v);
+  $("#b-text").textContent = takeaway(v).text;
+  if (v === "bench" && !S.bench) pickTemplate((D.bench.templates.find((t) => t.name === S.agent) || D.bench.templates[0]).name);
+  ({ matrix: renderMatrix, assembly: renderAssembly, bench: renderBench, replay: renderReplay, positioning: renderPositioning })[v]();
+  if (location.hash !== "#" + v) try { history.replaceState(null, "", "#" + v); } catch (e) { /* sandboxed frame */ }
+}
+document.addEventListener("keydown", (e) => {
+  const t = e.target;
+  if ((t.closest && t.closest("input, select, textarea")) || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "p") { setPresent(!S.present); e.preventDefault(); }
+  else if (S.present && (e.key === "ArrowRight" || e.key === "PageDown")) { step(1); e.preventDefault(); }
+  else if (S.present && (e.key === "ArrowLeft" || e.key === "PageUp")) { step(-1); e.preventDefault(); }
+  else if (S.view === "replay" && e.key === " ") { togglePlay(); e.preventDefault(); }
+});
+
+/* ---------------- matrix ---------------- */
+const PART_LABEL = { model: "Model", fallback: "Fallback model", prompt: "Prompt", tools: "Tools", subagents: "Subagents",
+  connectors: "Connectors", skills: "Skills", middleware: "Middleware", guards: "Guards", memory: "Memory tiers",
+  "tenant policy": "Tenant policy", evals: "Evals and gates" };
+function toolName(t) { return typeof t === "string" ? t : Object.keys(t)[0]; }
+function toolConn(t) { if (typeof t === "string") return null; const p = t[toolName(t)]; return p && p.connector ? p.connector : null; }
+const join = (xs) => (xs.length ? xs.join(", ") : "none");
+function mwSummary(mw) {
+  const c = {}; mw.forEach((m) => { c[m.type] = (c[m.type] || 0) + 1; });
+  return join(Object.keys(c).map((t) => (c[t] > 1 ? t + " x" + c[t] : t)));
+}
+function fallbackOf(spec) { const m = (spec.middleware || []).find((x) => x.type === "model_fallback"); return (m && m.params && m.params.models) || []; }
+function yourCell(row) {
+  if (!S.bench) return null;
+  const s = S.bench.spec;
+  const f = {
+    model: () => s.model || "none",
+    fallback: () => join(fallbackOf(s)),
+    prompt: () => s.prompt || "none",
+    tools: () => join((s.tools || []).map((t) => toolName(t) + (toolConn(t) ? " (" + toolConn(t) + ")" : ""))),
+    subagents: () => join(s.subagents || []),
+    connectors: () => join([...new Set((s.tools || []).map(toolConn).filter(Boolean))]),
+    middleware: () => mwSummary(s.middleware || []),
+    evals: () => "none yet",
+  }[row.part];
+  if (f && row.origin !== "coming") return f();
+  return row.cells[agents[0]];
+}
+function renderMatrix() {
+  const m = D.matrix, focus = takeaway("matrix").focus, base = S.bench && S.bench.base;
+  const head = `<tr><th>Part</th>${agents.map((a) => `<th><button class="colbtn" type="button" data-agent="${esc(a)}">${esc(a)}<small>See assembly &rarr;</small></button></th>`).join("")}` +
+    `<th><button class="colbtn" type="button" data-bench="1">your agent<small>${S.bench ? "from the Bench, based on " + esc(base) : "Build one in the Bench &rarr;"}</small></button></th></tr>`;
+  const body = m.rows.map((r) => {
+    const yc = yourCell(r);
+    const changed = yc != null && base && r.cells[base] !== undefined && yc !== r.cells[base];
+    const ycls = yc == null ? "yours empty" : r.origin === "config" ? "yours" + (changed ? " changed" : "") : r.origin;
+    return `<tr class="${focus === r.origin ? "focus" : ""}"><th>${esc(PART_LABEL[r.part] || r.part)}</th>` +
+      agents.map((a) => `<td class="${r.origin}">${esc(r.cells[a])}</td>`).join("") +
+      `<td class="${ycls}">${yc == null ? "&middot;" : esc(yc)}</td></tr>`;
+  }).join("");
+  const plat = m.rows.filter((r) => r.origin === "platform").length, cfg = m.rows.filter((r) => r.origin === "config").length;
+  $("#v-matrix").innerHTML = `<div class="stat"><div><b>${agents.length}</b><span>shipped agents</span></div>` +
+    `<div><b>${plat}</b><span>parts the platform supplies to every agent</span></div><div><b>${cfg}</b><span>parts set in each agent's YAML</span></div>` +
+    `<div><b>${yamlDiffCount()}</b><span>YAML lines that differ between them</span></div></div>` +
+    `<div class="card"><h3>The recipe</h3><p class="hint">Each column is one agent. Click an agent to see how its YAML becomes a running harness.</p>` +
+    `<div class="legend"><span><i class="sw platform"></i>Platform: the same for every agent</span><span><i class="sw config"></i>Set in the agent's YAML</span><span><i class="sw coming"></i>Coming: not built yet</span></div>` +
+    `<div class="scroll"><table class="matrix"><thead>${head}</thead><tbody>${body}</tbody></table></div></div>`;
+}
+$("#v-matrix").addEventListener("click", (e) => {
+  const a = e.target.closest("[data-agent]");
+  if (a) { S.agent = a.dataset.agent; show("assembly"); }
+  if (e.target.closest("[data-bench]")) show("bench");
+});
+
+/* ---------------- assembly ---------------- */
+const KIND_HEAD = { model: "Model and fallback", tool: "Tools (filtered by tenant policy at run time)", subagent: "Subagents" };
+function layerHtml(l, i) {
+  return `<div class="layer${l.fixed ? " fixed" : ""}" data-id="${esc(l.id)}" data-kind="${esc(l.kind)}">` +
+    `<div class="lt">${i != null ? `<span class="ord">${i}</span>` : ""}${esc(l.label)} ${l.fixed ? '<span class="badge fixed">YAML cannot remove</span>' : ""}</div>` +
+    `<code class="src">${esc(l.source)}</code></div>`;
+}
+function harnessHtml(layers, mini) {
+  const by = (k) => layers.filter((l) => l.kind === k);
+  const core = ["model", "tool", "subagent"].filter((k) => by(k).length).map((k) =>
+    `<div class="ring-head">${esc(KIND_HEAD[k])}${k === "subagent" && !mini ? '<span class="note">each subagent is wrapped in the same guards</span>' : ""}</div>` +
+    by(k).map((l) => layerHtml(l)).join("")).join("");
+  const mw = by("middleware");
+  return `<div class="ring guards"><div class="ring-head">Guards, added by the platform <span class="badge fixed">YAML cannot remove or reorder</span></div>` +
+    by("guard").map((l) => layerHtml(l)).join("") +
+    `<div class="ring mw"><div class="ring-head">Middleware${mini ? "" : '<span class="note">canonical order: the YAML order does not matter</span>'}</div>` +
+    mw.map((l, i) => layerHtml(l, i + 1)).join("") +
+    `<div class="ring core">${core}</div></div></div>`;
+}
+function renderAssembly() {
+  const a = D.assemblies[S.agent], focus = takeaway("assembly").focus;
+  $("#v-assembly").innerHTML = `<div class="controls"><span class="seg">${agents.map((x) =>
+    `<button type="button" data-agent="${esc(x)}" aria-pressed="${x === S.agent}">${esc(x)}</button>`).join("")}</span></div>` +
+    `<div class="grid2 wide-r"><div class="card"><h3>agent.yaml</h3><p class="hint">Hover a line to see the part it turns into. Lines without a part are plain settings or comments.</p>` +
+    `<div class="yaml">${a.lines.map((l) => `<div class="yl${l.part_ids.length ? " linked" : l.text.trim().startsWith("#") ? " dim" : ""}" data-parts="${esc(l.part_ids.join(" "))}"><span class="ln">${l.n}</span><code>${esc(l.text) || " "}</code></div>`).join("")}</div></div>` +
+    `<div class="card"><h3>The harness it builds</h3><p class="hint">Outermost first. Hover a layer to find the YAML that asked for it; each layer names its source in the repo.</p>${harnessHtml(a.layers, false)}</div></div>`;
+  if (focus) $$("#v-assembly .layer").forEach((el) => el.classList.toggle("focus", el.dataset.kind === focus));
+}
+function clearHl(root) { $$(".hl", root).forEach((el) => el.classList.remove("hl")); }
+const asm = $("#v-assembly");
+asm.addEventListener("mouseover", (e) => {
+  const line = e.target.closest(".yl"), layer = e.target.closest(".layer");
+  if (!line && !layer) return;
+  clearHl(asm);
+  if (line) { const ids = line.dataset.parts.split(" ").filter(Boolean); if (!ids.length) return; line.classList.add("hl"); ids.forEach((id) => $$(`.layer[data-id="${CSS.escape(id)}"]`, asm).forEach((el) => el.classList.add("hl"))); }
+  if (layer) { layer.classList.add("hl"); $$(".yl", asm).filter((el) => el.dataset.parts.split(" ").includes(layer.dataset.id)).forEach((el) => el.classList.add("hl")); }
+});
+asm.addEventListener("mouseleave", () => clearHl(asm));
+asm.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-agent]");
+  if (b) { S.agent = b.dataset.agent; renderAssembly(); return; }
+  if (e.target.closest(".yl, .layer")) e.target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })); /* tap = hover on touch */
+});
+
+/* ---------------- bench ---------------- */
+const B = D.bench;
+const POLICIES = [["read"], ["read", "external"], ["read", "external", "write"]];
+const polLabel = (p) => (p.length === 1 ? p[0] : "+" + p[p.length - 1]);
+const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
+const toolOpt = (n) => B.options.tools.find((t) => t.name === n);
+const subOpt = (n) => B.options.subagents.find((s) => s.name === n);
+function templateConn(n) {
+  for (const t of B.templates) for (const r of t.spec.tools || []) if (toolName(r) === n && toolConn(r)) return toolConn(r);
+  return null;
+}
+const needsConn = (n) => B.templates.some((t) => (t.spec.tools || []).some((r) => toolName(r) === n && toolConn(r)));
+function pickTemplate(name) {
+  const t = B.templates.find((x) => x.name === name);
+  const spec = JSON.parse(JSON.stringify(t.spec));
+  spec.name = "my_agent";
+  const ex = B.policy.example_tenant;
+  S.bench = { base: t.base, tpl: t, spec, policy: (POLICIES.find((p) => sameSet(p, ex)) || ex).slice() };
+}
+function yScalar(v) {
+  if (v === null || v === undefined) return "null";
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  const s = String(v);
+  if (/^[A-Za-z0-9_./][A-Za-z0-9_./<> -]*$/.test(s) && !/^(null|true|false|yes|no|~|-?\d[\d.]*)$/i.test(s) && !/\s$/.test(s)) return s;
+  return JSON.stringify(s);
+}
+function yFlow(v) {
+  if (Array.isArray(v)) return "[" + v.map(yFlow).join(", ") + "]";
+  if (v && typeof v === "object") return "{" + Object.keys(v).map((k) => k + ": " + yFlow(v[k])).join(", ") + "}";
+  return yScalar(v);
+}
+function toYaml(spec) {
+  const out = [];
+  for (const k of Object.keys(spec)) {
+    const v = spec[k];
+    if (Array.isArray(v) && v.some((x) => x && typeof x === "object")) { out.push(k + ":"); v.forEach((x) => out.push("  - " + yFlow(x))); }
+    else if (v && typeof v === "object" && !Array.isArray(v)) out.push(k + ": " + yFlow(v));
+    else out.push(k + ": " + (Array.isArray(v) ? yFlow(v) : yScalar(v)));
+  }
+  return out;
+}
+function benchHints() {
+  const s = S.bench.spec, pol = S.bench.policy, hits = {}, add = (id, d) => (hits[id] = hits[id] || []).push(d);
+  const tools = (s.tools || []).map(toolName);
+  const subTools = (s.subagents || []).flatMap((n) => (subOpt(n) ? subOpt(n).tools.map((t) => [t, n]) : []));
+  for (const [t, via] of tools.map((t) => [t, null]).concat(subTools)) {
+    const o = toolOpt(t), where = via ? " (via subagent " + via + ")" : "";
+    if (!o) continue;
+    if (o.side_effect == null) add("side_effect_not_allowed", t + where + ": side-effect class unknown, so it is not treated as allowed");
+    else if (!pol.includes(o.side_effect)) add("side_effect_not_allowed", t + where + " is " + o.side_effect + "; this tenant allows " + pol.join(", "));
+  }
+  if (s.output && !(s.middleware || []).some((m) => m.type === "require_output")) add("missing_require_output", "output: " + s.output);
+  tools.filter((t) => !toolOpt(t)).forEach((t) => add("unknown_part", "tool " + t));
+  (s.subagents || []).filter((n) => !subOpt(n)).forEach((n) => add("unknown_part", "subagent " + n));
+  (s.middleware || []).filter((m) => !B.options.middleware.includes(m.type)).forEach((m) => add("unknown_part", "middleware " + m.type));
+  (s.tools || []).map(toolConn).filter((c) => c && !B.options.connectors.some((x) => x.name === c)).forEach((c) => add("unknown_part", "connector " + c));
+  (s.tools || []).filter((r) => needsConn(toolName(r)) && !toolConn(r)).forEach((r) => add("kb_tool_without_connector", toolName(r)));
+  subTools.filter(([t]) => !toolOpt(t)).forEach(([t, n]) => add("subagent_unknown_tool", n + " uses " + t));
+  return B.rules.filter((r) => hits[r.id]).map((r) => ({ rule: r, details: hits[r.id] }));
+}
+function benchCommands() {
+  const kind = S.bench.tpl.commands, sub = (c) => c.split("{file}").join(FILE);
+  const main = B.commands.research.map(sub);
+  const pre = kind === "kb" ? B.commands.kb.filter((c) => !B.commands.research.includes(c)).map(sub) : [];
+  const block = (label, cs) => (cs.length ? `<div class="cl">${label}</div>` + cs.map((c) =>
+    `<div class="cmd"><code>${esc(c)}</code><button class="btn" type="button" data-copy="${esc(c)}">Copy</button></div>`).join("") : "");
+  return block("prerequisites", pre) + block("validate, then run", main);
+}
+function renderBench() {
+  const b = S.bench, s = b.spec, ex = B.policy.example_tenant;
+  const tools = (s.tools || []).map(toolName), mwTypes = (s.middleware || []).map((m) => m.type);
+  const tpls = B.templates.map((t) => `<button class="tpl" type="button" data-tpl="${esc(t.name)}" aria-pressed="${t.name === b.tpl.name}"><b>Clone ${esc(t.name)}</b>` +
+    `<span>${esc((t.spec.tools || []).map(toolName).join(", "))}${t.commands === "kb" ? " · needs a knowledge base" : ""}</span></button>`).join("");
+  const toolRows = B.options.tools.map((o) => {
+    const on = tools.includes(o.name), ref = (s.tools || []).find((r) => toolName(r) === o.name);
+    const se = o.side_effect == null ? "unknown" : o.side_effect, bad = o.side_effect == null || !b.policy.includes(o.side_effect);
+    const conn = needsConn(o.name) && on ? `<select data-conn="${esc(o.name)}"><option value="">(no connector)</option>${B.options.connectors.map((c) =>
+      `<option value="${esc(c.name)}"${toolConn(ref) === c.name ? " selected" : ""}>${esc(c.name)} · ${esc(c.kind)}</option>`).join("")}</select>` : "";
+    const req = o.params.filter((p) => p.required).map((p) => p.name).join(", ");
+    return `<div class="opt"><label><input type="checkbox" data-tool="${esc(o.name)}"${on ? " checked" : ""}>${esc(o.name)}</label>` +
+      `<span class="badge se${bad ? " bad" : ""}" title="side-effect class">${esc(se)}</span>${conn}` +
+      (req ? `<span class="desc">model fills in: ${esc(req)}</span>` : "") + `</div>`;
+  }).join("");
+  const subRows = B.options.subagents.map((o) => `<div class="opt"><label><input type="checkbox" data-sub="${esc(o.name)}"${(s.subagents || []).includes(o.name) ? " checked" : ""}>${esc(o.name)}</label>` +
+    `<span class="desc">uses ${esc(join(o.tools))}</span></div>`).join("");
+  const mwRows = B.options.middleware.map((t) => {
+    const n = mwTypes.filter((x) => x === t).length;
+    return `<div class="opt"><label><input type="checkbox" data-mw="${esc(t)}"${n ? " checked" : ""}>${esc(t)}${n > 1 ? " x" + n : ""}</label></div>`;
+  }).join("");
+  const skills = B.options.skills.length ? B.options.skills.map((k) => `<div class="opt">${esc(k)}</div>`).join("") :
+    `<div class="opt disabled"><label><input type="checkbox" disabled>skills</label><span class="desc">${esc(P.skills_note || "Supported; no skills in the library yet.")}</span></div>`;
+  const pol = POLICIES.map((p) => `<button type="button" data-pol="${esc(p.join(","))}" aria-pressed="${sameSet(p, b.policy)}">${esc(polLabel(p))}${sameSet(p, ex) ? " · example tenant" : ""}</button>`).join("");
+  const baseYaml = new Set(toYaml(Object.assign({}, b.tpl.spec, { name: "my_agent" })));
+  const lines = toYaml(s);
+  const hints = benchHints();
+  $("#v-bench").innerHTML = `<div class="tpls">${tpls}</div><div class="grid2"><div class="card"><h3>Parts</h3><p class="hint">Everything listed here is registered in the platform library.</p>` +
+    `<fieldset><legend>Tenant policy (allowed side effects)</legend><span class="seg">${pol}</span><p class="hint" style="margin-top:6px">The example tenant is <b>${esc(ex.join(", "))}</b>. Each tenant's stamp sets its own; the guards refuse the rest.</p></fieldset>` +
+    `<fieldset><legend>Tools</legend>${toolRows}</fieldset><fieldset><legend>Subagents</legend>${subRows}</fieldset>` +
+    `<fieldset><legend>Middleware</legend>${mwRows}</fieldset><fieldset><legend>Skills</legend>${skills}</fieldset></div>` +
+    `<div><div class="card"><h3>${esc(FILE)}</h3><p class="hint">Generated live. A bar marks lines changed from the template.</p>` +
+    `<div class="yaml">${lines.map((l, i) => `<div class="yl${baseYaml.has(l) ? "" : " changed"}"><span class="ln">${i + 1}</span><code>${esc(l)}</code></div>`).join("")}</div></div>` +
+    `<div class="card" style="margin-top:16px"><h3>Rule hints</h3><p class="hint">Hints mirror the platform's rules; <code>agentkit validate</code> is the authority.</p><ul class="hints">` +
+    (hints.length ? hints.map((h) => `<li><b>${esc(h.rule.id)}</b>${esc(h.rule.message)}<br>${h.details.map(esc).join("<br>")}</li>`).join("") :
+      `<li class="ok"><b>No rule hints</b>Ready to validate.</li>`) + `</ul></div>` +
+    `<div class="card cmds" style="margin-top:16px"><h3>Run it</h3><p class="hint">Save the YAML as <code>${esc(FILE)}</code> inside the repo, then:</p>${benchCommands()}</div></div></div>`;
+}
+const bench = $("#v-bench");
+bench.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-tpl]"), p = e.target.closest("[data-pol]"), c = e.target.closest("[data-copy]");
+  if (t) { pickTemplate(t.dataset.tpl); renderBench(); }
+  if (p) { S.bench.policy = p.dataset.pol.split(","); renderBench(); }
+  if (c) copy(c.dataset.copy, c);
+});
+bench.addEventListener("change", (e) => {
+  const s = S.bench.spec, el = e.target, tplSpec = S.bench.tpl.spec;
+  if (el.dataset.tool) {
+    const n = el.dataset.tool;
+    s.tools = (s.tools || []).filter((r) => toolName(r) !== n);
+    if (el.checked) { const c = templateConn(n); s.tools.push(needsConn(n) ? { [n]: { connector: c } } : n); }
+  } else if (el.dataset.conn) {
+    const n = el.dataset.conn;
+    s.tools = s.tools.map((r) => (toolName(r) === n ? (el.value ? { [n]: { connector: el.value } } : { [n]: {} }) : r));
+  } else if (el.dataset.sub) {
+    const n = el.dataset.sub;
+    s.subagents = (s.subagents || []).filter((x) => x !== n);
+    if (el.checked) s.subagents.push(n);
+  } else if (el.dataset.mw) {
+    const t = el.dataset.mw;
+    s.middleware = (s.middleware || []).filter((m) => m.type !== t);
+    if (el.checked) {
+      const fromTpl = (tplSpec.middleware || []).filter((m) => m.type === t);
+      s.middleware.push(...(fromTpl.length ? JSON.parse(JSON.stringify(fromTpl)) : [t === "require_output" && s.output ? { type: t, params: { path: s.output } } : { type: t }]));
+    }
+  }
+  renderBench();
+});
+function copy(text, btn) {
+  const done = () => { btn.textContent = "Copied"; setTimeout(() => (btn.textContent = "Copy"), 1200); };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, () => legacyCopy(text, done));
+  else legacyCopy(text, done);
+}
+function legacyCopy(text, done) {
+  const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); done(); } catch (e) { /* ignore */ }
+  ta.remove();
+}
+
+/* ---------------- replay ---------------- */
+const R = D.replay;
+const replayAgent = () => {
+  if (!R) return S.agent;
+  const ids = new Set(R.events.map((e) => e.part_id));
+  return agents.map((a) => [a, D.assemblies[a].layers.filter((l) => ids.has(l.id)).length]).sort((x, y) => y[1] - x[1])[0][0];
+};
+const RA = replayAgent();
+const layerFor = (pid) => (pid === "output" ? "mw:require_output" : pid);
+const KEY_KINDS = [["guard", "Tenant guard"], ["pii", "PII masked"], ["limit", "Tool limit hit"], ["output", "Report written"]];
+const KIND_NAME = { model: "model calls", tool: "tool calls", subagent: "subagent runs", guard: "guard", pii: "PII", limit: "limit", output: "output" };
+function renderReplay() {
+  const v = $("#v-replay");
+  if (!R) { v.innerHTML = `<div class="card empty-state">No recorded run in this build</div>`; return; }
+  if (v.dataset.built) { paintReplay(); return; }
+  v.dataset.built = "1";
+  const n = R.events.length, cost = R.totals.cost_usd == null ? "n/a (no price table)" : "$" + Number(R.totals.cost_usd).toFixed(4);
+  v.innerHTML = `<div class="card" style="margin-bottom:16px"><p class="q"><b>Question:</b> ${esc(R.question)}</p>` +
+    `<div class="stat" style="margin:0"><div><b>${n}</b><span>recorded events</span></div><div><b>${Number(R.totals.tokens).toLocaleString()}</b><span>tokens</span></div>` +
+    `<div><b style="font-size:16px">${esc(cost)}</b><span>cost</span></div><div><b style="font-size:16px">${esc(R.model)}</b><span>model (agent ${esc(RA)})</span></div></div></div>` +
+    `<div class="grid2"><div class="card"><div class="controls"><button class="btn primary" type="button" id="r-play">Play</button>` +
+    `<button class="btn" type="button" id="r-prev" aria-label="Previous event">&lsaquo; Step</button><button class="btn" type="button" id="r-next" aria-label="Next event">Step &rsaquo;</button>` +
+    `<button class="btn" type="button" id="r-reset">Reset</button><input type="range" id="r-pos" min="-1" max="${n - 1}" value="-1" aria-label="Position"></div>` +
+    `<div class="jump">Jump to: ${KEY_KINDS.filter(([k]) => R.events.some((e) => e.kind === k)).map(([k, l]) => `<button class="btn" type="button" data-jump="${k}">${esc(l)}</button>`).join("")}</div>` +
+    `<div class="now" id="r-now"></div><div class="stat" id="r-count" style="margin:0 0 10px"></div>` +
+    `<div class="events" id="r-events">${R.events.map((e, i) => `<div class="ev" data-i="${i}"><span class="t">+${Math.round(e.t)}s</span><span class="d ${esc(e.kind)}"></span>` +
+    `<span><b>${esc(e.label)}</b><span class="x">${esc(e.detail)}</span></span></div>`).join("")}</div></div>` +
+    `<div class="card mini"><h3>Which part handled it</h3><p class="hint">The ${esc(RA)} harness; the current event's layer lights up.</p>${harnessHtml(D.assemblies[RA].layers, true)}</div></div>` +
+    (D.report ? `<details class="report card"><summary>The report this run wrote (/report.md)</summary><div class="md">${md(D.report)}</div></details>` : "");
+  $("#r-play").onclick = togglePlay;
+  $("#r-prev").onclick = () => { pause(); go(S.replay.i - 1); };
+  $("#r-next").onclick = () => { pause(); go(S.replay.i + 1); };
+  $("#r-reset").onclick = () => { pause(); go(-1); };
+  $("#r-pos").oninput = (e) => { pause(); go(+e.target.value); };
+  v.addEventListener("click", (e) => {
+    const j = e.target.closest("[data-jump]"), ev = e.target.closest(".ev");
+    if (j) { pause(); go(R.events.findIndex((x) => x.kind === j.dataset.jump)); }
+    if (ev) { pause(); go(+ev.dataset.i); }
+  });
+  paintReplay();
+}
+function go(i) { S.replay.i = Math.max(-1, Math.min(R.events.length - 1, i)); paintReplay(true); }
+function paintReplay(scroll) {
+  const i = S.replay.i, e = R.events[i];
+  $$("#r-events .ev").forEach((el, k) => { el.classList.toggle("done", k <= i); el.classList.toggle("cur", k === i); });
+  $("#r-pos").value = i;
+  $("#r-now").innerHTML = e ? `<b>${i + 1} / ${R.events.length} · ${esc(e.label)}</b><span>+${Math.round(e.t)}s · ${esc(e.kind)} · part <code>${esc(layerFor(e.part_id))}</code><br>${esc(e.detail)}</span>` :
+    `<b>Ready</b><span>Press Play (or Space), step through, or jump to a key moment.</span>`;
+  const c = {}; R.events.slice(0, i + 1).forEach((x) => { c[x.kind] = (c[x.kind] || 0) + 1; });
+  const tot = {}; R.events.forEach((x) => { tot[x.kind] = (tot[x.kind] || 0) + 1; });
+  $("#r-count").innerHTML = ["model", "tool", "subagent"].filter((k) => tot[k]).map((k) => `<div><b>${c[k] || 0}<small style="font-size:12px;color:var(--muted)"> / ${tot[k]}</small></b><span>${KIND_NAME[k]}</span></div>`).join("");
+  $$("#v-replay .mini .layer").forEach((el) => el.classList.toggle("lit", !!e && el.dataset.id === layerFor(e.part_id)));
+  if (scroll && e) { const el = $(`#r-events .ev[data-i="${i}"]`), box = $("#r-events"); box.scrollTop = el.offsetTop - box.offsetTop - box.clientHeight / 2; }
+  $("#r-play").textContent = S.replay.timer ? "Pause" : i >= R.events.length - 1 ? "Replay" : "Play";
+}
+function pause() { if (S.replay.timer) { clearInterval(S.replay.timer); S.replay.timer = null; if (R && $("#r-play")) paintReplay(); } }
+function togglePlay() {
+  if (!R) return;
+  if (S.replay.timer) { pause(); return; }
+  if (S.replay.i >= R.events.length - 1) S.replay.i = -1;
+  S.replay.timer = setInterval(() => { if (S.replay.i >= R.events.length - 1) pause(); else go(S.replay.i + 1); }, 420);
+  paintReplay();
+}
+
+/* Markdown, minimal: escape first, then headings, rules, lists, tables, bold/italic/code, http(s) links. */
+function inline(s) {
+  return s.replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, "$1<i>$2</i>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+}
+function md(src) {
+  const out = [], lines = src.split("\n");
+  let list = null, para = [];
+  const flush = () => { if (para.length) out.push("<p>" + inline(para.join(" ")) + "</p>"); para = []; if (list) { out.push("</" + list + ">"); list = null; } };
+  for (let k = 0; k < lines.length; k++) {
+    const raw = lines[k], l = esc(raw);
+    let m;
+    if (!raw.trim()) { flush(); continue; }
+    if ((m = /^(#{1,6})\s+(.*)$/.exec(l))) { flush(); out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`); continue; }
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(raw)) { flush(); out.push("<hr>"); continue; }
+    if (/^\s*\|/.test(raw) && lines[k + 1] && /^\s*\|[\s:|-]+\|\s*$/.test(lines[k + 1])) {
+      flush();
+      const cells = (x) => esc(x).trim().replace(/^\||\|$/g, "").split("|").map((c) => inline(c.trim()));
+      let html = "<div class=\"scroll\"><table><thead><tr>" + cells(raw).map((c) => "<th>" + c + "</th>").join("") + "</tr></thead><tbody>";
+      k += 2;
+      for (; k < lines.length && /^\s*\|/.test(lines[k]); k++) html += "<tr>" + cells(lines[k]).map((c) => "<td>" + c + "</td>").join("") + "</tr>";
+      k--; out.push(html + "</tbody></table></div>"); continue;
+    }
+    if ((m = /^\s*([-*]|\d+\.)\s+(.*)$/.exec(l))) {
+      const want = /\d/.test(m[1]) ? "ol" : "ul";
+      if (para.length) { out.push("<p>" + inline(para.join(" ")) + "</p>"); para = []; }
+      if (list !== want) { if (list) out.push("</" + list + ">"); out.push("<" + want + ">"); list = want; }
+      out.push("<li>" + inline(m[2]) + "</li>"); continue;
+    }
+    if (list) { out.push("</" + list + ">"); list = null; }
+    para.push(l);
+  }
+  flush();
+  return out.join("\n");
+}
+
+/* ---------------- positioning ---------------- */
+function badge(s) { return `<span class="badge ${esc(s)}">${esc(s)}</span>`; }
+function renderPositioning() {
+  const src = P.components_source || {};
+  const comp = (P.components || []).map((r) => `<tr><th>${esc(r.name)}</th><td>${badge(r.agentkit)}</td><td>${esc(r.note)}</td></tr>`).join("");
+  const peers = (P.peers || []).map((r) => `<tr><th><a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.name)}</a></th><td>${esc(r.approach)}</td><td>${badge(r.agentkit)}</td><td>${esc(r.note)}</td></tr>`).join("");
+  const nb = (P.not_built || []).map((r) => `<li>${badge(r.agentkit)} <b>${esc(r.name)}</b>: ${esc(r.note)}</li>`).join("");
+  $("#v-positioning").innerHTML = `<p class="quote">${esc(P.differentiator ? "The difference: " + P.differentiator + "." : "")}</p>` +
+    `<div class="card"><h3>${esc(src.label || "Company harness components")}</h3><p class="hint"><a href="${esc(src.link || "#")}" target="_blank" rel="noopener">Read the post</a></p>` +
+    `<div class="scroll"><table style="min-width:520px"><thead><tr><th>Component</th><th>agentkit</th><th>Where it stands</th></tr></thead><tbody>${comp}</tbody></table></div></div>` +
+    `<div class="card" style="margin-top:16px"><h3>Peer agent builders</h3><p class="hint">How others let you define an agent, and the closest agentkit equivalent.</p>` +
+    `<div class="scroll"><table style="min-width:720px"><thead><tr><th>Peer</th><th>Their approach</th><th>agentkit</th><th>Note</th></tr></thead><tbody>${peers}</tbody></table></div></div>` +
+    `<div class="card" style="margin-top:16px"><h3>Not built yet, said plainly</h3><ul style="padding-left:18px;margin:0">${nb}</ul>` +
+    `<p class="hint" style="margin-top:10px">${esc(P.skills_note || "")}</p></div>`;
+}
+
+/* ---------------- team-only machine block (live serve only) ---------------- */
+if (D.machine) {
+  $("#team").innerHTML = `<div class="card team"><h3>This machine (team view, not in the shared snapshot)</h3><p class="hint">Key names and whether they are set; never values.</p>` +
+    D.machine.keys.map((k) => `<span class="badge ${k.set ? "have" : "se"}" style="margin:2px">${esc(k.name)}${k.set ? " · set" : ""}</span>`).join("") + `</div>`;
+}
+
+/* ---------------- boot ---------------- */
+const q = new URLSearchParams(location.search);
+if (q.has("present")) { S.present = true; document.body.classList.add("present"); $("#present").textContent = "Exit presenter"; }
+window.addEventListener("hashchange", () => { const v = location.hash.slice(1); if (v !== S.view && VIEWS.includes(v)) show(v); });
+show(location.hash.slice(1) || "matrix");
+})();
+</script>
+</body>
+</html>

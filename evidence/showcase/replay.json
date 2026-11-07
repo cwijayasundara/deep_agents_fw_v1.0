@@ -1,0 +1,1235 @@
+{
+ "question": "Compare today's agentic AI platforms (LangChain/LangSmith, Google ADK, CrewAI, Microsoft Copilot Studio, OpenAI) for an enterprise team. Send follow-ups to demo.buyer@example.com.",
+ "model": "glm-5p3",
+ "events": [
+  {
+   "t": 0.02,
+   "kind": "guard",
+   "label": "Tenant guard",
+   "part_id": "guard:TenantGuardMiddleware",
+   "detail": "Run bound to its tenant"
+  },
+  {
+   "t": 1.45,
+   "kind": "pii",
+   "label": "PII email masked",
+   "part_id": "mw:pii:email",
+   "detail": "ft Copilot Studio, OpenAI) for an enterprise team. Send follow-ups to [REDACTED_EMAIL]."
+  },
+  {
+   "t": 3.86,
+   "kind": "model",
+   "label": "glm-5p3",
+   "part_id": "model:fireworks-glm:strong",
+   "detail": "I'll research these five platforms in parallel for an enterprise comparison, then verify key facts against primary sources before writing the report. One note up front: the email address you referenced came through as `[REDACTED_EMAIL]`, s…"
+  },
+  {
+   "t": 58.4,
+   "kind": "subagent",
+   "label": "researcher",
+   "part_id": "subagent:researcher",
+   "detail": "Research LangChain/LangGraph/LangSmith for enterprise adoption. RESEARCH ONLY (no file creation). Today is late 2025/early 2026 — prioritize current (2025) primary sources. Cover, with a source URL for every claim: 1. Product lineup and ho…"
+  },
+  {
+   "t": 58.4,
+   "kind": "subagent",
+   "label": "researcher",
+   "part_id": "subagent:researcher",
+   "detail": "Research Google Agent Development Kit (ADK) for enterprise adoption. RESEARCH ONLY (no file creation). Today is late 2025/early 2026 — prioritize current (2025) primary sources. Cover, with a source URL for every claim: 1. What ADK is: ope…"
+  },
+  {
+   "t": 58.4,
+   "kind": "subagent",
+   "label": "researcher",
+   "part_id": "subagent:researcher",
+   "detail": "Research CrewAI (framework + CrewAI Enterprise) for enterprise adoption. RESEARCH ONLY (no file creation). Today is late 2025/early 2026 — prioritize current (2025) primary sources. Cover, with a source URL for every claim: 1. Product line…"
+  },
+  {
+   "t": 58.4,
+   "kind": "subagent",
+   "label": "researcher",
+   "part_id": "subagent:researcher",
+   "detail": "Research Microsoft Copilot Studio for enterprise agent building. RESEARCH ONLY (no file creation). Today is late 2025/early 2026 — prioritize current (2025) primary sources. Cover, with a source URL for every claim: 1. What Copilot Studio …"
+  },
+  {
+   "t": 58.4,
+   "kind": "subagent",
+   "label": "researcher",
+   "part_id": "subagent:researcher",
+   "detail": "Research OpenAI's agent platform offerings for enterprises. RESEARCH ONLY (no file creation). Today is late 2025/early 2026 — prioritize current (2025) primary sources. Cover, with a source URL for every claim: 1. Product lineup for buildi…"
+  },
+  {
+   "t": 58.4,
+   "kind": "subagent",
+   "label": "researcher",
+   "part_id": "subagent:researcher",
+   "detail": "Research third-party comparisons and analyst views of agentic AI development platforms for enterprises (LangChain/LangGraph/LangSmith, Google ADK, CrewAI, Microsoft Copilot Studio, OpenAI). RESEARCH ONLY (no file creation). Today is late 2…"
+  },
+  {
+   "t": 60.49,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI Enterprise pricing plans free tier Team Business Enterprise per-seat 2025"
+  },
+  {
+   "t": 60.49,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI open source framework license MIT GitHub stars"
+  },
+  {
+   "t": 60.49,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI funding Series B valuation 2025"
+  },
+  {
+   "t": 60.49,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI Enterprise SOC 2 Type II SSO private cloud deployment security"
+  },
+  {
+   "t": 60.51,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Gartner 40% agentic AI projects canceled by 2027 prediction"
+  },
+  {
+   "t": 60.51,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Gartner 33% enterprise software agentic AI 2028 prediction"
+  },
+  {
+   "t": 60.57,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI new tools for building agents Responses API web search file search computer use March 2025"
+  },
+  {
+   "t": 60.57,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI AgentKit announcement DevDay October 2025 agent builder"
+  },
+  {
+   "t": 60.57,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI Assistants API deprecation sunset August 2026 Responses API migration"
+  },
+  {
+   "t": 60.62,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Microsoft Copilot Studio overview low-code agent builder Power Platform 2025"
+  },
+  {
+   "t": 60.62,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio pricing per message 2025 packs pay-as-you-go what counts as a message"
+  },
+  {
+   "t": 60.62,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Microsoft Copilot Studio autonomous agents announcement October 2024 wave 2"
+  },
+  {
+   "t": 60.77,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangChain LangGraph LangSmith product overview 2025 enterprise platform"
+  },
+  {
+   "t": 60.77,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangSmith pricing plans Developer Plus Enterprise traces seat cost 2025"
+  },
+  {
+   "t": 60.77,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangGraph Platform pricing deployment options self-hosted cloud 2025"
+  },
+  {
+   "t": 60.77,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangChain 1.0 release October 2025 LangGraph 1.0 stable"
+  },
+  {
+   "t": 60.8,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Google Agent Development Kit ADK open-source framework Apache 2.0 April 2025 release"
+  },
+  {
+   "t": 60.8,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Vertex AI Agent Engine pricing agent-hour 2025"
+  },
+  {
+   "t": 60.8,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Google ADK Agent Development Kit LiteLLM Anthropic Mistral model support vendor-neutral"
+  },
+  {
+   "t": 62.32,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangChain \"State of AI Agents\" report 2025 LangGraph CrewAI AutoGen orchestration frameworks usage"
+  },
+  {
+   "t": 62.32,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Menlo Ventures 2025 state of AI in the enterprise agentic AI frameworks market share LangGraph"
+  },
+  {
+   "t": 62.9,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI LLM providers supported OpenAI Anthropic Google Ollama Azure watsonx documentation"
+  },
+  {
+   "t": 62.9,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI observability integrations Langfuse Arize Patronus LangSmith tracing evals"
+  },
+  {
+   "t": 62.9,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI criticism production reliability multi-agent weaknesses enterprise"
+  },
+  {
+   "t": 62.9,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI funding Series A $11 million 2024 2025 Bindu Reddy Battery Ventures"
+  },
+  {
+   "t": 63.1,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://developers.googleblog.com/en/agent-development-kit-easy-to-build-multi-agent-applications/"
+  },
+  {
+   "t": 63.1,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Vertex AI Agent Engine VPC Service Controls CMEK data residency compliance FedRAMP HIPAA"
+  },
+  {
+   "t": 63.1,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Google ADK A2A protocol MCP Model Context Protocol LlamaIndex integration"
+  },
+  {
+   "t": 63.17,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://openai.com/index/new-tools-for-building-agents/"
+  },
+  {
+   "t": 63.17,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://openai.com/index/introducing-agentkit/"
+  },
+  {
+   "t": 63.17,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI pricing web search tool \"per 1,000 calls\" file search storage computer use per minute pricing"
+  },
+  {
+   "t": 63.23,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.langchain.com/pricing"
+  },
+  {
+   "t": 63.23,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangSmith self-hosted SOC 2 HIPAA data retention PII masking enterprise security"
+  },
+  {
+   "t": 63.23,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangChain funding valuation Series B 2025 customers Fortune 500"
+  },
+  {
+   "t": 63.23,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangChain criticism enterprise vendor risk abstraction churn learning curve"
+  },
+  {
+   "t": 63.33,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/fundamentals-what-is-copilot-studio"
+  },
+  {
+   "t": 63.33,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio MCP support Model Context Protocol 2025 announcement"
+  },
+  {
+   "t": 63.33,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Microsoft Purview AI agents governance announcements 2025 Copilot Studio"
+  },
+  {
+   "t": 63.95,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangChain \"state of AI agents\" survey 2025 report which frameworks developers use"
+  },
+  {
+   "t": 63.95,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Forrester agentic AI platforms wave report 2025 enterprise agent builders"
+  },
+  {
+   "t": 65.64,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://crewai.com/pricing"
+  },
+  {
+   "t": 65.64,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://docs.crewai.com/en/concepts/llms"
+  },
+  {
+   "t": 65.64,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI AMP agent platform announcement 2025 CrewAI+ enterprise control plane"
+  },
+  {
+   "t": 65.64,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "agent framework adoption survey 2025 CrewAI LangGraph AutoGen usage share most used"
+  },
+  {
+   "t": 65.94,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.langchain.com/state-of-agent-engineering"
+  },
+  {
+   "t": 65.94,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "InfoWorld comparing AI agent frameworks LangGraph CrewAI Microsoft Copilot Studio OpenAI Agents SDK Google ADK 2025"
+  },
+  {
+   "t": 65.96,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://community.openai.com/t/new-tools-for-building-agents-responses-api-web-search-file-search-computer-use-and-agents-sdk/1140896"
+  },
+  {
+   "t": 65.96,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://developers.openai.com/api/docs/deprecations"
+  },
+  {
+   "t": 65.96,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "ChatGPT Enterprise pricing per seat per month 2025 ChatGPT Business $25 $30"
+  },
+  {
+   "t": 66.05,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.langchain.com/blog/langchain-langgraph-1dot0"
+  },
+  {
+   "t": 66.05,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://docs.langchain.com/langsmith/enterprise"
+  },
+  {
+   "t": 66.05,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangChain Accenture partnership agent engineering 2025"
+  },
+  {
+   "t": 66.05,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangGraph Platform AWS Marketplace Azure Marketplace LangSmith available"
+  },
+  {
+   "t": 66.16,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://docs.cloud.google.com/vertex-ai/docs/general/vertexai-security-controls"
+  },
+  {
+   "t": 66.16,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://github.com/google/adk-python"
+  },
+  {
+   "t": 66.16,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Google ADK adoption \"Agent Development Kit\" developers used by companies 2025 adoption numbers"
+  },
+  {
+   "t": 68.69,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.microsoft.com/en-us/copilot/pricing/copilot-studio"
+  },
+  {
+   "t": 68.69,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Microsoft 365 Copilot $30 per user per month license includes Copilot Studio 25,000 messages"
+  },
+  {
+   "t": 68.69,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Azure AI Foundry Copilot Studio relationship pro-code multi-agent Build 2025"
+  },
+  {
+   "t": 69.11,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "\"Accenture\" \"LangChain\" partnership investment agents"
+  },
+  {
+   "t": 69.11,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangGraph Platform deployment options self-hosted BYOC bring your own cloud docs"
+  },
+  {
+   "t": 69.11,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "langchain-ai langgraph github license MIT langchain license"
+  },
+  {
+   "t": 69.11,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.langchain.com/blog/series-b"
+  },
+  {
+   "t": 69.89,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://github.com/crewAIInc/crewAI"
+  },
+  {
+   "t": 69.89,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://blog.crewai.com/crewai-amp-the-agent-management-platform/"
+  },
+  {
+   "t": 69.89,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "TechCrunch CrewAI raises Series A Insight Partners $18M October 2024"
+  },
+  {
+   "t": 69.89,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://docs.crewai.com/en/observability/overview"
+  },
+  {
+   "t": 70.68,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangChain state of AI agents 2025 report LangGraph usage percent CrewAI AutoGen OpenAI Agents SDK framework market share chart"
+  },
+  {
+   "t": 70.68,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Menlo Ventures 2024 state of generative AI agentic frameworks LangGraph market share 51% AI engineering tools"
+  },
+  {
+   "t": 72.47,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://developers.googleblog.com/en/agents-adk-agent-engine-a2a-enhancements-google-io/"
+  },
+  {
+   "t": 72.47,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "ADK vs LangGraph benchmark GAIA BFCL agent framework comparison 2025"
+  },
+  {
+   "t": 72.47,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Google ADK criticism weaknesses \"Agent Development Kit\" reddit hacker news immature documentation"
+  },
+  {
+   "t": 73.04,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://menlovc.com/perspective/2025-the-state-of-generative-ai-in-the-enterprise/"
+  },
+  {
+   "t": 73.04,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "\"Menlo Ventures\" agent frameworks market share \"LangGraph\" percent survey 2025"
+  },
+  {
+   "t": 75.08,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://raw.githubusercontent.com/langchain-ai/langchain/main/LICENSE"
+  },
+  {
+   "t": 75.08,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://raw.githubusercontent.com/langchain-ai/langgraph/main/LICENSE"
+  },
+  {
+   "t": 75.09,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "langchain.com blog Accenture \"Accenture\" LangChain partnership agents enterprise"
+  },
+  {
+   "t": 75.09,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangSmith VPC peering private networking privateLink docs security"
+  },
+  {
+   "t": 75.19,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://learn.microsoft.com/en-us/microsoft-copilot-studio/requirements-messages-management"
+  },
+  {
+   "t": 75.19,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio agent-to-agent A2A protocol support 2025 Microsoft"
+  },
+  {
+   "t": 75.19,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio computer use tool public preview 2025 UI automation"
+  },
+  {
+   "t": 76.64,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://docs.crewai.com/en/observability/telemetry"
+  },
+  {
+   "t": 76.64,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://crewai.com/case-studies"
+  },
+  {
+   "t": 76.64,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI trust center SOC 2 Type II HIPAA ISO 27001 site:crewai.com OR crewai.com security compliance"
+  },
+  {
+   "t": 76.64,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangChain State of AI agents report 2025 survey LangGraph CrewAI most used framework"
+  },
+  {
+   "t": 77.67,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://cloud.google.com/vertex-ai/pricing"
+  },
+  {
+   "t": 77.67,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "\"agents.dev\" agent registry ADK"
+  },
+  {
+   "t": 77.67,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "\"Agent Engine\" \"generally available\" Vertex AI ADK Cloud Run managed runtime 2025"
+  },
+  {
+   "t": 79.3,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Forrester Wave AI agent platforms 2025 report vendors leaders Microsoft Google LangChain"
+  },
+  {
+   "t": 79.3,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "TechCrunch LangChain $100 million funding 2025 valuation Klarna Replit Elastic customers"
+  },
+  {
+   "t": 80.29,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://raw.githubusercontent.com/langchain-ai/langchain/main/LICENSE"
+  },
+  {
+   "t": 80.29,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "\"LangChain\" \"Accenture\" announcement 2025 agentic platform consulting"
+  },
+  {
+   "t": 80.29,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://fortune.com/2025/10/20/exclusive-early-ai-darling-langchain-is-now-a-unicorn-with-a-fresh-125-million-in-funding/"
+  },
+  {
+   "t": 80.29,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "agent framework adoption survey 2025 LangGraph usage share CrewAI AutoGen OpenAI Agents SDK"
+  },
+  {
+   "t": 80.36,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://techcommunity.microsoft.com/blog/microsoft-security-blog/announcing-new-microsoft-purview-capabilities-to-protect-genai-agents/4470696"
+  },
+  {
+   "t": 80.36,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio \"230,000 organizations\" OR \"200,000 organizations\" Fortune 500 custom agents 2025"
+  },
+  {
+   "t": 80.36,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio Gartner Magic Quadrant OR Forrester Wave leader 2025 enterprise AI platforms"
+  },
+  {
+   "t": 81.28,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI \"computer use\" tool pricing per 1M tokens \"computer-use-preview\" web search \"$10.00\" per 1000 calls pricing page"
+  },
+  {
+   "t": 81.28,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "ChatGPT Enterprise security SOC 2 Type 2 SSO SCIM no training on business data HIPAA data retention"
+  },
+  {
+   "t": 81.28,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI \"3 million\" business users ChatGPT Enterprise 2025 adoption Morgan Stanley"
+  },
+  {
+   "t": 81.28,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "DevDay 2025 Sam Altman stats \"800 million\" weekly users \"4 million developers\" 6 billion tokens"
+  },
+  {
+   "t": 82.05,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Microsoft Copilot Studio 2025 adoption number of organizations Fortune 500 customers"
+  },
+  {
+   "t": 82.05,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI AgentKit October 2025 DevDay agents platform enterprises Moderna Lowe's"
+  },
+  {
+   "t": 83.96,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://trust.crewai.com/"
+  },
+  {
+   "t": 83.96,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://docs.crewai.com/en/advanced/telemetry"
+  },
+  {
+   "t": 83.96,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.langchain.com/state-of-agent-engineering"
+  },
+  {
+   "t": 83.97,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI IBM watsonx integration agent framework partnership"
+  },
+  {
+   "t": 84.36,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Google Agent Development Kit ADK 2025 customers adoption enterprises Vertex AI Agent Builder"
+  },
+  {
+   "t": 84.36,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "CrewAI enterprise customers 2025 Deloitte pilotagents funding adoption Fortune 500"
+  },
+  {
+   "t": 84.8,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "\"LangChain\" \"Accenture\" 2025"
+  },
+  {
+   "t": 87.57,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio agents Microsoft Entra ID single sign-on authentication security data residency Dataverse"
+  },
+  {
+   "t": 87.57,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio \"1,500 connectors\" OR \"1,400 connectors\" prebuilt Power Platform"
+  },
+  {
+   "t": 87.57,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio cost unpredictable runaway \"Copilot Credits\" complaints enterprise confusion"
+  },
+  {
+   "t": 88.0,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "A2A protocol donated Linux Foundation 2025 MCP standard interoperability agent protocols Microsoft OpenAI Google adopt"
+  },
+  {
+   "t": 88.0,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "The New Stack AI agent framework comparison 2025 Copilot Studio low-code versus LangGraph code-first"
+  },
+  {
+   "t": 89.17,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://adk.dev/runtime/"
+  },
+  {
+   "t": 89.17,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://pypi.org/project/google-adk/"
+  },
+  {
+   "t": 89.17,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Vertex AI Search Agent Builder FedRAMP High authorized Google Cloud compliance SOC ISO HIPAA"
+  },
+  {
+   "t": 89.3,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://developers.openai.com/api/docs/pricing.md"
+  },
+  {
+   "t": 89.3,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://community.openai.com/t/introducing-agentkit-new-evals-and-rft-for-agents/1352621"
+  },
+  {
+   "t": 89.3,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Azure OpenAI Responses API general availability GPT-5 delay feature lag versus OpenAI API"
+  },
+  {
+   "t": 90.68,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "InfoWorld Google ADK vs LangChain agent framework review 2025"
+  },
+  {
+   "t": 90.69,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "\"agents.dev\" agent protocol OR standard 2025"
+  },
+  {
+   "t": 91.12,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://docs.crewai.com/v1.15.37/en/advanced/telemetry"
+  },
+  {
+   "t": 93.45,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.microsoft.com/en-us/copilot/blog/copilot-studio/model-context-protocol-mcp-is-now-generally-available-in-microsoft-copilot-studio/"
+  },
+  {
+   "t": 93.45,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Microsoft Purview agent auditing Copilot Studio May 2025 Build announcement audit logs"
+  },
+  {
+   "t": 93.45,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio data residency bot data storage region Power Platform environment"
+  },
+  {
+   "t": 96.17,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/build/runtime/quickstart-adk"
+  },
+  {
+   "t": 96.17,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "\"ADK\" Google agent framework GAIA benchmark score BFCL evaluation third-party"
+  },
+  {
+   "t": 96.17,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://drel.ai/blog/google-adk-security-review"
+  },
+  {
+   "t": 99.1,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.langchain.com/stateofaiagents"
+  },
+  {
+   "t": 99.1,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "InfoWorld \"agent\" framework comparison 2025 CrewAI \"Copilot Studio\" OR \"AgentKit\" enterprise verdict"
+  },
+  {
+   "t": 100.0,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.microsoft.com/en-us/microsoft-365-copilot/pricing"
+  },
+  {
+   "t": 100.0,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio knowledge sources SharePoint Dataverse public websites Microsoft Learn"
+  },
+  {
+   "t": 100.0,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio autonomous agent triggers Power Automate event trigger Microsoft Learn"
+  },
+  {
+   "t": 100.0,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Copilot Studio extend agents custom code plugins Azure Functions Power Fx"
+  },
+  {
+   "t": 103.0,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://menlovc.com/2024-the-state-of-generative-ai-in-the-enterprise/"
+  },
+  {
+   "t": 103.45,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Vertex AI release notes \"Agent Engine\" runtime \"charging\" \"November 6, 2025\" pricing vCPU"
+  },
+  {
+   "t": 103.45,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Gemini Enterprise launch October 2025 Google Cloud blog ADK agents adoption"
+  },
+  {
+   "t": 103.45,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "LangChain LangGraph GitHub stars 2025 community size compared Google ADK downloads"
+  },
+  {
+   "t": 107.42,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "\"computer-use-preview\" OpenAI pricing \"$3.00\" input \"$12.00\" output per million tokens"
+  },
+  {
+   "t": 107.42,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI HIPAA business associate agreement ChatGPT Enterprise API healthcare compliance"
+  },
+  {
+   "t": 107.42,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI Agents SDK built-in tracing external observability Langfuse AgentOps Braintrust export"
+  },
+  {
+   "t": 107.42,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI Codex general availability June 2025 Slack included ChatGPT plans codex-mini API"
+  },
+  {
+   "t": 108.56,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://cloud.google.com/blog/products/ai-machine-learning/introducing-gemini-enterprise-agent-platform"
+  },
+  {
+   "t": 110.29,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI ChatGPT connectors enterprise June 2025 Google Drive SharePoint Connector Registry DevDay"
+  },
+  {
+   "t": 110.29,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "ChatGPT Enterprise price per seat $60 per user month minimum 150 seats report"
+  },
+  {
+   "t": 110.29,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI gpt-oss open-weight models API August 2025 gpt-oss-120b gpt-oss-20b"
+  },
+  {
+   "t": 110.29,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Operator OpenAI deprecated folded into ChatGPT agent July 2025"
+  },
+  {
+   "t": 114.7,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.infoq.com/news/2025/10/openai-dev-day/"
+  },
+  {
+   "t": 140.03,
+   "kind": "model",
+   "label": "glm-5p3",
+   "part_id": "model:fireworks-glm:strong",
+   "detail": "The LangChain, Google ADK, CrewAI, Copilot Studio, and analyst researchers returned solid findings, but the OpenAI researcher's report didn't come through with usable detail. I'll research OpenAI directly and verify the key pricing pages f…"
+  },
+  {
+   "t": 147.82,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://openai.com/index/introducing-agentkit/"
+  },
+  {
+   "t": 147.82,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.langchain.com/pricing"
+  },
+  {
+   "t": 147.82,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://www.microsoft.com/en-us/copilot/pricing/copilot-studio"
+  },
+  {
+   "t": 147.82,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://crewai.com/pricing"
+  },
+  {
+   "t": 147.82,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI Responses API pricing built-in tools web search file search computer use per 1000 calls"
+  },
+  {
+   "t": 147.82,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "Vertex AI Agent Engine pricing per vCPU hour Google ADK deployment"
+  },
+  {
+   "t": 149.45,
+   "kind": "model",
+   "label": "glm-5p3",
+   "part_id": "model:fireworks-glm:strong",
+   "detail": "Pricing pages for LangSmith, Copilot Studio, and CrewAI are now verified directly. Next I need OpenAI's platform specifics and Google ADK verification."
+  },
+  {
+   "t": 156.14,
+   "kind": "limit",
+   "label": "web_search call limit reached",
+   "part_id": "mw:tool_call_limit:web_search",
+   "detail": "Tool call limit exceeded. Do not call 'web_search' again."
+  },
+  {
+   "t": 156.16,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://platform.openai.com/docs/pricing/"
+  },
+  {
+   "t": 156.16,
+   "kind": "tool",
+   "label": "fetch_url",
+   "part_id": "tool:fetch_url",
+   "detail": "https://developers.googleblog.com/en/agent-development-kit-easy-to-build-multi-agent-applications/"
+  },
+  {
+   "t": 156.16,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "ChatGPT Enterprise security compliance SOC 2 no training on business data SSO admin controls"
+  },
+  {
+   "t": 156.16,
+   "kind": "tool",
+   "label": "web_search",
+   "part_id": "tool:web_search",
+   "detail": "OpenAI Assistants API deprecated shutdown 2026 Responses API Agents SDK migration"
+  },
+  {
+   "t": 157.6,
+   "kind": "model",
+   "label": "glm-5p3",
+   "part_id": "model:fireworks-glm:strong",
+   "detail": "All research is in and key pricing/compliance pages have been verified directly. Now I'll write the full comparison report to `/report.md`."
+  },
+  {
+   "t": 415.67,
+   "kind": "output",
+   "label": "report.md written",
+   "part_id": "output",
+   "detail": "Report written to /report.md"
+  },
+  {
+   "t": 415.7,
+   "kind": "model",
+   "label": "glm-5p3",
+   "part_id": "model:fireworks-glm:strong",
+   "detail": "The report compares all five platforms across builder persona, model/cloud flexibility, deployment and compliance, observability, pricing mechanics, and vendor maturity — concluding that Copilot Studio fits Microsoft-centric low-code teams…"
+  }
+ ],
+ "totals": {
+  "tokens": 1464238,
+  "cost_usd": 0.0
+ }
+}

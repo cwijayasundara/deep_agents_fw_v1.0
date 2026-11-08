@@ -26,3 +26,6 @@ evidence/verify/
 
 # showcase snapshot: a build output (make showcase-snapshot)
 evidence/showcase/showcase.html
+
+# IDE
+.idea/

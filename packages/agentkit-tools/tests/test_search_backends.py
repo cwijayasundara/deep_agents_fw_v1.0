@@ -78,6 +78,26 @@ async def test_brave_timeout_becomes_tool_error():
         await BraveSearch("bk").search("q")
 
 
+@respx.mock
+async def test_brave_invalid_key_maps_to_auth_status():
+    respx.get("https://api.search.brave.com/res/v1/web/search").mock(
+        return_value=httpx.Response(422, json={"error": {"code": "SUBSCRIPTION_TOKEN_INVALID"}})
+    )
+    with pytest.raises(ToolError, match="invalid subscription token") as ei:
+        await BraveSearch("bad-key").search("q")
+    assert ei.value.status == 401
+
+
+@respx.mock
+async def test_brave_other_422_keeps_status():
+    respx.get("https://api.search.brave.com/res/v1/web/search").mock(
+        return_value=httpx.Response(422, json={"error": {"code": "SOMETHING_ELSE"}})
+    )
+    with pytest.raises(ToolError) as ei:
+        await BraveSearch("bk").search("q")
+    assert ei.value.status == 422
+
+
 class _Fake:
     def __init__(self, result=None, error=None):
         self.calls = 0
@@ -168,6 +188,18 @@ async def test_fallback_keeps_last_backend_even_if_dead():
         with pytest.raises(ToolError):
             await chain.search(q)
     assert (a.calls, b.calls) == (1, 2)
+
+
+@respx.mock
+async def test_fallback_disables_brave_after_invalid_key():
+    route = respx.get("https://api.search.brave.com/res/v1/web/search").mock(
+        return_value=httpx.Response(422, json={"error": {"code": "SUBSCRIPTION_TOKEN_INVALID"}})
+    )
+    ok = _Fake([Source("u", "t", "s")])
+    chain = FallbackSearch([("brave", BraveSearch("bad")), ("duckduckgo", ok)])
+    assert await chain.search("a") == [Source("u", "t", "s")]
+    assert await chain.search("b") == [Source("u", "t", "s")]
+    assert route.call_count == 1  # brave disabled after the first 422
 
 
 @respx.mock

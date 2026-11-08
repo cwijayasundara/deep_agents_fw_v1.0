@@ -1,6 +1,6 @@
 export UV_CONSTRAINT = constraints.txt
 SYNC = uv sync --python 3.12
-.PHONY: kb-ingest tool-schemas sync test lint stamp unstamp contract phase0-exit tenant-required showcase showcase-snapshot
+.PHONY: kb-ingest tool-schemas catalog sync test lint stamp unstamp contract phase0-exit tenant-required showcase showcase-snapshot
 sync:
 	$(SYNC)
 	@# macOS can mark .pth files hidden; Python >=3.12.11 then skips them and editable installs vanish.
@@ -29,6 +29,11 @@ phase0-exit: sync
 # Regenerate packages/agentkit-tools/tool_schemas.json after a tool schema or version change.
 tool-schemas: sync
 	uv run --no-sync agentkit tools snapshot
+
+# Visual catalog of everything the platform provides (tools, middleware, models, prompts,
+# skills, subagents, connectors, apps, evals, memory tiers, seams) read live from the repo.
+catalog: sync
+	uv run --no-sync python scripts/platform_catalog.py --serve --open
 
 # Ingest the corpus of the pilot kb_agent (this repo's own docs) into the kb-docs connector.
 # KB_ADMIN_DATABASE_URL is the admin DSN (the login that ran `agentkit-kb setup`); it is used here only.
